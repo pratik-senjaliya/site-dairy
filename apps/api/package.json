@@ -11,20 +11,32 @@
     "prisma:migrate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx --env-file-if-exists=.env src/seed.ts",
-    "test": "tsx --env-file-if-exists=.env --test --test-concurrency=1 \"src/**/*.test.ts\""
+    "test": "OTP_DEV_CODE=123456 tsx --env-file-if-exists=.env --test --test-concurrency=1 \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@prisma/client": "^6.19.0",
     "@site-diary/shared": "*",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "pdfkit": "^0.17.2",
+    "pg-boss": "^10.4.2",
     "prisma": "^6.19.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.3.0",
     "@types/node": "^22.10.0",
+    "@types/pdfkit": "^0.17.6",
     "tsx": "^4.20.0"
   }
 }

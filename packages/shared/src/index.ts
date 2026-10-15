@@ -3,3 +3,7 @@ export * from './money';
 export * from './schemas';
 export * from './stock';
 export * from './wages';
+export * from './permissions';
+export * from './settings';
+export * from './sync';
+export * from './masters';

@@ -800,3 +800,65 @@ model AuditLog {
   @@index([entityType, entityId])
   @@map("audit_log")
 }
+
+/// One-time login codes. Only the hash is stored.
+model OtpCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  phone      String
+  codeHash   String    @map("code_hash")
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([phone, createdAt])
+  @@map("otp_codes")
+}
+
+/// A signed-in device. The refresh token (hash only) is bound to the device id and rotates on use.
+model Session {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  deviceId    String    @map("device_id")
+  deviceName  String?   @map("device_name")
+  refreshHash String    @unique @map("refresh_hash")
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt  DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// In-app notifications (the bell). Push to phones goes out alongside when a push token exists.
+model Notification {
+  id         String    @id @default(uuid()) @db.Uuid
+  companyId  String    @map("company_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  kind       String
+  title      String
+  body       String?
+  entityType String?   @map("entity_type")
+  entityId   String?   @map("entity_id")
+  /// Same key = same notice; stops repeats (e.g. one low-stock alert per material per day).
+  dedupeKey  String?   @map("dedupe_key")
+  readAt     DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model PushToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  deviceId  String   @map("device_id")
+  token     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([userId, deviceId])
+  @@map("push_tokens")
+}
