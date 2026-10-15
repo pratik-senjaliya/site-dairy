@@ -1,0 +1,27 @@
+{
+  "name": "@site-diary/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/nextjs-registry": "^1.0.2",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@site-diary/i18n": "*",
+    "@site-diary/shared": "*",
+    "@site-diary/ui-tokens": "*",
+    "antd": "^5.27.0",
+    "next": "^15.5.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.2"
+  }
+}

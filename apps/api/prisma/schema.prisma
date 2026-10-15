@@ -1,0 +1,802 @@
+// Site Diary v1 data model (docs/scope.md → Data model).
+//
+// Conventions on every tenant table:
+// - id: UUID made on the phone (or server) so offline records keep their identity through sync
+// - company_id: tenant; enforced in API middleware, with Postgres RLS as a second guard (task 3)
+// - created_at / updated_at / deleted_at: soft delete only
+// - server_rev: set by a database trigger from one global sequence on every insert/update;
+//   the mobile app pulls "everything with server_rev > my last pull"
+// Money is integer paise (BigInt). Quantities are decimal(12,3). Business dates are DATE in Asia/Kolkata.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  engineer
+  supervisor
+  store
+  accountant
+}
+
+enum Language {
+  gu
+  en
+  hi
+}
+
+enum ProjectType {
+  rcc_frame
+  load_bearing
+  bungalow
+}
+
+enum ProjectStatus {
+  active
+  on_hold
+  completed
+}
+
+enum StructureKind {
+  tower
+  floor
+  unit
+}
+
+enum RateType {
+  daily
+  lump_sum
+  per_unit
+}
+
+enum PaymentMode {
+  cash
+  upi
+  bank
+}
+
+enum SettlementStatus {
+  draft
+  submitted
+  approved
+  rejected
+  paid
+}
+
+enum IndentStatus {
+  draft
+  submitted
+  approved
+  rejected
+  ordered
+  closed
+}
+
+enum PoStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+  sent
+  partly_received
+  received
+  cancelled
+}
+
+enum TransferStatus {
+  sent
+  received
+  cancelled
+}
+
+enum StockSource {
+  grn
+  issue
+  transfer_out
+  transfer_in
+  adjustment
+}
+
+enum DayMarker {
+  work
+  weather
+  holiday
+  no_work
+}
+
+enum IssueStatus {
+  open
+  resolved
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  withdrawn
+}
+
+enum ReportChannel {
+  whatsapp
+  share
+  in_app
+}
+
+model Company {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  gstin     String?
+  logoUrl   String?   @map("logo_url")
+  language  Language  @default(gu)
+  plan      String    @default("pilot")
+  /// report_time, approval thresholds, units; validated by a shared zod schema
+  settings  Json      @default("{}")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev BigInt    @default(0) @map("server_rev")
+
+  users    User[]
+  projects Project[]
+
+  @@map("companies")
+}
+
+model User {
+  id         String    @id @default(uuid()) @db.Uuid
+  companyId  String    @map("company_id") @db.Uuid
+  name       String
+  phone      String
+  role       Role
+  language   Language  @default(gu)
+  isActive   Boolean   @default(true) @map("is_active")
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev  BigInt    @default(0) @map("server_rev")
+
+  company Company    @relation(fields: [companyId], references: [id])
+  sites   UserSite[]
+
+  @@unique([companyId, phone])
+  @@index([phone])
+  @@index([companyId, serverRev])
+  @@map("users")
+}
+
+model UserSite {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  user    User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@unique([userId, projectId])
+  @@index([companyId, serverRev])
+  @@map("user_sites")
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @map("company_id") @db.Uuid
+  name        String
+  address     String?
+  reraNo      String?       @map("rera_no")
+  startDate   DateTime?     @map("start_date") @db.Date
+  endDate     DateTime?     @map("end_date") @db.Date
+  budgetPaise BigInt?       @map("budget_paise")
+  type        ProjectType
+  status      ProjectStatus @default(active)
+  createdById String?       @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt        @default(0) @map("server_rev")
+
+  company   Company         @relation(fields: [companyId], references: [id])
+  users     UserSite[]
+  structure StructureNode[]
+  workItems WorkItem[]
+
+  @@index([companyId, serverRev])
+  @@map("projects")
+}
+
+model StructureNode {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @map("company_id") @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  parentId    String?       @map("parent_id") @db.Uuid
+  kind        StructureKind
+  name        String
+  sort        Int           @default(0)
+  createdById String?       @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt        @default(0) @map("server_rev")
+
+  project  Project         @relation(fields: [projectId], references: [id])
+  parent   StructureNode?  @relation("StructureTree", fields: [parentId], references: [id])
+  children StructureNode[] @relation("StructureTree")
+
+  @@index([projectId, parentId])
+  @@index([companyId, serverRev])
+  @@map("structure_nodes")
+}
+
+/// Company-level work-item templates per project type; copied into a project's work_items.
+model WorkItemTemplate {
+  id          String      @id @default(uuid()) @db.Uuid
+  companyId   String      @map("company_id") @db.Uuid
+  projectType ProjectType @map("project_type")
+  nameGu      String      @map("name_gu")
+  nameEn      String      @map("name_en")
+  sort        Int         @default(0)
+  createdById String?     @map("created_by") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt      @default(0) @map("server_rev")
+
+  @@index([companyId, projectType])
+  @@map("work_item_templates")
+}
+
+model WorkItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  templateId  String?   @map("template_id") @db.Uuid
+  nameGu      String    @map("name_gu")
+  nameEn      String    @map("name_en")
+  sort        Int       @default(0)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([companyId, serverRev])
+  @@map("work_items")
+}
+
+model Contractor {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  name        String
+  phone       String?
+  trade       String?
+  rateType    RateType  @default(daily) @map("rate_type")
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  rates   ContractorRate[]
+  workers Worker[]
+
+  @@index([companyId, serverRev])
+  @@map("contractors")
+}
+
+model Skill {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  nameGu      String    @map("name_gu")
+  nameEn      String    @map("name_en")
+  sort        Int       @default(0)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("skills")
+}
+
+/// Rate history: the rate in force on a date is the latest effective_from on or before it.
+model ContractorRate {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  contractorId   String    @map("contractor_id") @db.Uuid
+  skillId        String    @map("skill_id") @db.Uuid
+  dailyRatePaise BigInt    @map("daily_rate_paise")
+  effectiveFrom  DateTime  @map("effective_from") @db.Date
+  createdById    String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev      BigInt    @default(0) @map("server_rev")
+
+  contractor Contractor @relation(fields: [contractorId], references: [id])
+
+  @@index([contractorId, skillId, effectiveFrom])
+  @@index([companyId, serverRev])
+  @@map("contractor_rates")
+}
+
+model Worker {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  contractorId String    @map("contractor_id") @db.Uuid
+  name         String
+  skillId      String?   @map("skill_id") @db.Uuid
+  phone        String?
+  createdById  String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt    @default(0) @map("server_rev")
+
+  contractor Contractor @relation(fields: [contractorId], references: [id])
+
+  @@index([companyId, serverRev])
+  @@map("workers")
+}
+
+/// One row per site × date × contractor × skill. Locks at midnight; later edits need engineer approval.
+model AttendanceEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  date         DateTime  @db.Date
+  contractorId String    @map("contractor_id") @db.Uuid
+  skillId      String    @map("skill_id") @db.Uuid
+  count        Int       @default(0)
+  halfDayCount Int       @default(0) @map("half_day_count")
+  otHours      Decimal   @default(0) @map("ot_hours") @db.Decimal(6, 2)
+  photoId      String?   @map("photo_id") @db.Uuid
+  locked       Boolean   @default(false)
+  createdById  String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt    @default(0) @map("server_rev")
+
+  @@unique([projectId, date, contractorId, skillId])
+  @@index([companyId, serverRev])
+  @@map("attendance_entries")
+}
+
+/// Upad: an advance given against wages.
+model Advance {
+  id           String      @id @default(uuid()) @db.Uuid
+  companyId    String      @map("company_id") @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  contractorId String      @map("contractor_id") @db.Uuid
+  workerId     String?     @map("worker_id") @db.Uuid
+  amountPaise  BigInt      @map("amount_paise")
+  date         DateTime    @db.Date
+  mode         PaymentMode @default(cash)
+  givenById    String?     @map("given_by") @db.Uuid
+  settlementId String?     @map("settlement_id") @db.Uuid
+  createdById  String?     @map("created_by") @db.Uuid
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt      @default(0) @map("server_rev")
+
+  @@index([projectId, contractorId, date])
+  @@index([companyId, serverRev])
+  @@map("advances")
+}
+
+model WageSettlement {
+  id            String           @id @default(uuid()) @db.Uuid
+  companyId     String           @map("company_id") @db.Uuid
+  contractorId  String           @map("contractor_id") @db.Uuid
+  projectId     String           @map("project_id") @db.Uuid
+  periodFrom    DateTime         @map("period_from") @db.Date
+  periodTo      DateTime         @map("period_to") @db.Date
+  grossPaise    BigInt           @map("gross_paise")
+  advancesPaise BigInt           @map("advances_paise")
+  netPaise      BigInt           @map("net_paise")
+  status        SettlementStatus @default(draft)
+  approvedById  String?          @map("approved_by") @db.Uuid
+  paidAt        DateTime?        @map("paid_at") @db.Timestamptz(3)
+  paidMode      PaymentMode?     @map("paid_mode")
+  createdById   String?          @map("created_by") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  serverRev     BigInt           @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("wage_settlements")
+}
+
+model Material {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  nameGu      String    @map("name_gu")
+  nameEn      String    @map("name_en")
+  unit        String
+  category    String?
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("materials")
+}
+
+model SiteMaterialSetting {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  materialId  String    @map("material_id") @db.Uuid
+  minStock    Decimal   @map("min_stock") @db.Decimal(12, 3)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@unique([projectId, materialId])
+  @@index([companyId, serverRev])
+  @@map("site_material_settings")
+}
+
+model Supplier {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  name        String
+  phone       String?
+  gstin       String?
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("suppliers")
+}
+
+model Indent {
+  id            String       @id @default(uuid()) @db.Uuid
+  companyId     String       @map("company_id") @db.Uuid
+  projectId     String       @map("project_id") @db.Uuid
+  status        IndentStatus @default(submitted)
+  requestedById String       @map("requested_by") @db.Uuid
+  approvedById  String?      @map("approved_by") @db.Uuid
+  neededBy      DateTime?    @map("needed_by") @db.Date
+  note          String?
+  createdById   String?      @map("created_by") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz(3)
+  serverRev     BigInt       @default(0) @map("server_rev")
+
+  lines IndentLine[]
+
+  @@index([companyId, serverRev])
+  @@map("indents")
+}
+
+model IndentLine {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  indentId    String    @map("indent_id") @db.Uuid
+  materialId  String    @map("material_id") @db.Uuid
+  qty         Decimal   @db.Decimal(12, 3)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  indent Indent @relation(fields: [indentId], references: [id])
+
+  @@index([companyId, serverRev])
+  @@map("indent_lines")
+}
+
+model PurchaseOrder {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  supplierId   String    @map("supplier_id") @db.Uuid
+  indentId     String?   @map("indent_id") @db.Uuid
+  poNo         String?   @map("po_no")
+  status       PoStatus  @default(draft)
+  totalPaise   BigInt    @default(0) @map("total_paise")
+  approvedById String?   @map("approved_by") @db.Uuid
+  createdById  String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt    @default(0) @map("server_rev")
+
+  lines PoLine[]
+
+  @@index([companyId, serverRev])
+  @@map("purchase_orders")
+}
+
+model PoLine {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  poId        String    @map("po_id") @db.Uuid
+  materialId  String    @map("material_id") @db.Uuid
+  qty         Decimal   @db.Decimal(12, 3)
+  ratePaise   BigInt    @map("rate_paise")
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  po PurchaseOrder @relation(fields: [poId], references: [id])
+
+  @@index([companyId, serverRev])
+  @@map("po_lines")
+}
+
+/// Material received at the gate. Photos link back through photos.source_type = 'grn'.
+model Grn {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  supplierId  String?   @map("supplier_id") @db.Uuid
+  poId        String?   @map("po_id") @db.Uuid
+  challanNo   String?   @map("challan_no")
+  vehicleNo   String?   @map("vehicle_no")
+  date        DateTime  @db.Date
+  note        String?
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  lines GrnLine[]
+
+  @@index([projectId, date])
+  @@index([companyId, serverRev])
+  @@map("grns")
+}
+
+model GrnLine {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  grnId       String    @map("grn_id") @db.Uuid
+  materialId  String    @map("material_id") @db.Uuid
+  qty         Decimal   @db.Decimal(12, 3)
+  rejectedQty Decimal   @default(0) @map("rejected_qty") @db.Decimal(12, 3)
+  ratePaise   BigInt?   @map("rate_paise")
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  grn Grn @relation(fields: [grnId], references: [id])
+
+  @@index([companyId, serverRev])
+  @@map("grn_lines")
+}
+
+model MaterialIssue {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  projectId       String    @map("project_id") @db.Uuid
+  materialId      String    @map("material_id") @db.Uuid
+  qty             Decimal   @db.Decimal(12, 3)
+  workItemId      String?   @map("work_item_id") @db.Uuid
+  structureNodeId String?   @map("structure_node_id") @db.Uuid
+  date            DateTime  @db.Date
+  createdById     String?   @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev       BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId, date])
+  @@index([companyId, serverRev])
+  @@map("material_issues")
+}
+
+model StockTransfer {
+  id            String         @id @default(uuid()) @db.Uuid
+  companyId     String         @map("company_id") @db.Uuid
+  fromProjectId String         @map("from_project") @db.Uuid
+  toProjectId   String         @map("to_project") @db.Uuid
+  materialId    String         @map("material_id") @db.Uuid
+  qty           Decimal        @db.Decimal(12, 3)
+  status        TransferStatus @default(sent)
+  receivedById  String?        @map("received_by") @db.Uuid
+  receivedAt    DateTime?      @map("received_at") @db.Timestamptz(3)
+  createdById   String?        @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  serverRev     BigInt         @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("stock_transfers")
+}
+
+/// Derived by the server from GRNs, issues and transfers; stock = sum(qty_delta). Never edited.
+model StockLedger {
+  id         String      @id @default(uuid()) @db.Uuid
+  companyId  String      @map("company_id") @db.Uuid
+  projectId  String      @map("project_id") @db.Uuid
+  materialId String      @map("material_id") @db.Uuid
+  qtyDelta   Decimal     @map("qty_delta") @db.Decimal(12, 3)
+  sourceType StockSource @map("source_type")
+  sourceId   String      @map("source_id") @db.Uuid
+  date       DateTime    @db.Date
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  serverRev  BigInt      @default(0) @map("server_rev")
+
+  @@index([projectId, materialId])
+  @@index([sourceType, sourceId])
+  @@index([companyId, serverRev])
+  @@map("stock_ledger")
+}
+
+/// The site's day: one row per site per date (weather / holiday / no-work marker and a note).
+model SiteDay {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  date        DateTime  @db.Date
+  marker      DayMarker @default(work)
+  note        String?
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@unique([projectId, date])
+  @@index([companyId, serverRev])
+  @@map("site_days")
+}
+
+model DailyProgress {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  projectId       String    @map("project_id") @db.Uuid
+  date            DateTime  @db.Date
+  workItemId      String    @map("work_item_id") @db.Uuid
+  structureNodeId String?   @map("structure_node_id") @db.Uuid
+  percent         Int
+  note            String?
+  createdById     String?   @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev       BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId, date])
+  @@index([companyId, serverRev])
+  @@map("daily_progress")
+}
+
+model Issue {
+  id           String      @id @default(uuid()) @db.Uuid
+  companyId    String      @map("company_id") @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  title        String
+  assignedToId String?     @map("assigned_to") @db.Uuid
+  status       IssueStatus @default(open)
+  resolvedAt   DateTime?   @map("resolved_at") @db.Timestamptz(3)
+  createdById  String?     @map("created_by") @db.Uuid
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt      @default(0) @map("server_rev")
+
+  @@index([companyId, serverRev])
+  @@map("issues")
+}
+
+/// Every photo (attendance, GRN challan, progress, issue). The row syncs first;
+/// the file uploads later from the phone's queue and flips uploaded = true.
+model Photo {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  storageKey  String    @map("storage_key")
+  takenAt     DateTime  @map("taken_at") @db.Timestamptz(3)
+  lat         Decimal?  @db.Decimal(9, 6)
+  lng         Decimal?  @db.Decimal(9, 6)
+  uploaded    Boolean   @default(false)
+  sourceType  String    @map("source_type")
+  sourceId    String    @map("source_id") @db.Uuid
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([sourceType, sourceId])
+  @@index([companyId, serverRev])
+  @@map("photos")
+}
+
+/// Generic approval inbox: indents, POs above threshold, wage settlements, late attendance edits.
+model Approval {
+  id            String         @id @default(uuid()) @db.Uuid
+  companyId     String         @map("company_id") @db.Uuid
+  projectId     String?        @map("project_id") @db.Uuid
+  entityType    String         @map("entity_type")
+  entityId      String         @map("entity_id") @db.Uuid
+  /// For late edits: the proposed change, applied only on approval.
+  proposal      Json?
+  requestedById String         @map("requested_by") @db.Uuid
+  decidedById   String?        @map("decided_by") @db.Uuid
+  decidedAt     DateTime?      @map("decided_at") @db.Timestamptz(3)
+  status        ApprovalStatus @default(pending)
+  reason        String?
+  createdById   String?        @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  serverRev     BigInt         @default(0) @map("server_rev")
+
+  @@index([companyId, status])
+  @@index([entityType, entityId])
+  @@index([companyId, serverRev])
+  @@map("approvals")
+}
+
+/// Nightly report log, one row per owner/engineer per date per channel.
+model Report {
+  id        String        @id @default(uuid()) @db.Uuid
+  companyId String        @map("company_id") @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  date      DateTime      @db.Date
+  pdfKey    String?       @map("pdf_key")
+  channel   ReportChannel
+  sentAt    DateTime?     @map("sent_at") @db.Timestamptz(3)
+  error     String?
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([userId, date, channel])
+  @@index([companyId, date])
+  @@map("reports")
+}
+
+/// Append-only (a trigger refuses UPDATE and DELETE). Not synced to phones.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  companyId  String?  @map("company_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  deviceId   String?  @map("device_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  before     Json?
+  after      Json?
+  ip         String?
+  at         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([companyId, at])
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}

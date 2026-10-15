@@ -1,0 +1,16 @@
+# Local development database only. Apps run with npm during development.
+# Jobs use pg-boss on this same Postgres, so there is no Redis (see docs/decisions.md).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: site
+      POSTGRES_PASSWORD: site
+      POSTGRES_DB: site_diary
+    ports:
+      - "5432:5432"
+    volumes:
+      - site-db:/var/lib/postgresql/data
+
+volumes:
+  site-db:

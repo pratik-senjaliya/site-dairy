@@ -1,0 +1,32 @@
+{
+  "name": "site-diary",
+  "private": true,
+  "description": "Gujarati-first construction site management for small and mid-size builders",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:up": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "build:packages": "npm run build -w packages/shared -w packages/i18n -w packages/ui-tokens",
+    "dev:api": "npm run build:packages && npm run dev -w apps/api",
+    "dev:web": "npm run build:packages && npm run dev -w apps/web",
+    "dev:mobile": "npm run build:packages && npm run start -w apps/mobile",
+    "build": "npm run build:packages && npm run build -w apps/api && npm run build -w apps/web",
+    "lint": "eslint .",
+    "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:packages && npm test -w packages/shared -w packages/i18n && npm test -w apps/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.0.0",
+    "@types/node": "^22.10.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  }
+}
