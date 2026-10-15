@@ -21,7 +21,8 @@
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
     "test": "npm run build:packages && npm test -w packages/shared -w packages/i18n && npm test -w apps/api",
     "e2e:phone": "node e2e/phone.mjs",
-    "build:mobile-web": "npm run build:packages && cd apps/mobile && expo export --platform web"
+    "build:mobile-web": "npm run build:packages && cd apps/mobile && expo export --platform web",
+    "e2e:web": "node e2e/web.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
