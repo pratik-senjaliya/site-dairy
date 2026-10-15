@@ -58,3 +58,17 @@ test('phone numbers normalise to +91', () => {
   assert.equal(phoneSchema.parse('98250 12345'), '+919825012345');
   assert.equal(phoneSchema.safeParse('12345').success, false);
 });
+
+test('settlement period uses the rate in force on each day', async () => {
+  const { settlePeriod } = await import('./wages');
+  const rates = [
+    { skillId: 'k', dailyRatePaise: 80000, effectiveFrom: '2026-10-01' },
+    { skillId: 'k', dailyRatePaise: 90000, effectiveFrom: '2026-10-10' },
+  ];
+  const line = { skillId: 'k', count: 2, halfDayCount: 0, otHours: 0 };
+  const r = settlePeriod([{ ...line, date: '2026-10-09' }, { ...line, date: '2026-10-10' }], rates, 50000);
+  assert.equal(r.gross, 2 * 80000 + 2 * 90000);
+  assert.equal(r.net, 340000 - 50000);
+  const none = settlePeriod([{ ...line, date: '2026-09-30' }], rates, 0);
+  assert.deepEqual(none.missingRates, ['k'], 'no rate before the first effective date');
+});

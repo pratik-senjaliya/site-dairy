@@ -13,11 +13,13 @@ export const uuid = randomUUID;
 export const phone = () => `+919${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
 
 let server: Server | undefined;
-let base = '';
+let base_ = '';
 export async function start() {
   server = createApp().listen(0);
-  base = `http://localhost:${(server.address() as AddressInfo).port}/api/v1`;
+  base_ = `http://localhost:${(server.address() as AddressInfo).port}/api/v1`;
 }
+export const base = () => baseUrl();
+const baseUrl = () => base_;
 export async function stop() {
   server?.close();
   await prisma.$disconnect();
@@ -32,7 +34,7 @@ export interface Client {
 }
 
 export async function call<T = unknown>(method: string, path: string, body?: unknown, token?: string): Promise<{ status: number; body: T }> {
-  const res = await fetch(base + path, {
+  const res = await fetch(base_ + path, {
     method,
     headers: { 'content-type': 'application/json', 'x-client': 'mobile', ...(token && { authorization: `Bearer ${token}` }) },
     body: body === undefined ? undefined : JSON.stringify(body),

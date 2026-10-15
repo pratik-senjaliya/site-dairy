@@ -27,7 +27,8 @@
     "pdfkit": "^0.17.2",
     "pg-boss": "^10.4.2",
     "prisma": "^6.19.0",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "@site-diary/i18n": "*"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

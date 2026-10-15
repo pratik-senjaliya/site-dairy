@@ -862,3 +862,24 @@ model PushToken {
   @@unique([userId, deviceId])
   @@map("push_tokens")
 }
+
+/// Money paid to a supplier; the supplier ledger is GRN value − payments.
+model SupplierPayment {
+  id          String      @id @default(uuid()) @db.Uuid
+  companyId   String      @map("company_id") @db.Uuid
+  supplierId  String      @map("supplier_id") @db.Uuid
+  projectId   String?     @map("project_id") @db.Uuid
+  amountPaise BigInt      @map("amount_paise")
+  date        DateTime    @db.Date
+  mode        PaymentMode @default(bank)
+  reference   String?
+  createdById String?     @map("created_by") @db.Uuid
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt      @default(0) @map("server_rev")
+
+  @@index([supplierId, date])
+  @@index([companyId, serverRev])
+  @@map("supplier_payments")
+}

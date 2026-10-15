@@ -144,6 +144,11 @@ export function siteWhere(m: Me): { projectId?: { in: string[] } } {
   return m.sites === 'all' ? {} : { projectId: { in: m.sites } };
 }
 
+/** For rows that may belong to no site (projectId null): those plus this person's sites. */
+export function siteOrCompanyWide(m: Me): { OR?: ({ projectId: null } | { projectId: { in: string[] } })[] } {
+  return m.sites === 'all' ? {} : { OR: [{ projectId: null }, { projectId: { in: m.sites } }] };
+}
+
 export function assertSite(m: Me, projectId: string) {
   if (m.sites !== 'all' && !m.sites.includes(projectId)) throw new HttpError(403, 'This site is not assigned to you', 'forbidden_site');
 }

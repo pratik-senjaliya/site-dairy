@@ -2,7 +2,7 @@ import { can, type Module, type Role } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
-import { assertSite, me, siteWhere, type Me } from '../../lib/auth';
+import { assertSite, me, siteOrCompanyWide, type Me } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
 import { notify } from '../../lib/notify';
@@ -56,7 +56,7 @@ approvals.get('/', async (req, res) => {
   const rows = await prisma.approval.findMany({
     where: {
       companyId: m.companyId, deletedAt: null, ...(status && { status }),
-      ...(mine ? { requestedById: m.id } : { entityType: { in: decidable(m.role) }, OR: [{ projectId: null }, siteWhere(m)] }),
+      ...(mine ? { requestedById: m.id } : { entityType: { in: decidable(m.role) }, ...siteOrCompanyWide(m) }),
     },
     orderBy: { createdAt: 'desc' },
     take: 200,
@@ -80,7 +80,7 @@ approvals.get('/', async (req, res) => {
 approvals.get('/count', async (req, res) => {
   const m = me(req);
   const count = await prisma.approval.count({
-    where: { companyId: m.companyId, deletedAt: null, status: 'pending', entityType: { in: decidable(m.role) }, OR: [{ projectId: null }, siteWhere(m)] },
+    where: { companyId: m.companyId, deletedAt: null, status: 'pending', entityType: { in: decidable(m.role) }, ...siteOrCompanyWide(m) },
   });
   res.json({ count });
 });
@@ -107,6 +107,7 @@ export async function decide(m: Me, ip: string | null, id: string, decision: 'ap
       await tx.purchaseOrder.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
     } else if (a.entityType === 'wageSettlement') {
       await tx.wageSettlement.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
+      if (!approved) await tx.advance.updateMany({ where: { settlementId: a.entityId }, data: { settlementId: null } });
     }
 
     const updated = await tx.approval.update({
