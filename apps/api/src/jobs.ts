@@ -73,7 +73,7 @@ let boss: PgBoss | undefined;
 
 export async function startJobs() {
   if (!config.runJobs) return;
-  boss = new PgBoss({ connectionString: config.databaseUrl, schema: 'pgboss' });
+  boss = new PgBoss({ connectionString: config.directUrl, schema: 'pgboss' });
   boss.on('error', (e: Error) => console.error('jobs:', e.message));
   await boss.start();
   await boss.createQueue('tick');

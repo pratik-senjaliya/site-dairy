@@ -9,6 +9,8 @@ const isProd = process.env.NODE_ENV === 'production';
 export const config = {
   isProd,
   databaseUrl: required('DATABASE_URL'),
+  /** Session connection for pg-boss (it holds connections and uses LISTEN, which a transaction pooler breaks). */
+  directUrl: process.env.DIRECT_URL ?? required('DATABASE_URL'),
   port: Number(process.env.PORT ?? 4000),
   /** Browser origins allowed to call the API directly (comma-separated): the web panel and the phone app's browser build. */
   webOrigins: (process.env.WEB_ORIGIN ?? 'http://localhost:3000,http://localhost:8081').split(',').map((s) => s.trim()).filter(Boolean),

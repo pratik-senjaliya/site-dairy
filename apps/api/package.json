@@ -17,6 +17,8 @@
     "@aws-sdk/client-s3": "^3.1152.0",
     "@aws-sdk/s3-request-presigner": "^3.1152.0",
     "@prisma/client": "^6.19.0",
+    "@sentry/node": "^9.47.2",
+    "@site-diary/i18n": "*",
     "@site-diary/shared": "*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -27,8 +29,7 @@
     "pdfkit": "^0.17.2",
     "pg-boss": "^10.4.2",
     "prisma": "^6.19.0",
-    "zod": "^3.25.0",
-    "@site-diary/i18n": "*"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

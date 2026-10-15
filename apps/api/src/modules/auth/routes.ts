@@ -24,7 +24,8 @@ const device = { deviceId: z.string().min(8).max(100), deviceName: z.string().ma
 auth.post('/otp/request', async (req, res) => {
   const { phone } = body(z.object({ phone: phoneSchema }), req);
   const recent = await prisma.otpCode.count({ where: { phone, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
-  if (recent >= MAX_REQUESTS_PER_HOUR) throw new HttpError(429, 'Too many codes requested. Try again in an hour.', 'otp_limit');
+  // The hourly cap protects SMS cost and stops number-bombing; the dev provider sends no SMS.
+  if (recent >= MAX_REQUESTS_PER_HOUR && config.otpProvider !== 'dev') throw new HttpError(429, 'Too many codes requested. Try again in an hour.', 'otp_limit');
   const code = newOtp();
   await prisma.otpCode.create({ data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_MS) } });
   await sendOtp(phone, code);

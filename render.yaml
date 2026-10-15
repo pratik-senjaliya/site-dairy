@@ -1,0 +1,59 @@
+# Render blueprint for the pilot API. Web panel and phone web build on Vercel; Postgres on Supabase (or Render);
+# photos and report PDFs in a private S3-compatible bucket (Cloudflare R2 or Supabase Storage). See docs/deployment.md.
+# Secrets (sync: false) are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: site-diary-api
+    runtime: node
+    plan: starter # free instances sleep, and a sleeping API misses the 8 pm report; use free only for a look-around
+    region: singapore
+    # --include=dev: NODE_ENV=production would skip typescript and @types/*, which the build needs.
+    buildCommand: npm ci --include=dev && npm run build:packages && npm run build -w apps/api
+    # Migrations are idempotent; the demo seed runs only while SEED_ON_START=true and skips an existing demo company.
+    startCommand: cd apps/api && npx prisma migrate deploy && if [ "$SEED_ON_START" = "true" ]; then node dist/seed.js; fi && node dist/index.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL # pooled connection string (Supabase: port 6543 with ?pgbouncer=true)
+        sync: false
+      - key: DIRECT_URL # direct / session connection (port 5432): migrations and the job queue
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN # comma-separated: the web panel URL and the phone web build URL
+        sync: false
+      - key: PUBLIC_WEB_URL # the web panel URL; WhatsApp report links point here
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: TRUST_PROXY # Vercel proxy function + Render's proxy
+        value: "2"
+      - key: OTP_PROVIDER # msg91 for real SMS; dev + ALLOW_DEV_OTP=true + OTP_DEV_CODE for a closed demo only
+        value: msg91
+      - key: MSG91_AUTH_KEY
+        sync: false
+      - key: MSG91_TEMPLATE_ID
+        sync: false
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_ENDPOINT # R2: https://<account>.r2.cloudflarestorage.com · Supabase: https://<ref>.supabase.co/storage/v1/s3
+        sync: false
+      - key: S3_BUCKET
+        value: site-diary
+      - key: S3_REGION # R2: auto · Supabase: the project region, e.g. ap-south-1
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: WHATSAPP_TOKEN # optional: WhatsApp Cloud API; without it reports stay in-app and are shared by link
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: SENTRY_DSN # optional
+        sync: false
+      - key: SEED_ON_START # true once to load the demo company; then false
+        value: "false"

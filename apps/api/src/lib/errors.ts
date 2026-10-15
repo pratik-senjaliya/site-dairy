@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 
@@ -23,5 +24,6 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
   console.error(err);
+  Sentry.captureException(err); // no-op unless SENTRY_DSN is set
   res.status(500).json({ error: { code: 'server_error', message: 'Something went wrong' } });
 };

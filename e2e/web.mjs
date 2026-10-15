@@ -40,8 +40,21 @@ const PAGES = [
   ['/import', 'Bulk import', 'Download the contractor template'],
 ];
 
+// A fresh indent from the supervisor, so there is always something to approve.
+async function raiseIndent() {
+  const API = process.env.API_URL ?? 'http://localhost:4000/api/v1';
+  const login = await fetch(`${API}/auth/otp/verify`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-client': 'mobile' }, body: JSON.stringify({ phone: '+919800000003', code: '123456', deviceId: 'e2e-web-device' }) }).then((r) => r.json());
+  const call = (method, path, body) => fetch(API + path, { method, headers: { authorization: `Bearer ${login.accessToken}`, 'content-type': 'application/json', 'x-client': 'mobile' }, body: body && JSON.stringify(body) }).then((r) => r.json());
+  const pull = await call('GET', '/sync/pull');
+  const site = pull.changes.project[0].id;
+  const cement = pull.changes.material.find((m) => m.nameEn === 'Cement').id;
+  const id = crypto.randomUUID();
+  await call('POST', '/sync/push', { changes: { indent: [{ id, projectId: site, status: 'submitted' }], indentLine: [{ id: crypto.randomUUID(), indentId: id, materialId: cement, qty: 120 }] } });
+}
+
 let failed = 0;
 try {
+  await raiseIndent();
   await signIn('9800000001');
   for (const [path, title, expect] of PAGES) {
     process.stdout.write(`• ${path} … `);
@@ -59,8 +72,14 @@ try {
   }
   process.stdout.write('• approve the seeded indent … ');
   await page.goto(`${WEB}/approvals`);
-  await page.getByRole('button', { name: 'Approve' }).first().click();
-  await page.getByText('Nothing is waiting for you').waitFor();
+  await page.getByRole('button', { name: 'Approve', exact: true }).first().waitFor();
+  const before = await page.getByRole('button', { name: 'Approve', exact: true }).count();
+  await page.getByRole('button', { name: 'Approve', exact: true }).first().click();
+  await page.getByText('Approved').first().waitFor();
+  for (let i = 0; (await page.getByRole('button', { name: 'Approve', exact: true }).count()) !== before - 1; i++) {
+    if (i > 50) throw new Error('approval did not leave the list');
+    await page.waitForTimeout(200);
+  }
   console.log('ok');
   process.stdout.write('• make a PO from it … ');
   await page.goto(`${WEB}/purchase`);

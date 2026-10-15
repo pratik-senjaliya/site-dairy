@@ -56,14 +56,21 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 ## Status (first tasks from the scope, in order)
 
 - [x] 1. Monorepo scaffold, dev Postgres, lint, CI
-- [x] 2. Prisma schema for all v1 entities + seed (skills, materials, work-item templates in Gujarati/English; demo company "Shree Ganesh Builders (demo)" with site "Shivam Heights", B block × 12 floors)
-- [ ] 3. Auth: phone OTP, JWT + refresh, roles, site scoping middleware, audit hook, RLS
-- [ ] 4. Sync endpoints (pull/push with server_rev) + WatermelonDB models
-- [ ] 5. Mobile: login, site picker, supervisor home, attendance
-- [ ] 6. Mobile: GRN with photo queue, issue, stock; progress with photos
-- [ ] 7. Web: projects/structure, contractors, materials, attendance register
-- [ ] 8. Owner dashboard + approval inbox
-- [ ] 9. Nightly report job: aggregate → PDF → WhatsApp/share
-- [ ] 10. Pilot hardening: Sentry, backups, OTA channel, Play Store internal testing
+- [x] 2. Prisma schema for all v1 entities + seed (Gujarati/English lists; demo company with two weeks of history)
+- [x] 3. Auth: phone OTP (dev code or MSG91), access JWT 15 min + device-bound rotating refresh, roles (`packages/shared/src/permissions.ts`), site scoping, audit log. **RLS not done** (API filters by company; see decisions).
+- [x] 4. Sync: `/sync/push` (per-row savepoints, attendance lock → approval, natural-key merge, stock ledger rebuild, low-stock notices) and `/sync/pull` (since server_rev, 30-day first pull, per-company write lock so no row is skipped). Phone store is our own (`apps/mobile/src/lib/db.ts`), not WatermelonDB — see decisions.
+- [x] 5–6. Mobile: login (OTP, language, signup, server address), site picker, home per role, attendance, advance, GRN with challan photo, material used, indent, progress + day marker, issues, stock (with unsent entries), transfers, sync status, approvals, site detail, nightly reports, notifications, profile. Photos compressed to ≤ 300 KB with GPS, uploaded from a queue.
+- [x] 7. Web W1–W14 (`apps/web/src/app/(app)/*`), plus `/r/[token]` (the WhatsApp report link).
+- [x] 8. Owner dashboard (`/dashboard`, `modules/reports/daily.ts` builds each site's day) + approval inbox (`modules/approvals`).
+- [x] 9. Nightly report: pg-boss tick (`src/jobs.ts`) → report (`modules/reports/report.ts`) → PDF (Noto fonts, Gujarati shaped) → in-app + WhatsApp Cloud API when configured; signed public link. Also 7 pm no-entry and wage-day reminders.
+- [~] 10. Pilot hardening: Sentry in the API (optional DSN), `infra/backup.sh`, `eas.json` (pilot APK + OTA channel), `render.yaml`, Vercel configs, `docs/deployment.md`. Not yet: Sentry in web/app, push notifications in a dev build, RLS, Play Store listing.
 
-Demo phones after seeding: owner +919800000001, engineer …02, supervisor …03, store …04, accountant …05.
+Tests: `npm test` (shared calcs, i18n parity, API integration incl. tenant isolation, site scope, attendance lock, stock, wages, PO threshold, reports, nightly job), `npm run e2e:phone`, `npm run e2e:web`. How to try it: `docs/testing.md`.
+
+Demo phones after seeding (OTP 123456 with `OTP_DEV_CODE`): owner 98000 00001, engineer …02, supervisor …03, store …04, accountant …05.
+
+## Gotchas
+
+- New tables with `server_rev` need the `set_server_rev` trigger in their migration (a test fails otherwise).
+- Writes to synced tables go through `write(companyId, tx => …)` (`lib/db.ts`); daily entries go through `applyRow` (`modules/sync/push.ts`) even from the web panel.
+- Mobile: native packages via `EXPO_OFFLINE=1 npx expo install <pkg>`; keep everything Expo Go compatible until the pilot APK.

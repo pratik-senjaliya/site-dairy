@@ -14,7 +14,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  /// Migrations and the job queue need a direct (session) connection when DATABASE_URL goes through a pooler.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {

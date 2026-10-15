@@ -138,8 +138,11 @@ class Db {
       await this.uploadPhotos();
       await this.pull();
       this.lastSync = new Date().toISOString();
+      this.online = true; // reaching the server is the real test, whatever the phone's network probe says
     } catch (e) {
-      this.lastError = e instanceof ApiError && e.code === 'offline' ? 'offline' : e instanceof Error ? e.message : String(e);
+      const offline = e instanceof ApiError && e.code === 'offline';
+      if (offline) this.online = false;
+      this.lastError = offline ? 'offline' : e instanceof Error ? e.message : String(e);
     } finally {
       this.syncing = false;
       this.changed();
@@ -230,10 +233,13 @@ class Db {
   startAutoSync() {
     const timer = setInterval(() => void this.sync(), 120_000);
     const net = NetInfo.addEventListener((s) => {
-      const online = !!s.isConnected && s.isInternetReachable !== false;
+      // Only "connected or not": reachability probes can be blocked on site Wi-Fi; sync itself decides.
+      const online = s.isConnected !== false;
       if (online && !this.online) void this.sync();
-      this.online = online;
-      this.changed();
+      else if (!online) {
+        this.online = false;
+        this.changed();
+      }
     });
     const app = AppState.addEventListener('change', (s) => {
       if (s === 'active') void this.sync();

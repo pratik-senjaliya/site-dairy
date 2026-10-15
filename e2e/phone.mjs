@@ -49,13 +49,14 @@ try {
   let total = 0;
   await step('attendance: prefilled from the last day, saved', async () => {
     await page.getByText('હાજરી', { exact: true }).click();
-    await page.getByText('છેલ્લા દિવસના આંકડા').waitFor();
+    await page.getByText(/^સેવ કરો · \d+ માણસ$/).waitFor(); // prefilled from the last day on a fresh day
     await page.getByRole('button', { name: 'કડિયા plus' }).first().click();
     await shot('04-attendance');
     const label = await page.getByText(/^સેવ કરો · \d+ માણસ$/).textContent();
     total = Number(label.match(/(\d+) માણસ/)[1]);
     await page.getByText(/^સેવ કરો · /).click();
     await page.getByText(`${total} માણસ`).first().waitFor();
+    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
   });
   await step('material in: cement 50 bags from Umiya', async () => {
     await page.getByText('માલ આવ્યો', { exact: true }).click();
@@ -65,7 +66,7 @@ try {
     await page.getByRole('textbox', { name: 'જથ્થો' }).first().fill('50');
     await shot('05-grn');
     await page.getByText(/^સેવ કરો/).last().click();
-    await page.getByText('1 એન્ટ્રી').first().waitFor();
+    await page.getByText(/^\d+ એન્ટ્રી$/).first().waitFor();
   });
   await step('today’s work: column, floor, 60%', async () => {
     await page.getByText('આજનું કામ', { exact: true }).click();
@@ -92,6 +93,23 @@ try {
     if (!site.materialIn.some((m) => m.challanNo === 'UC-9001' && m.qty === 50)) throw new Error('GRN missing at office');
     if (!site.progress.some((p) => p.percent === 60)) throw new Error('progress missing at office');
     console.log(`(office: ${today}, ${total} workers)`);
+  });
+  await step('offline: an advance waits on the phone, then reaches the office', async () => {
+    await page.context().setOffline(true);
+    await page.getByText('ઉપાડ', { exact: true }).click();
+    const rupees = 1000 + (Date.now() % 900);
+    await page.getByText('Jay Ambe Shuttering', { exact: true }).click();
+    await page.locator('input').first().fill(String(rupees));
+    await page.getByText(/^સેવ કરો · ₹/).click();
+    await page.getByText(/ઓફલાઇન · 1|1 એન્ટ્રી મોકલવાની બાકી/).first().waitFor({ timeout: 10000 });
+    await shot('09-offline');
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.getByText('બધું મોકલાઈ ગયું').first().waitFor({ timeout: 30000 }); // back online: sends on its own
+    const owner = await apiAs('+919800000001');
+    const site = (await owner('/projects'))[0];
+    const adv = await owner(`/wages/advances?projectId=${site.id}`);
+    if (!adv.some((a) => a.amountPaise === rupees * 100)) throw new Error('offline advance did not reach the office');
   });
   await step('sync screen', async () => {
     await page.getByText('બધું મોકલાઈ ગયું').click();

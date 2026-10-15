@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { randomUUID } from 'expo-crypto';
 import { Platform } from 'react-native';
 import { kv, secure } from './kv';
@@ -5,9 +6,13 @@ import { kv, secure } from './kv';
 // The phone talks to the API directly with a bearer token (X-Client: mobile); the refresh token is
 // bound to this device id and rotates on every use.
 
+// Build-time address, else (development) the computer running Expo: in Expo Go that is the dev server's host.
+const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
 const DEFAULT_URL =
   process.env.EXPO_PUBLIC_API_URL ??
-  (Platform.OS === 'web' && typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : 'http://localhost:4000');
+  (Platform.OS === 'web' && typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : `http://${devHost ?? 'localhost'}:4000`);
 
 let baseUrl = DEFAULT_URL;
 let access: string | null = null;

@@ -60,7 +60,7 @@ const cellText = (v: ExcelJS.CellValue): string => {
 };
 
 // POST /import/:kind?commit=1 with the .xlsx as the body. Without commit: checks every row and reports.
-imports.post('/:kind', express.raw({ type: () => true, limit: '5mb' }), async (req, res) => {
+imports.post('/:kind', allow('users', 'C'), express.raw({ type: () => true, limit: '5mb' }), async (req, res) => {
   const m = me(req);
   const kind = param(req, 'kind');
   if (!isKind(kind)) throw new HttpError(404, 'Unknown list', 'not_found');

@@ -23,6 +23,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://site:site@localhost:5432/site_diary
+      DIRECT_URL: postgresql://site:site@localhost:5432/site_diary
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

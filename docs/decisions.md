@@ -2,6 +2,21 @@
 
 Short records of choices that differ from, or add to, `docs/scope.md`. Newest first.
 
+## 2026-10-15 — Phone storage: our own small sync store instead of WatermelonDB (for now)
+
+WatermelonDB needs a custom native build (its SQLite adapter is not in Expo Go) and its support for React Native's new architecture on Expo SDK 57 is unproven. That would block the quickest pilot path (Expo Go and the browser build). The app keeps its copy in `apps/mobile/src/lib/db.ts`: per-table maps persisted to AsyncStorage, an outbox, a photo upload queue, and pulls by `server_rev` — the same protocol shape WatermelonDB's sync uses, so a later swap only touches that file. Limits: everything for the user's sites (30 days of daily entries) is held in memory; fine for 1–5 sites, revisit above a few thousand rows per table or when lists feel slow on a ₹10k phone.
+
+## 2026-10-15 — Rules the scope left open
+
+- **Late attendance**: a supervisor's entry for an earlier day goes to approval, except an entry the phone recorded on that same day (offline) that arrives within 3 days. Engineers and owners correct past days directly; an engineer's correction notifies the owner. Approvers: engineer or owner ("later edits need engineer approval").
+- **Indents** are approved by the engineer or the owner (scope text) although the matrix shows only the owner with A.
+- **Purchase orders** above the owner's threshold (default ₹50,000) wait for the owner; the owner's own POs and smaller ones are approved at once. Engineers do not approve POs.
+- **Wage settlements**: created by engineer/accountant, approved by the owner, then marked paid. Advances given up to the period end and not yet settled are deducted once; cancelling a settlement frees them.
+- **Two phones, same contractor × skill × day**: one row; the later write wins (the second phone's row id is remapped).
+- **Signup**: an unknown phone number can create a company (pilot self-serve; `SIGNUP_OPEN=false` turns it off).
+- **Web panel language**: English with Gujarati names beside materials/skills/work items (office staff and the CA read English); reports follow each user's language. The phone app is Gujarati-first with English and Hindi.
+- **RLS**: not yet. Every query filters by company in the API (tests cover tenant isolation); Postgres row-level security as the second guard is still to do.
+
 ## 2026-10-15 — Stack: reuse what the BME app already proved
 
 The scope suggested pnpm + Turborepo, Fastify, and BullMQ + Redis. We use instead:
