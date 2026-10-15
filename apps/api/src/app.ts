@@ -10,7 +10,7 @@ export function createApp() {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.set('json replacer', jsonReplacer);
-  app.use(cors({ origin: config.webOrigin, credentials: true }));
+  app.use(cors({ origin: config.webOrigins, credentials: true }));
   app.use(express.json({ limit: '5mb' }));
   app.use(cookieParser());
   app.use('/api/v1', v1);

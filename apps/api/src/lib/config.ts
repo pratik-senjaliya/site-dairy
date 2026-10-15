@@ -10,9 +10,10 @@ export const config = {
   isProd,
   databaseUrl: required('DATABASE_URL'),
   port: Number(process.env.PORT ?? 4000),
-  webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+  /** Browser origins allowed to call the API directly (comma-separated): the web panel and the phone app's browser build. */
+  webOrigins: (process.env.WEB_ORIGIN ?? 'http://localhost:3000,http://localhost:8081').split(',').map((s) => s.trim()).filter(Boolean),
   /** Public address of the web panel, used in report links sent on WhatsApp. */
-  publicWebUrl: process.env.PUBLIC_WEB_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+  publicWebUrl: process.env.PUBLIC_WEB_URL ?? 'http://localhost:3000',
   jwtSecret: isProd ? required('JWT_SECRET') : (process.env.JWT_SECRET ?? 'dev-only-secret-change-me'),
   accessMinutes: 15,
   refreshDays: Number(process.env.REFRESH_DAYS ?? 60),

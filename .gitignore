@@ -22,3 +22,4 @@ apps/mobile/android/
 *.mobileprovision
 *.pem
 .metro-health-check*
+e2e/.out/
