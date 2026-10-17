@@ -11,7 +11,9 @@
     "prisma:migrate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx --env-file-if-exists=.env src/seed.ts",
-    "test": "OTP_DEV_CODE=123456 tsx --env-file-if-exists=.env --test --test-concurrency=1 \"src/**/*.test.ts\""
+    "test": "OTP_DEV_CODE=123456 tsx --env-file-if-exists=.env --test --test-concurrency=1 \"src/**/*.test.ts\"",
+    "set-plan": "tsx --env-file-if-exists=.env src/setPlan.ts",
+    "set-plan:prod": "node dist/setPlan.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

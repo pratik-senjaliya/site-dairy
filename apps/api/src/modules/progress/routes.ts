@@ -4,7 +4,10 @@ import { z } from 'zod';
 import { allow, assertSite, me, siteWhere } from '../../lib/auth';
 import { day } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
-import { query } from '../../lib/validate';
+import { audit } from '../../lib/audit';
+import { write } from '../../lib/db';
+import { HttpError } from '../../lib/errors';
+import { body, param, query } from '../../lib/validate';
 import { stockFor } from '../store/ledger';
 
 // Office registers (W4, W8, W9): read-only views over what sites entered. Changes go through /sync/push.
@@ -126,4 +129,20 @@ registers.get('/issues', async (req, res) => {
       take: 300,
     }),
   );
+});
+
+/** Price a received line (GRNs entered on site have no rate unless they came against a PO). */
+registers.patch('/grn-lines/:id/rate', async (req, res) => {
+  const m = me(req);
+  if (!['owner', 'store', 'accountant'].includes(m.role)) throw new HttpError(403, 'You do not have permission to do this', 'forbidden');
+  const { ratePaise } = body(z.object({ ratePaise: z.number().int().nonnegative().nullable() }), req);
+  const saved = await write(m.companyId, async (tx) => {
+    const line = await tx.grnLine.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null }, include: { grn: true } });
+    if (!line) throw new HttpError(404, 'Not found', 'not_found');
+    assertSite(m, line.grn.projectId);
+    const after = await tx.grnLine.update({ where: { id: line.id }, data: { ratePaise: ratePaise === null ? null : BigInt(ratePaise) } });
+    await audit(tx, { me: m, ip: req.ip ?? null }, { action: 'update', entityType: 'grnLine', entityId: line.id, before: { ratePaise: line.ratePaise }, after: { ratePaise: after.ratePaise } });
+    return after;
+  });
+  res.json(saved);
 });

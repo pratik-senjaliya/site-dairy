@@ -1,3 +1,4 @@
+import type { MessageKey } from '@site-diary/i18n';
 import { Prisma } from '@prisma/client';
 import {
   addDays, can, isoDate, pushRowSchemas, PUSH_ORDER, type Module, type PushResult, type PushTable,
@@ -133,12 +134,12 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
         if (me.role !== 'owner') {
           ctx.after.push(async (t) =>
             notify(t, me.companyId, await recipients(t, me.companyId, ['owner']), {
-              kind: 'late_edit', title: `Late attendance edit by ${me.name}`, body: `${date}`, entityType: 'attendanceEntry', entityId: targetId,
+              kind: 'late_edit', title: { key: 'notify.lateEdit', vars: { name: me.name } }, body: date, entityType: 'attendanceEntry', entityId: targetId,
             }),
           );
         }
       } else {
-        await requestApproval(tx, me, projectId, 'attendanceEntry', targetId, row, `Attendance change for ${date}`);
+        await requestApproval(tx, me, projectId, 'attendanceEntry', targetId, row, date);
         return { kind: 'pending' };
       }
     }
@@ -160,10 +161,10 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
   if (table === 'materialIssue') ctx.touched.issue.add(targetId);
   if (table === 'stockTransfer') ctx.touched.transfer.add(targetId);
   if (table === 'indent' && row.status === 'submitted' && existing?.status !== 'submitted' && !data.deletedAt) {
-    await requestApproval(tx, me, projectId, 'indent', targetId, null, 'Material indent');
+    await requestApproval(tx, me, projectId, 'indent', targetId, null);
   }
   if (table === 'issue' && row.assignedToId && row.assignedToId !== existing?.assignedToId) {
-    ctx.after.push((t) => notify(t, me.companyId, [String(row.assignedToId)], { kind: 'issue_assigned', title: `Issue assigned to you: ${String(row.title)}`, entityType: 'issue', entityId: targetId }));
+    ctx.after.push((t) => notify(t, me.companyId, [String(row.assignedToId)], { kind: 'issue_assigned', title: { key: 'notify.issueAssigned', vars: { title: String(row.title) } }, entityType: 'issue', entityId: targetId }));
   }
   if (table === 'issue' && row.status === 'resolved' && existing?.status !== 'resolved') {
     await tx.issue.update({ where: { id: targetId }, data: { resolvedAt: new Date() } });
@@ -214,14 +215,14 @@ const APPROVERS: Record<string, ('owner' | 'engineer')[]> = {
   wageSettlement: ['owner'],
 };
 
-export async function requestApproval(tx: Tx, me: Me, projectId: string | null, entityType: string, entityId: string, proposal: Row | null, title: string) {
+export async function requestApproval(tx: Tx, me: Me, projectId: string | null, entityType: string, entityId: string, proposal: Row | null, detail?: string) {
   const open = await tx.approval.findFirst({ where: { entityType, entityId, status: 'pending', deletedAt: null } });
   const proposalJson = proposal ? (JSON.parse(JSON.stringify(proposal)) as Prisma.InputJsonValue) : Prisma.DbNull;
   const approval = open
     ? await tx.approval.update({ where: { id: open.id }, data: { proposal: proposalJson, requestedById: me.id } })
     : await tx.approval.create({ data: { companyId: me.companyId, projectId, entityType, entityId, proposal: proposalJson, requestedById: me.id, createdById: me.id } });
   const to = (await recipients(tx, me.companyId, APPROVERS[entityType] ?? ['owner'], projectId)).filter((id) => id !== me.id);
-  await notify(tx, me.companyId, to, { kind: 'approval_needed', title: `Approval needed: ${title}`, body: `From ${me.name}`, entityType: 'approval', entityId: approval.id });
+  await notify(tx, me.companyId, to, { kind: 'approval_needed', title: { key: 'notify.approvalNeeded', vars: { what: { key: `approval.${entityType}` as MessageKey } } }, body: detail ? { key: 'notify.fromDetail', vars: { name: me.name, detail } } : { key: 'notify.from', vars: { name: me.name } }, entityType: 'approval', entityId: approval.id });
   return approval;
 }
 

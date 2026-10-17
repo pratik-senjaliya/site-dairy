@@ -3,6 +3,7 @@ import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 import { readLocal, signedUrl } from '../../lib/storage';
 import { param } from '../../lib/validate';
+import { poPdf, readPoToken } from '../purchase/poPdf';
 import { readReportToken } from './nightly';
 import { buildReport } from './report';
 
@@ -36,4 +37,13 @@ publicReports.get('/:token/pdf', async (req, res) => {
     return;
   }
   res.type('application/pdf').set('content-disposition', `inline; filename="site-report-${row.date.toISOString().slice(0, 10)}.pdf"`).send(await readLocal(row.pdfKey));
+});
+
+// The PO link sent to a supplier.
+export const publicPo = Router();
+publicPo.get('/:token', async (req, res) => {
+  const t = readPoToken(param(req, 'token'));
+  if (!t) throw new HttpError(404, 'This link has expired', 'expired');
+  const { pdf, poNo } = await poPdf(t.cid, t.po);
+  res.type('application/pdf').set('content-disposition', `inline; filename="${poNo}.pdf"`).send(pdf);
 });

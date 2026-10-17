@@ -4,7 +4,7 @@ import { App, Button, Form, InputNumber, Modal, Select, Space, Table, Tabs, Tag 
 import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { SitePicker } from '@/components/SitePicker';
-import { errorText, post } from '@/lib/api';
+import { errorText, fileUrl, get, post } from '@/lib/api';
 import { date, dateTime, money, qty } from '@/lib/format';
 import { useFetch } from '@/lib/hooks';
 import { useLookups } from '@/lib/masters';
@@ -72,6 +72,14 @@ export default function PurchasePage() {
                 { title: 'Material', dataIndex: 'lines', render: lines },
                 { title: 'Total', dataIndex: 'totalPaise', align: 'right', render: money },
                 { title: 'Status', dataIndex: 'status', render: (v: string) => <Tag color={TONE[v]}>{v.replace('_', ' ')}</Tag> },
+                {
+                  key: 'pdf', render: (_: unknown, r: Po) => ['approved', 'sent', 'partly_received', 'received'].includes(r.status) ? (
+                    <Space>
+                      <Button size="small" href={fileUrl(`/purchase/pos/${r.id}/pdf`)} target="_blank">PDF</Button>
+                      {can('po', 'C') ? <Button size="small" onClick={() => void get<{ whatsapp: string }>(`/purchase/pos/${r.id}/share`).then((x) => window.open(x.whatsapp, '_blank')).catch((e: unknown) => message.error(errorText(e)))}>WhatsApp</Button> : null}
+                    </Space>
+                  ) : null,
+                },
                 {
                   key: 'a', render: (_: unknown, r: Po) => can('po', 'C') && !['rejected', 'cancelled', 'received'].includes(r.status) ? (
                     <Select size="small" placeholder="Update…" style={{ width: 150 }} onChange={(status: string) => void post(`/purchase/pos/${r.id}/status`, { status }).then(pos.reload).catch((e: unknown) => message.error(errorText(e)))}

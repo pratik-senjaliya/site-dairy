@@ -1,7 +1,7 @@
 'use client';
 
 import { ROLES } from '@site-diary/shared';
-import { App, Button, Form, Input, Modal, Select, Switch, Table, Tag, Typography } from 'antd';
+import { App, Button, Form, Input, Modal, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { errorText, patch, post } from '@/lib/api';
@@ -20,6 +20,11 @@ export default function UsersPage() {
   const [form] = Form.useForm();
   const role = Form.useWatch('role', form) as string | undefined;
   const sites = me?.projects ?? [];
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  const invite = (u: User) =>
+    u.language === 'en'
+      ? `Namaste ${u.name}, you are added to ${me?.company.name} on Site Diary. Open ${appUrl} and sign in with this mobile number (${u.phone}); you will get an OTP.`
+      : `નમસ્તે ${u.name}, તમને ${me?.company.name} ની સાઇટ ડાયરીમાં ઉમેર્યા છે. ${appUrl} ખોલો અને આ મોબાઇલ નંબર (${u.phone}) થી લોગિન કરો; OTP આવશે.`;
 
   const save = async () => {
     const v = (await form.validateFields()) as Omit<User, 'id' | 'lastSeenAt'>;
@@ -44,7 +49,14 @@ export default function UsersPage() {
         { title: 'Language', dataIndex: 'language', render: (l: string) => ({ gu: 'ગુજરાતી', en: 'English', hi: 'हिन्दी' })[l] },
         { title: 'Last seen', dataIndex: 'lastSeenAt', render: dateTime },
         { title: 'Status', dataIndex: 'isActive', render: (a: boolean) => (a ? <Tag color="green">active</Tag> : <Tag>removed</Tag>) },
-        { key: 'e', render: (_: unknown, u: User) => <Button size="small" onClick={() => { setEditing(u); form.setFieldsValue(u); }}>Edit</Button> },
+        {
+          key: 'e', render: (_: unknown, u: User) => (
+            <Space>
+              <Button size="small" onClick={() => { setEditing(u); form.setFieldsValue(u); }}>Edit</Button>
+              {u.isActive && u.id !== me?.user.id ? <Button size="small" href={`https://wa.me/${u.phone.replace(/^\+/, '')}?text=${encodeURIComponent(invite(u))}`} target="_blank">Invite on WhatsApp</Button> : null}
+            </Space>
+          ),
+        },
       ]} />
       <Modal open={!!editing} title={editing === 'new' ? 'Add person' : 'Edit person'} okText="Save" onCancel={() => setEditing(null)} onOk={() => void save()} destroyOnHidden>
         <Form form={form} layout="vertical">

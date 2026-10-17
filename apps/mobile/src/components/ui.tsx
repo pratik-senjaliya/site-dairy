@@ -3,15 +3,17 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useT } from '../lib/i18n';
 
 // Field UI: big targets (≥ 48 px), 16 px+ text, steppers and chips instead of typing.
 
 export function Screen({ title, children, footer, back = true, right, scroll = true }: { title: string; children: ReactNode; footer?: ReactNode; back?: boolean; right?: ReactNode; scroll?: boolean }) {
+  const t = useT();
   return (
     <SafeAreaView style={s.screen} edges={['top', 'bottom']}>
       <View style={s.header}>
         {back ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={s.back} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={s.back} hitSlop={8}>
             <Text style={s.backText}>‹</Text>
           </Pressable>
         ) : null}

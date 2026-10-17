@@ -9,7 +9,7 @@ import { db } from './db';
  * Today's site report as a PDF through the phone's share sheet (WhatsApp, etc.).
  * Syncs first so the report has everything entered on this phone.
  */
-export async function shareDailyReport(projectId: string, date = isoDate()) {
+export async function shareDailyReport(projectId: string, title: string, date = isoDate()) {
   await db.sync();
   const url = apiUrl(`/reports/daily?projectId=${projectId}&to=${date}&from=${date}&format=pdf`);
   if (Platform.OS === 'web') {
@@ -21,7 +21,7 @@ export async function shareDailyReport(projectId: string, date = isoDate()) {
   const file = new File(Paths.cache, `site-report-${date}.pdf`);
   if (file.exists) file.delete();
   const saved = await File.downloadFileAsync(url, file, { headers: authHeaders(), idempotent: true });
-  await Sharing.shareAsync(saved.uri, { mimeType: 'application/pdf', dialogTitle: 'Site report', UTI: 'com.adobe.pdf' });
+  await Sharing.shareAsync(saved.uri, { mimeType: 'application/pdf', dialogTitle: title, UTI: 'com.adobe.pdf' });
 }
 
 /** A public report link (nightly report): open in the browser or share. */

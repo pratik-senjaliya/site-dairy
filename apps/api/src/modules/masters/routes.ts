@@ -27,10 +27,11 @@ const WRITERS: Record<MasterKind, Role[]> = {
   siteMaterialSetting: ['owner', 'store'],
   workItem: ['owner', 'engineer'],
   structureNode: ['owner', 'engineer'],
+  workItemTemplate: ['owner'],
 };
 const ORDER: Partial<Record<MasterKind, Row | Row[]>> = {
   contractor: { name: 'asc' }, skill: { sort: 'asc' }, material: { nameEn: 'asc' }, supplier: { name: 'asc' }, worker: { name: 'asc' },
-  workItem: { sort: 'asc' }, structureNode: [{ sort: 'asc' }, { name: 'asc' }], contractorRate: { effectiveFrom: 'desc' },
+  workItem: { sort: 'asc' }, workItemTemplate: [{ projectType: 'asc' }, { sort: 'asc' }], structureNode: [{ sort: 'asc' }, { name: 'asc' }], contractorRate: { effectiveFrom: 'desc' },
 };
 const SITE_SCOPED: MasterKind[] = ['siteMaterialSetting', 'workItem', 'structureNode'];
 const DATES = ['effectiveFrom'];

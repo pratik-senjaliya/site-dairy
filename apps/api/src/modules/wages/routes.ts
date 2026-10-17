@@ -54,7 +54,7 @@ wages.post('/', allow('wages', 'C'), async (req, res) => {
       },
     });
     await tx.advance.updateMany({ where: { id: { in: p.advanceIds } }, data: { settlementId: s.id } });
-    if (!owner) await requestApproval(tx, m, input.projectId, 'wageSettlement', s.id, null, 'Wage settlement');
+    if (!owner) await requestApproval(tx, m, input.projectId, 'wageSettlement', s.id, null);
     await audit(tx, { me: m, ip: req.ip }, { action: 'create', entityType: 'wageSettlement', entityId: s.id, after: s });
     return s;
   });

@@ -72,3 +72,11 @@ test('settlement period uses the rate in force on each day', async () => {
   const none = settlePeriod([{ ...line, date: '2026-09-30' }], rates, 0);
   assert.deepEqual(none.missingRates, ['k'], 'no rate before the first effective date');
 });
+
+test('plans: pilot ends after 60 days, basic allows 5 people per active site', async () => {
+  const { planStatus } = await import('./plans');
+  const pilot = planStatus('pilot', '2026-10-01', '2026-10-21', 1);
+  assert.deepEqual([pilot.endsOn, pilot.daysLeft, pilot.maxActiveSites], ['2026-11-30', 40, 2]);
+  assert.equal(planStatus('basic', '2026-01-01', '2026-10-21', 3).maxUsers, 15);
+  assert.equal(planStatus('pro', '2026-01-01', '2026-10-21', 3).maxUsers, null);
+});

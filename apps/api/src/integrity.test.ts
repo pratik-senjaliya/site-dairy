@@ -3,7 +3,7 @@ import { after, before, test } from 'node:test';
 import { addDays, isoDate, rupeesToPaise, type PullResponse, type PushResult } from '@site-diary/shared';
 import { prisma } from './lib/prisma';
 import { reportLink } from './modules/reports/nightly';
-import { call, signIn, start, stop, uuid, world } from './testUtils';
+import { base, call, signIn, start, stop, uuid, world } from './testUtils';
 
 before(start);
 after(stop);
@@ -82,4 +82,50 @@ test('money and access: field roles cannot read rates; a removed site leaves the
   await prisma.userSite.updateMany({ where: { projectId: w.siteA.id, user: { phone: w.people.supervisor } }, data: { deletedAt: new Date() } });
   const next = await sup.call<PullResponse>('GET', `/sync/pull?since=${first.body.rev}`);
   assert.deepEqual(next.body.sites, []);
+});
+
+test('notifications are written in each person’s language', async () => {
+  const w = await world();
+  await prisma.user.updateMany({ where: { phone: w.people.engineer }, data: { language: 'en' } });
+  const sup = await signIn(w.people.supervisor);
+  const indentId = uuid();
+  await sup.call('POST', '/sync/push', { changes: { indent: [{ id: indentId, projectId: w.siteA.id, status: 'submitted' }], indentLine: [{ id: uuid(), indentId, materialId: w.cement.id, qty: 5 }] } });
+  const titleFor = async (phone: string) =>
+    (await prisma.notification.findFirst({ where: { kind: 'approval_needed', userId: (await prisma.user.findFirstOrThrow({ where: { phone, companyId: w.companyId } })).id } }))?.title;
+  assert.equal(await titleFor(w.people.engineer), 'Approval needed: Material indent');
+  assert.equal(await titleFor(w.people.owner), 'મંજૂરી જોઈએ: માલની માંગણી');
+});
+
+test('plans: pilot allows 2 active sites; basic allows 5 people per active site', async () => {
+  const w = await world();
+  const owner = await signIn(w.people.owner);
+  const third = await owner.call<{ error: { code: string } }>('POST', '/projects', { name: 'Site C', type: 'bungalow' });
+  assert.equal(third.status, 402);
+  assert.equal(third.body.error.code, 'plan_limit');
+  assert.equal((await owner.call('POST', '/projects', { name: 'Site C', type: 'bungalow', status: 'on_hold' })).status, 201, 'an inactive site is fine');
+
+  await prisma.company.update({ where: { id: w.companyId }, data: { plan: 'basic' } });
+  await prisma.project.update({ where: { id: w.siteB.id }, data: { status: 'on_hold' } });
+  const add = (n: number) => owner.call('POST', '/users', { name: `Person ${n}`, phone: `+9196${String(Date.now() + n).slice(-8)}`, role: 'supervisor', siteIds: [w.siteA.id] });
+  assert.equal((await add(1)).status, 201);
+  assert.equal((await add(2)).status, 201);
+  assert.equal((await add(3)).status, 402, '1 active site × 5 people');
+  const me = await owner.call<{ company: { planStatus: { label: string; maxUsers: number } } }>('GET', '/auth/me');
+  assert.deepEqual([me.body.company.planStatus.label, me.body.company.planStatus.maxUsers], ['Basic', 5]);
+});
+
+test('PO: PDF for the office, a public link and WhatsApp message for the supplier; not before approval', async () => {
+  const w = await world();
+  const store = await signIn(w.people.store);
+  const supplier = await store.call<{ id: string }>('POST', '/masters/supplier', { name: 'Umiya', phone: '9825011111' });
+  const po = await store.call<{ id: string }>('POST', '/purchase/pos', { projectId: w.siteA.id, supplierId: supplier.body.id, lines: [{ materialId: w.cement.id, qty: 10, ratePaise: 38000 }] });
+  const pdf = await fetch(`${base()}/purchase/pos/${po.body.id}/pdf`, { headers: { authorization: `Bearer ${store.token}` } });
+  assert.equal(Buffer.from(await pdf.arrayBuffer()).subarray(0, 4).toString(), '%PDF');
+  const share = await store.call<{ link: string; whatsapp: string }>('GET', `/purchase/pos/${po.body.id}/share`);
+  assert.match(share.body.whatsapp, /^https:\/\/wa\.me\/919825011111\?text=/);
+  const token = share.body.link.split('/public/po/')[1]!;
+  const pub = await fetch(`${base()}/public/po/${token}`);
+  assert.equal(pub.status, 200);
+  const big = await store.call<{ id: string }>('POST', '/purchase/pos', { projectId: w.siteA.id, supplierId: supplier.body.id, lines: [{ materialId: w.cement.id, qty: 1000, ratePaise: 38000 }] });
+  assert.equal((await store.call('GET', `/purchase/pos/${big.body.id}/share`)).status, 409);
 });

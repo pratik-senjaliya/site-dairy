@@ -60,7 +60,7 @@ try {
   });
   await step('material in: cement 50 bags from Umiya', async () => {
     await page.getByText('માલ આવ્યો', { exact: true }).click();
-    await page.getByText('Umiya Cement Traders').click();
+    await page.getByRole('button', { name: 'Umiya Cement Traders', exact: true }).click();
     await page.locator('input').nth(0).fill('UC-9001');
     await page.getByText('સિમેન્ટ', { exact: true }).click();
     await page.getByRole('textbox', { name: 'જથ્થો' }).first().fill('50');
@@ -71,18 +71,18 @@ try {
   await step('today’s work: column, floor, 60%', async () => {
     await page.getByText('આજનું કામ', { exact: true }).click();
     await page.getByText('કોલમ', { exact: true }).click();
-    await page.getByText('Floor 7', { exact: true }).click();
+    await page.getByRole('button', { name: 'Floor 7', exact: true }).click();
     await page.getByText('60%', { exact: true }).click();
     await shot('06-progress');
     await page.getByText('સેવ કરો', { exact: true }).last().click();
-    await page.getByText('આજે ભર્યું').waitFor();
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByText('આજે ભરેલું').waitFor();
+    await page.getByRole('button', { name: 'પાછા' }).click();
   });
   await step('stock shows cement after the receipt', async () => {
     await page.getByText('સ્ટોક', { exact: true }).click();
     await page.getByText('સિમેન્ટ').first().waitFor();
     await shot('07-stock');
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'પાછા' }).click();
   });
   await step('everything reaches the office', async () => {
     await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });

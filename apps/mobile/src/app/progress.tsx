@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { RowChips, TextField } from '../components/pickers';
+import { TodayEntries } from '../components/TodayEntries';
 import { Button, Card, Chip, Chips, Field, Row, Screen, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
@@ -64,12 +65,11 @@ export default function Progress() {
       </Card>
       {marker === 'work' && (
         <>
-          {entries.length ? (
-            <Card>
-              <T.h2>{t('progress.today')}</T.h2>
-              {entries.map((e) => <T.body key={e.id}>• {name(items.find((i) => i.id === e.workItemId))}{e.structureNodeId ? ` · ${floorName(floors.find((f) => f.id === e.structureNodeId) ?? { id: '', name: '' })}` : ''} · {String(e.percent)}%</T.body>)}
-            </Card>
-          ) : null}
+          <TodayEntries entries={entries.map((e) => ({
+            id: e.id, table: 'dailyProgress' as const,
+            label: `${name(items.find((i) => i.id === e.workItemId))} · ${String(e.percent)}%`,
+            sub: e.structureNodeId ? floorName(floors.find((f) => f.id === e.structureNodeId) ?? { id: '', name: '' }) : undefined,
+          }))} />
           <RowChips label={t('report.workItem')} rows={items} value={workItemId} onChange={setItem} nameOf={name} />
           <RowChips label={t('report.floor')} rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone />
           <Field label={t('report.percent')} hint={last ? t('progress.last', { percent: Number(last.percent), date: String(last.date) }) : undefined}>

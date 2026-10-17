@@ -8,10 +8,11 @@ import { imports } from './modules/import/routes';
 import { dashboard } from './modules/dashboard/routes';
 import { registers } from './modules/progress/routes';
 import { purchase } from './modules/purchase/routes';
-import { publicReports } from './modules/reports/public';
+import { publicPo, publicReports } from './modules/reports/public';
 import { reports } from './modules/reports/routes';
 import { wages } from './modules/wages/routes';
 import { auth } from './modules/auth/routes';
+import { clientErrors } from './modules/clientErrors';
 import { masters } from './modules/masters/routes';
 import { notifications } from './modules/notifications/routes';
 import { photos } from './modules/photos/routes';
@@ -33,6 +34,8 @@ v1.get('/health', async (_req, res) => {
 
 v1.use('/auth', auth);
 v1.use('/public/reports', publicReports);
+v1.use('/public/po', publicPo);
+v1.use('/client-errors', clientErrors);
 
 // Everything below needs a signed-in user.
 v1.use(authenticate);

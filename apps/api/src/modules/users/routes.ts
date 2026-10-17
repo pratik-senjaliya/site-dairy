@@ -3,8 +3,9 @@ import { Router } from 'express';
 import { audit } from '../../lib/audit';
 import { allow, me } from '../../lib/auth';
 import { write, type Tx } from '../../lib/db';
+import { assertUserAllowed, companyPlan } from '../../lib/plan';
 import { HttpError } from '../../lib/errors';
-import { prisma } from '../../lib/prisma';
+import { prisma, transaction } from '../../lib/prisma';
 import { body, param } from '../../lib/validate';
 
 export const users = Router();
@@ -45,6 +46,7 @@ users.post('/', allow('users', 'C'), async (req, res) => {
   const { siteIds, ...input } = body(userSchema, req);
   const user = await write(m.companyId, async (tx) => {
     if (await tx.user.findFirst({ where: { companyId: m.companyId, phone: input.phone } })) throw new HttpError(409, 'This phone number already has a login', 'duplicate');
+    if (input.isActive && input.role !== 'owner' && input.role !== 'accountant') await assertUserAllowed(tx, m.companyId);
     const u = await tx.user.create({ data: { ...input, companyId: m.companyId, createdById: m.id } });
     await setSites(tx, m.companyId, u.id, siteIds, m.id);
     await audit(tx, { me: m, ip: req.ip }, { action: 'create', entityType: 'user', entityId: u.id, after: { ...u, siteIds } });
@@ -60,6 +62,8 @@ users.patch('/:id', allow('users', 'C'), async (req, res) => {
     const before = await tx.user.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null }, include: { sites: true } });
     if (!before) throw new HttpError(404, 'Not found', 'not_found');
     if (before.id === m.id && (input.role !== 'owner' || !input.isActive)) throw new HttpError(400, 'You cannot remove your own owner access', 'self');
+    const counted = (r: string, active: boolean) => active && r !== 'owner' && r !== 'accountant';
+    if (counted(input.role, input.isActive) && !counted(before.role, before.isActive)) await assertUserAllowed(tx, m.companyId);
     const u = await tx.user.update({ where: { id: before.id }, data: input });
     await setSites(tx, m.companyId, u.id, siteIds, m.id);
     if (!input.isActive) await tx.session.updateMany({ where: { userId: u.id, revokedAt: null }, data: { revokedAt: new Date() } });
@@ -73,11 +77,8 @@ export const company = Router();
 
 company.get('/', async (req, res) => {
   const c = await prisma.company.findUniqueOrThrow({ where: { id: me(req).companyId } });
-  const [sites, people] = await Promise.all([
-    prisma.project.count({ where: { companyId: c.id, deletedAt: null, status: 'active' } }),
-    prisma.user.count({ where: { companyId: c.id, deletedAt: null, isActive: true } }),
-  ]);
-  res.json({ ...c, settings: parseSettings(c.settings), usage: { activeSites: sites, activeUsers: people } });
+  const plan = await transaction((tx) => companyPlan(tx, c.id));
+  res.json({ ...c, settings: parseSettings(c.settings), usage: { activeSites: plan.activeSites, activeUsers: plan.activeUsers }, planStatus: plan });
 });
 
 company.patch('/', allow('users', 'C'), async (req, res) => {

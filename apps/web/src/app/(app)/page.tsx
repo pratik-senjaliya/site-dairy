@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { useFetch } from '@/lib/hooks';
 import { qty } from '@/lib/format';
+import { useMe } from '@/lib/session';
 
 interface Site {
   project: { id: string; name: string }; marker: string; note: string | null;
@@ -24,8 +25,13 @@ export default function DashboardPage() {
   const [date, setDate] = useState<string | null>(null);
   const { data, error } = useFetch<Dashboard>(`/dashboard${date ? `?date=${date}` : ''}`);
   const t = data?.totals;
+  const me = useMe();
   return (
     <Page title="Today across sites" error={error} extra={<DatePicker allowClear value={date ? dayjs(date) : null} onChange={(d) => setDate(d ? d.format('YYYY-MM-DD') : null)} format="DD MMM YYYY" placeholder="Today" />}>
+      {me?.company.planStatus.daysLeft != null && me.company.planStatus.daysLeft <= 10 ? (
+        <Alert type={me.company.planStatus.daysLeft < 0 ? 'error' : 'warning'} showIcon
+          message={me.company.planStatus.daysLeft < 0 ? `Your ${me.company.planStatus.label} ended on ${me.company.planStatus.endsOn}. Please contact Site Diary to continue.` : `Your ${me.company.planStatus.label} ends on ${me.company.planStatus.endsOn} (${me.company.planStatus.daysLeft} days left).`} />
+      ) : null}
       {t ? (
         <Row gutter={[16, 16]}>
           <Col xs={12} md={6}><Card><Statistic title="Workers" value={t.workers} suffix={<Typography.Text type="secondary" style={{ fontSize: 13 }}>yesterday {t.yesterday}</Typography.Text>} /></Card></Col>

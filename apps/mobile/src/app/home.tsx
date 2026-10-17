@@ -18,9 +18,10 @@ interface Dashboard {
 }
 
 function Bell() {
+  const t = useT();
   const { data } = useOnline<{ unread: number }>('/notifications');
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Notifications" onPress={() => router.push('/notifications')} hitSlop={10} style={{ padding: 4 }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={t('notifications.title')} onPress={() => router.push('/notifications')} hitSlop={10} style={{ padding: 4 }}>
       <Text style={{ fontSize: 22 }}>🔔{data?.unread ? <Text style={{ fontSize: 13, color: colors.danger, fontWeight: '800' }}> {data.unread}</Text> : null}</Text>
     </Pressable>
   );
@@ -75,7 +76,7 @@ function FieldHome() {
           busy={sending}
           onPress={() => {
             setSending(true);
-            shareDailyReport(siteId)
+            shareDailyReport(siteId, t('home.reportShareTitle'))
               .catch((e: unknown) => notice(t('home.reportFailed'), e instanceof Error ? e.message : String(e)))
               .finally(() => setSending(false));
           }}

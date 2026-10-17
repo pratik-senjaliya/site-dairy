@@ -9,6 +9,7 @@ import {
 import { config } from '../../lib/config';
 import { HttpError } from '../../lib/errors';
 import { sendOtp } from '../../lib/otp';
+import { companyPlan } from '../../lib/plan';
 import { prisma, transaction } from '../../lib/prisma';
 import { body } from '../../lib/validate';
 import { createCompany } from '../company/setup';
@@ -136,7 +137,7 @@ auth.get('/me', authenticate, async (req, res) => {
   });
   res.json({
     user: { id: m.id, name: m.name, phone: m.phone, role: m.role, language: m.language },
-    company: { id: company.id, name: company.name, plan: company.plan, settings: parseSettings(company.settings) },
+    company: { id: company.id, name: company.name, plan: company.plan, settings: parseSettings(company.settings), planStatus: await transaction((tx) => companyPlan(tx, company.id)) },
     projects,
   });
 });

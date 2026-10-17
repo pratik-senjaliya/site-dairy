@@ -70,8 +70,8 @@ export async function checkLowStock(tx: Tx, companyId: string, pairs: Pair[]) {
     ]);
     await notify(tx, companyId, await recipients(tx, companyId, ['store', 'engineer', 'owner'], projectId), {
       kind: 'low_stock',
-      title: `Low stock: ${material?.nameEn ?? 'material'} at ${project?.name ?? 'site'}`,
-      body: `${onHand} ${material?.unit ?? ''} left (minimum ${setting.minStock.toNumber()})`,
+      title: { key: 'notify.lowStock', vars: { material: { gu: material?.nameGu ?? '', en: material?.nameEn ?? '' }, site: project?.name ?? '' } },
+      body: { key: 'notify.lowStockBody', vars: { qty: onHand, unit: material?.unit ?? '', min: setting.minStock.toNumber() } },
       entityType: 'project',
       entityId: projectId,
       dedupeKey: `low:${key}:${today}`,

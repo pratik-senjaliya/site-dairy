@@ -41,7 +41,7 @@ export async function tick() {
         if (entries || (day && day.marker !== 'work')) continue;
         await transaction(async (tx) =>
           notify(tx, c.id, await recipients(tx, c.id, [...roles], s.id), {
-            kind: 'no_entry', title: `No attendance yet at ${s.name}`, body: `Please enter today's attendance (${at})`, entityType: 'project', entityId: s.id,
+            kind: 'no_entry', title: { key: 'notify.noEntry', vars: { site: s.name } }, body: { key: 'notify.noEntryBody', vars: { time: at } }, entityType: 'project', entityId: s.id,
             dedupeKey: `noentry:${roles[0]}:${s.id}:${today}`,
           }),
         );
@@ -52,7 +52,7 @@ export async function tick() {
     if (weekday() === cfg.wageDay && now >= '10:00') {
       await transaction(async (tx) =>
         notify(tx, c.id, await recipients(tx, c.id, ['accountant', 'owner']), {
-          kind: 'wages_due', title: 'Weekly wage settlement is due', body: `For ${addDays(today, -6)} to ${today}`, dedupeKey: `wages:${today}`,
+          kind: 'wages_due', title: { key: 'notify.wagesDue' }, body: { key: 'notify.wagesDueBody', vars: { from: addDays(today, -6), to: today } }, dedupeKey: `wages:${today}`,
         }),
       );
     }
@@ -96,7 +96,7 @@ export async function startJobs() {
         if (user) {
           await transaction(async (tx) =>
             notify(tx, user.companyId, await recipients(tx, user.companyId, ['owner']), {
-              kind: 'report_failed', title: 'Tonight’s report could not be made', body: e instanceof Error ? e.message : String(e), dedupeKey: `reportfail:${job.data.date}:${user.id}`,
+              kind: 'report_failed', title: { key: 'notify.reportFailed' }, body: e instanceof Error ? e.message : String(e), dedupeKey: `reportfail:${job.data.date}:${user.id}`,
             }),
           );
         }

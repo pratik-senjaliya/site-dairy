@@ -7,3 +7,4 @@ export * from './permissions';
 export * from './settings';
 export * from './sync';
 export * from './masters';
+export * from './plans';

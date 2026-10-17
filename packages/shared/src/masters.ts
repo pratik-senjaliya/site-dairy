@@ -48,6 +48,7 @@ export const masterSchemas = {
   }),
   siteMaterialSetting: z.object({ projectId: uuidSchema, materialId: uuidSchema, minStock: qtySchema }),
   workItem: z.object({ projectId: uuidSchema, nameGu: name, nameEn: name, sort: z.number().int().default(0) }),
+  workItemTemplate: z.object({ projectType: z.enum(PROJECT_TYPES), nameGu: name, nameEn: name, sort: z.number().int().default(0) }),
   structureNode: z.object({
     projectId: uuidSchema,
     parentId: uuidSchema.nullable().optional(),

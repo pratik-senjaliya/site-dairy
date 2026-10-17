@@ -27,7 +27,7 @@ export default function Reports() {
             .finally(() => setBusy(false));
         }} />
       ) : null}
-      {siteId ? <Button kind="secondary" label={t('reports.todayPdf')} onPress={() => void shareDailyReport(siteId).catch((e: unknown) => notice(t('common.error'), String(e)))} /> : null}
+      {siteId ? <Button kind="secondary" label={t('reports.todayPdf')} onPress={() => void shareDailyReport(siteId, t('home.reportShareTitle')).catch((e: unknown) => notice(t('common.error'), String(e)))} /> : null}
       <T.h2>{t('reports.history')}</T.h2>
       {data && !data.length ? <Empty text={t('reports.none', { time: me?.company.settings.reportTime ?? '20:00' })} /> : null}
       {data?.map((r) => (

@@ -6,11 +6,11 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { SitePicker } from '@/components/SitePicker';
-import { errorText, fileUrl, post } from '@/lib/api';
+import { errorText, fileUrl, patch, post } from '@/lib/api';
 import { date, money, qty } from '@/lib/format';
 import { useFetch } from '@/lib/hooks';
 import { useLookups } from '@/lib/masters';
-import { useCan } from '@/lib/session';
+import { useCan, useMe } from '@/lib/session';
 
 interface StockRow { materialId: string; qty: number; minStock: number | null }
 interface Grn { id: string; date: string; supplierId: string | null; challanNo: string | null; vehicleNo: string | null; lines: { id: string; materialId: string; qty: number; rejectedQty: number; ratePaise: number | null }[]; photos: { id: string; uploaded: boolean }[] }
@@ -39,6 +39,8 @@ export default function StorePage() {
   const [payForm] = Form.useForm();
   const m = (id: string) => L.material(id);
   const site_ = (id: string) => String(L.project(id)?.name ?? '');
+  const role = useMe()?.user.role;
+  const canPrice = role === 'owner' || role === 'store' || role === 'accountant';
 
   return (
     <Page title="Store & stock" extra={<>
@@ -70,6 +72,18 @@ export default function StorePage() {
                 { title: 'Challan', dataIndex: 'challanNo' },
                 { title: 'Vehicle', dataIndex: 'vehicleNo' },
                 { title: 'Material', dataIndex: 'lines', render: (ls: Grn['lines']) => ls.map((l) => <div key={l.id}>{String(m(l.materialId)?.nameEn ?? '')} {qty(l.qty)} {String(m(l.materialId)?.unit ?? '')}{l.rejectedQty ? <Typography.Text type="danger"> (−{qty(l.rejectedQty)} rejected)</Typography.Text> : null}</div>) },
+                { title: 'Rate / unit', dataIndex: 'lines', render: (ls: Grn['lines']) => ls.map((l) => (
+                  <div key={l.id}>
+                    {canPrice ? (
+                      <InputNumber size="small" prefix="₹" min={0} placeholder="rate" defaultValue={l.ratePaise == null ? undefined : l.ratePaise / 100} style={{ width: 120 }}
+                        onBlur={(e) => {
+                          const v = e.target.value === '' ? null : Math.round(Number(e.target.value.replace(/[^\d.]/g, '')) * 100);
+                          if (v === l.ratePaise) return;
+                          void patch(`/registers/grn-lines/${l.id}/rate`, { ratePaise: v }).then(() => message.success('Rate saved')).catch((err: unknown) => message.error(errorText(err)));
+                        }} />
+                    ) : money(l.ratePaise)}
+                  </div>
+                )) },
                 { title: 'Challan photo', dataIndex: 'photos', render: (ps: Grn['photos']) => <Image.PreviewGroup>{ps.filter((p) => p.uploaded).map((p) => <Image key={p.id} width={48} height={48} style={{ objectFit: 'cover' }} src={fileUrl(`/photos/${p.id}/file`)} alt="challan" />)}</Image.PreviewGroup> },
               ]} />
             </>

@@ -9,6 +9,7 @@ import { day } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { body, param } from '../../lib/validate';
 import { requestApproval } from '../sync/push';
+import { poLink, poPdf } from './poPdf';
 
 export const purchase = Router();
 
@@ -69,7 +70,7 @@ purchase.post('/pos', allow('po', 'C'), async (req, res) => {
       include: { lines: true },
     });
     if (input.indentId) await tx.indent.updateMany({ where: { id: input.indentId, companyId: m.companyId, status: 'approved' }, data: { status: 'ordered' } });
-    if (needsOwner) await requestApproval(tx, m, input.projectId, 'purchaseOrder', created.id, null, `PO ${created.poNo} for ${supplier.name}`);
+    if (needsOwner) await requestApproval(tx, m, input.projectId, 'purchaseOrder', created.id, null, `${created.poNo} · ${supplier.name}`);
     await audit(tx, { me: m, ip: req.ip }, { action: 'create', entityType: 'purchaseOrder', entityId: created.id, after: created });
     return created;
   });
@@ -142,4 +143,18 @@ export async function supplierLedger(companyId: string, supplierId: string) {
 
 purchase.get('/supplier-ledger/:id', allow('po', 'V'), async (req, res) => {
   res.json(await supplierLedger(me(req).companyId, param(req)));
+});
+
+purchase.get('/pos/:id/pdf', allow('po', 'V', 'C'), async (req, res) => {
+  const { pdf, poNo } = await poPdf(me(req).companyId, param(req));
+  res.type('application/pdf').set('content-disposition', `inline; filename="${poNo}.pdf"`).send(pdf);
+});
+
+/** A 30-day link the supplier can open without signing in, and a ready WhatsApp message. */
+purchase.get('/pos/:id/share', allow('po', 'C'), async (req, res) => {
+  const m = me(req);
+  const { poNo, supplierPhone } = await poPdf(m.companyId, param(req));
+  const link = poLink(m.companyId, param(req));
+  const text = `Purchase order ${poNo}: ${link}`;
+  res.json({ link, whatsapp: `https://wa.me/${supplierPhone ? supplierPhone.replace(/^\+/, '') : ''}?text=${encodeURIComponent(text)}` });
 });

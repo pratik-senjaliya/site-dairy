@@ -1,6 +1,7 @@
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
+import { PhotoThumb } from '../components/Photo';
 import { Banner, Card, Row, Screen, T } from '../components/ui';
 import { useOnline } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -22,6 +23,7 @@ export default function Site() {
   const { lang } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: d, error, reload } = useOnline<SiteDetail>(id ? `/dashboard/site/${id}` : null);
+  const photos = useOnline<{ id: string; uploaded: boolean; sourceType: string }[]>(id && d ? `/registers/photos?projectId=${id}&from=${d.date}&to=${d.date}` : null);
   const nm = (en: string, gu: string) => (lang === 'en' ? en : gu || en);
   const max = Math.max(1, ...(d?.trend.map((x) => x.workers) ?? [1]));
 
@@ -63,7 +65,13 @@ export default function Site() {
             <T.h2>{t('report.progress')}</T.h2>
             {d.progress.length ? d.progress.map((p, i) => <T.body key={i}>{nm(p.workItem, p.workItemGu)}{p.floor ? ` · ${p.floor}` : ''} · {p.percent}%{p.note ? `\n${p.note}` : ''}</T.body>) : <T.small>{t('report.nothing')}</T.small>}
           </Card>
-          <T.small>{t('report.photos')}: {d.photos.length} · {t('report.openIssues')}: {d.openIssues}</T.small>
+          <Card>
+            <T.h2>{t('site.photos')} ({d.photos.length})</T.h2>
+            <Row style={{ flexWrap: 'wrap' }}>
+              {photos.data?.filter((p) => p.uploaded).map((p) => <PhotoThumb key={p.id} photo={p} size={100} />)}
+            </Row>
+          </Card>
+          <T.small>{t('report.openIssues')}: {d.openIssues}</T.small>
         </>
       ) : null}
     </Screen>

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { QtyField, RowChips, TextField } from '../components/pickers';
+import { TodayEntries } from '../components/TodayEntries';
 import { Button, Card, Row, Screen, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
@@ -30,6 +31,14 @@ export default function Grn() {
   const [lines, setLines] = useState<Line[]>([]);
   const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: '', qty: 0, rejectedQty: 0 });
   const unit = (id: string) => String(materials.find((m) => m.id === id)?.unit ?? '');
+  const today = useDb(() => {
+    const day = isoDate();
+    return db.rows('grn').filter((g) => g.projectId === siteId && g.date === day).map((g) => ({
+      id: g.id, table: 'grn' as const,
+      label: db.rows('grnLine').filter((l) => l.grnId === g.id).map((l) => `${name(db.find('material', l.materialId as string))} ${String(l.qty)}`).join(', ') || '—',
+      sub: [String(db.find('supplier', g.supplierId as string)?.name ?? ''), String(g.challanNo ?? '')].filter(Boolean).join(' · '),
+    }));
+  });
 
   const addLine = () => {
     if (!current.materialId || !current.qty) return;
@@ -79,6 +88,7 @@ export default function Grn() {
           </>
         ) : null}
       </Card>
+      <TodayEntries entries={today} />
     </Screen>
   );
 }

@@ -1,3 +1,4 @@
+import type { MessageKey } from '@site-diary/i18n';
 import { can, type Module, type Role } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -116,16 +117,14 @@ export async function decide(m: Me, ip: string | null, id: string, decision: 'ap
     await audit(tx, { me: m, ip }, { action: approved ? 'approve' : 'reject', entityType: a.entityType, entityId: a.entityId, before: a, after: updated });
     await notify(tx, m.companyId, [a.requestedById], {
       kind: approved ? 'approved' : 'rejected',
-      title: `${approved ? 'Approved' : 'Rejected'}: ${label(a.entityType)}`,
-      body: reason ? `${m.name}: ${reason}` : `By ${m.name}`,
+      title: { key: approved ? 'notify.approved' : 'notify.rejected', vars: { what: { key: `approval.${a.entityType}` as MessageKey } } },
+      body: reason ? `${m.name}: ${reason}` : { key: 'notify.by', vars: { name: m.name } },
       entityType: 'approval',
       entityId: id,
     });
     return updated;
   });
 }
-
-const label = (t: string) => ({ attendanceEntry: 'attendance change', indent: 'material indent', purchaseOrder: 'purchase order', wageSettlement: 'wage settlement' })[t] ?? t;
 
 approvals.post('/:id/decide', async (req, res) => {
   const input = body(z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }), req);

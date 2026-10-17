@@ -6,7 +6,7 @@ import { useFetch } from './hooks';
 
 export interface Me {
   user: { id: string; name: string; phone: string; role: Role; language: 'gu' | 'en' | 'hi' };
-  company: { id: string; name: string; plan: string; settings: CompanySettings };
+  company: { id: string; name: string; plan: string; settings: CompanySettings; planStatus: { label: string; endsOn: string | null; daysLeft: number | null } };
   projects: { id: string; name: string; status: string }[];
 }
 

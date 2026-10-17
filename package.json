@@ -22,7 +22,9 @@
     "test": "npm run build:packages && npm test -w packages/shared -w packages/i18n && npm test -w apps/api",
     "e2e:phone": "node e2e/phone.mjs",
     "build:mobile-web": "npm run build:packages && cd apps/mobile && expo export --platform web",
-    "e2e:web": "node e2e/web.mjs"
+    "e2e:web": "node e2e/web.mjs",
+    "e2e:roles": "node e2e/roles.mjs",
+    "e2e": "node e2e/phone.mjs && node e2e/web.mjs && node e2e/roles.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

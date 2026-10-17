@@ -5,6 +5,7 @@ import { allow, assertSite, me } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
 import { day } from '../../lib/json';
+import { assertSiteAllowed } from '../../lib/plan';
 import { prisma } from '../../lib/prisma';
 import { body, param } from '../../lib/validate';
 
@@ -45,6 +46,7 @@ projects.post('/', allow('projects', 'C'), async (req, res) => {
   const m = me(req);
   const input = body(projectSchema, req);
   const project = await write(m.companyId, async (tx) => {
+    if (input.status === 'active') await assertSiteAllowed(tx, m.companyId);
     const p = await tx.project.create({ data: { ...toDb(input), companyId: m.companyId, createdById: m.id } });
     const templates = await tx.workItemTemplate.findMany({ where: { companyId: m.companyId, projectType: input.type, deletedAt: null }, orderBy: { sort: 'asc' } });
     await tx.workItem.createMany({
@@ -62,6 +64,7 @@ projects.patch('/:id', allow('projects', 'C'), async (req, res) => {
   const project = await write(m.companyId, async (tx) => {
     const before = await tx.project.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null } });
     if (!before) throw new HttpError(404, 'Site not found', 'not_found');
+    if (input.status === 'active' && before.status !== 'active') await assertSiteAllowed(tx, m.companyId);
     const p = await tx.project.update({ where: { id: before.id }, data: toDb(input) });
     await audit(tx, { me: m, ip: req.ip }, { action: 'update', entityType: 'project', entityId: p.id, before, after: p });
     return p;

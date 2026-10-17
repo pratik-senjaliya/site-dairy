@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { ProjectForm, TYPE_LABEL, type Project } from '@/components/ProjectForm';
-import { del, errorText, post } from '@/lib/api';
+import { del, errorText, patch as patch_, post } from '@/lib/api';
 import { date, money, ROLE_LABEL } from '@/lib/format';
 import { useFetch } from '@/lib/hooks';
 import { useCan, useReloadMe } from '@/lib/session';
@@ -28,10 +28,29 @@ export default function ProjectPage() {
   const [itemForm] = Form.useForm();
   const canEdit = can('projects', 'C');
 
+  const [node, setNode] = useState<Node | null>(null);
+  const [nodeForm] = Form.useForm();
+  const nodeTitle = (n: Node) => (
+    <span>{n.parentId ? n.name : <b>{n.name}</b>}{canEdit ? <Button size="small" type="link" onClick={() => { setNode(n); nodeForm.setFieldsValue({ name: n.name }); }}>edit</Button> : null}</span>
+  );
   const tree = (data?.structure ?? []).filter((n) => !n.parentId).map((t) => ({
-    key: t.id, title: <b>{t.name}</b>,
-    children: data!.structure.filter((n) => n.parentId === t.id).map((f) => ({ key: f.id, title: f.name, isLeaf: true })),
+    key: t.id, title: nodeTitle(t),
+    children: data!.structure.filter((n) => n.parentId === t.id).map((f) => ({ key: f.id, title: nodeTitle(f), isLeaf: true })),
   }));
+  const saveNode = async (patch: Partial<Node> | 'delete' | 'addFloor') => {
+    if (!node) return;
+    try {
+      if (patch === 'delete') await del(`/masters/structureNode/${node.id}`);
+      else if (patch === 'addFloor') {
+        const floors = data!.structure.filter((n) => n.parentId === node.id);
+        await post('/masters/structureNode', { projectId: id, parentId: node.id, kind: 'floor', name: `Floor ${floors.filter((f) => f.name.startsWith('Floor')).length + 1}`, sort: floors.length });
+      } else await patch_(`/masters/structureNode/${node.id}`, { projectId: id, parentId: node.parentId, kind: node.kind, name: patch.name ?? node.name, sort: node.sort });
+      setNode(null);
+      await reload();
+    } catch (e) {
+      message.error(errorText(e));
+    }
+  };
 
   return (
     <Page title={data?.name ?? 'Site'} error={error} extra={canEdit ? <Button onClick={() => setEdit(true)}>Edit site</Button> : null}>
@@ -66,6 +85,13 @@ export default function ProjectPage() {
           </Card>
         </Col>
       </Row>
+      <Modal open={!!node} title={node?.parentId ? 'Floor' : 'Tower / block'} onCancel={() => setNode(null)} footer={[
+        <Popconfirm key="d" title="Remove it? Past entries keep their floor name." onConfirm={() => void saveNode('delete')}><Button danger>Remove</Button></Popconfirm>,
+        ...(!node?.parentId ? [<Button key="f" onClick={() => void saveNode('addFloor')}>Add a floor on top</Button>] : []),
+        <Button key="s" type="primary" onClick={() => void nodeForm.validateFields().then((v: { name: string }) => saveNode({ name: v.name }))}>Save</Button>,
+      ]} destroyOnHidden>
+        <Form form={nodeForm} layout="vertical"><Form.Item name="name" label="Name" rules={[{ required: true }]}><Input /></Form.Item></Form>
+      </Modal>
       <ProjectForm open={edit} project={data ?? null} onClose={(saved) => { setEdit(false); if (saved) { void reload(); void reloadMe(); } }} />
       <Modal open={bulk} title="Add tower with floors" confirmLoading={busy} okText="Create" onCancel={() => setBulk(false)} destroyOnHidden onOk={() => void (async () => {
         const v = await bulkForm.validateFields();

@@ -1,6 +1,7 @@
 import { isoDate } from '@site-diary/shared';
 import { useState } from 'react';
 import { QtyField, RowChips } from '../components/pickers';
+import { TodayEntries } from '../components/TodayEntries';
 import { Banner, Button, Screen } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
@@ -21,6 +22,11 @@ export default function Used() {
   const [workItemId, setItem] = useState<string | null>(null);
   const [nodeId, setNode] = useState<string | null>(null);
   const material = materials.find((m) => m.id === materialId);
+  const today = useDb(() => db.rows('materialIssue').filter((r) => r.projectId === siteId && r.date === isoDate()).map((r) => ({
+    id: r.id, table: 'materialIssue' as const,
+    label: `${name(db.find('material', r.materialId as string))} ${String(r.qty)} ${String(db.find('material', r.materialId as string)?.unit ?? '')}`,
+    sub: [name(db.find('workItem', r.workItemId as string)), r.structureNodeId ? floorName(db.find('structureNode', r.structureNodeId as string) ?? { id: '', name: '' }) : ''].filter(Boolean).join(' · '),
+  })));
   const onHand = stock.find((s) => s.projectId === siteId && s.materialId === materialId)?.qty;
 
   return (
@@ -34,6 +40,7 @@ export default function Used() {
       {onHand !== undefined && qty > onHand ? <Banner text={t('used.moreThanStock', { qty: onHand })} /> : null}
       <RowChips label={t('report.workItem')} rows={items} value={workItemId} onChange={setItem} nameOf={name} allowNone />
       <RowChips label={t('report.floor')} rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone />
+      <TodayEntries entries={today} />
     </Screen>
   );
 }
