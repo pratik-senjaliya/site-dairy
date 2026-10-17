@@ -1,7 +1,7 @@
 // Demo data: one company with a supervisor-ready site. Safe to run twice (skips if the demo company exists).
 import { Prisma } from '@prisma/client';
 import { addDays, isoDate, rupeesToPaise } from '@site-diary/shared';
-import { prisma } from './lib/prisma';
+import { prisma, transaction } from './lib/prisma';
 import { createCompany } from './modules/company/setup';
 import { rebuildLedger } from './modules/store/ledger';
 
@@ -14,7 +14,7 @@ async function main() {
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
+  await transaction(async (tx) => {
     const { company, owner } = await createCompany(tx, { name: DEMO_COMPANY, ownerName: 'Rameshbhai Patel', phone: '+919800000001' });
     const companyId = company.id;
     const createdById = owner.id;
@@ -154,7 +154,7 @@ async function history() {
 }
 
 async function rebuild(companyId: string, source: 'grn' | 'issue', id: string) {
-  await prisma.$transaction((tx) => rebuildLedger(tx, companyId, source, id));
+  await transaction((tx) => rebuildLedger(tx, companyId, source, id));
 }
 
 main()

@@ -2,7 +2,7 @@ import { isoDate } from '@site-diary/shared';
 import jwt from 'jsonwebtoken';
 import { config } from '../../lib/config';
 import { notify } from '../../lib/notify';
-import { prisma } from '../../lib/prisma';
+import { prisma, transaction } from '../../lib/prisma';
 import { putFile } from '../../lib/storage';
 import { toPdf } from './export';
 import { buildReport } from './report';
@@ -43,7 +43,7 @@ export async function runNightlyFor(userId: string, date = isoDate()) {
   });
   const link = reportLink(row.id);
   const workers = report.highlights[0]?.value ?? '';
-  await prisma.$transaction((tx) =>
+  await transaction((tx) =>
     notify(tx, user.companyId, [user.id], {
       kind: 'nightly_report', title: `${report.title} · ${date}`, body: `${report.subtitle} · ${workers}`, entityType: 'report', entityId: row.id, dedupeKey: `nightly:${date}`,
     }),

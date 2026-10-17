@@ -1,13 +1,12 @@
-import type { Prisma } from '@prisma/client';
-import { prisma } from './prisma';
+import { transaction, type Tx } from './prisma';
 
-export type Tx = Prisma.TransactionClient;
+export type { Tx };
 
 // Every write to synced tables goes through here. The per-company lock makes writes of one company
 // commit in server_rev order, so a sync pull (which takes the same lock to read the high-water mark)
 // can never skip a row whose transaction was still open. Pilot companies write a few rows a minute.
 export function write<T>(companyId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return prisma.$transaction(
+  return transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId}))`;
       return fn(tx);

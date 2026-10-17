@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type { Role } from '@site-diary/shared';
 import { createApp } from './app';
-import { prisma } from './lib/prisma';
+import { prisma, transaction } from './lib/prisma';
 import { createCompany } from './modules/company/setup';
 
 export const uuid = randomUUID;
@@ -58,7 +58,7 @@ export async function signIn(phoneNo: string, deviceId = `test-${uuid()}`): Prom
 /** Company with two sites, one person per role (field roles on site A only), and basic masters. */
 export async function world() {
   const ownerPhone = phone();
-  const { company, owner } = await prisma.$transaction((tx) => createCompany(tx, { name: `Test ${uuid().slice(0, 6)}`, ownerName: 'Owner', phone: ownerPhone }));
+  const { company, owner } = await transaction((tx) => createCompany(tx, { name: `Test ${uuid().slice(0, 6)}`, ownerName: 'Owner', phone: ownerPhone }));
   const companyId = company.id;
   const siteA = await prisma.project.create({ data: { companyId, name: 'Site A', type: 'rcc_frame' } });
   const siteB = await prisma.project.create({ data: { companyId, name: 'Site B', type: 'rcc_frame' } });

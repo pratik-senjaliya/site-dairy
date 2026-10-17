@@ -5,6 +5,7 @@ import type { Request, RequestHandler, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import type { Actor } from './audit';
 import { config } from './config';
+import { requestContext } from './context';
 import { HttpError } from './errors';
 import { prisma } from './prisma';
 
@@ -119,7 +120,8 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
     deviceId: session.deviceId,
     sites: seesAllSites(user.role) ? 'all' : user.sites.map((s) => s.projectId),
   };
-  next();
+  // From here on every query in this request is limited to this company by Postgres itself.
+  requestContext.run({ companyId: user.companyId }, next);
 };
 
 export const me = (req: Request): Me => {

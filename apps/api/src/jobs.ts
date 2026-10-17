@@ -2,7 +2,7 @@ import { addDays, isoDate, parseSettings } from '@site-diary/shared';
 import PgBoss from 'pg-boss';
 import { config } from './lib/config';
 import { notify, recipients } from './lib/notify';
-import { prisma } from './lib/prisma';
+import { prisma, transaction } from './lib/prisma';
 import { runNightlyFor } from './modules/reports/nightly';
 
 // Background work on pg-boss (Postgres; no Redis). One "tick" every 5 minutes looks at each company's
@@ -39,7 +39,7 @@ export async function tick() {
           prisma.siteDay.findFirst({ where: { projectId: s.id, date: new Date(`${today}T00:00:00Z`), deletedAt: null } }),
         ]);
         if (entries || (day && day.marker !== 'work')) continue;
-        await prisma.$transaction(async (tx) =>
+        await transaction(async (tx) =>
           notify(tx, c.id, await recipients(tx, c.id, [...roles], s.id), {
             kind: 'no_entry', title: `No attendance yet at ${s.name}`, body: `Please enter today's attendance (${at})`, entityType: 'project', entityId: s.id,
             dedupeKey: `noentry:${roles[0]}:${s.id}:${today}`,
@@ -50,7 +50,7 @@ export async function tick() {
 
     // Weekly wage settlement reminder on the company's wage day.
     if (weekday() === cfg.wageDay && now >= '10:00') {
-      await prisma.$transaction(async (tx) =>
+      await transaction(async (tx) =>
         notify(tx, c.id, await recipients(tx, c.id, ['accountant', 'owner']), {
           kind: 'wages_due', title: 'Weekly wage settlement is due', body: `For ${addDays(today, -6)} to ${today}`, dedupeKey: `wages:${today}`,
         }),
@@ -94,7 +94,7 @@ export async function startJobs() {
       if (attempts >= 3) {
         const user = await prisma.user.findUnique({ where: { id: job.data.userId } });
         if (user) {
-          await prisma.$transaction(async (tx) =>
+          await transaction(async (tx) =>
             notify(tx, user.companyId, await recipients(tx, user.companyId, ['owner']), {
               kind: 'report_failed', title: 'Tonight’s report could not be made', body: e instanceof Error ? e.message : String(e), dedupeKey: `reportfail:${job.data.date}:${user.id}`,
             }),

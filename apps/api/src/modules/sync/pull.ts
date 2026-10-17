@@ -78,6 +78,6 @@ export async function pull(me: Me, since: bigint): Promise<PullResponse> {
     }),
   );
 
-  const stock = canSee(me.role, 'store') ? await stockFor(prisma, me.companyId, sites) : [];
+  const stock = canSee(me.role, 'store') ? await stockFor(null, me.companyId, sites) : [];
   return { rev: hwm.toString(), changes, stock, today, sites };
 }

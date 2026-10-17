@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { audit } from '../../lib/audit';
 import { assertCan, assertSite, me } from '../../lib/auth';
 import { HttpError } from '../../lib/errors';
-import { prisma } from '../../lib/prisma';
+import { prisma, transaction } from '../../lib/prisma';
 import { param, query } from '../../lib/validate';
 import { toPdf, toXlsx } from './export';
 import { reportLink, runNightlyFor } from './nightly';
@@ -68,7 +68,7 @@ reports.get('/:type', async (req, res) => {
   }
   const r = await buildReport(type, { companyId: m.companyId, projectIds, from: q.from, to: q.to, supplierId: q.supplierId, locale: q.lang ?? m.language });
   if (q.format !== 'json') {
-    await prisma.$transaction((tx) => audit(tx, { me: m, ip: req.ip }, { action: 'export', entityType: 'report', entityId: null, after: { type, format: q.format, from: q.from, to: q.to, projectIds } }));
+    await transaction((tx) => audit(tx, { me: m, ip: req.ip }, { action: 'export', entityType: 'report', entityId: null, after: { type, format: q.format, from: q.from, to: q.to, projectIds } }));
   }
   await sendReport(res, r, q.format, `${type}-${q.to}`);
 });

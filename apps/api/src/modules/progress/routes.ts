@@ -47,7 +47,7 @@ registers.get('/stock', allow('store', 'V'), async (req, res) => {
   const q = query(site, req);
   assertSite(m, q.projectId);
   const [stock, settings] = await Promise.all([
-    stockFor(prisma, m.companyId, [q.projectId]),
+    stockFor(null, m.companyId, [q.projectId]),
     prisma.siteMaterialSetting.findMany({ where: { projectId: q.projectId, deletedAt: null } }),
   ]);
   const ids = new Set([...stock.map((s) => s.materialId), ...settings.map((s) => s.materialId)]);

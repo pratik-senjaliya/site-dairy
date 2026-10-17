@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { acceptedQty, isLowStock, isoDate, roundQty, stockDelta, type StockRow } from '@site-diary/shared';
 import type { Tx } from '../../lib/db';
 import { notify, recipients } from '../../lib/notify';
-import { prisma } from '../../lib/prisma';
+import { transaction } from '../../lib/prisma';
 
 type Pair = [projectId: string, materialId: string];
 
@@ -40,12 +40,14 @@ export async function rebuildLedger(tx: Tx, companyId: string, source: 'grn' | '
   return [...before, ...rows].map((r) => [r.projectId, r.materialId]);
 }
 
-export async function stockFor(db: Tx | typeof prisma, companyId: string, projectIds: string[] | 'all', materialId?: string): Promise<StockRow[]> {
-  const groups = await db.stockLedger.groupBy({
-    by: ['projectId', 'materialId'],
-    where: { companyId, ...(projectIds !== 'all' && { projectId: { in: projectIds } }), ...(materialId && { materialId }) },
-    _sum: { qtyDelta: true },
-  });
+export async function stockFor(db: Tx | null, companyId: string, projectIds: string[] | 'all', materialId?: string): Promise<StockRow[]> {
+  const run = (d: Tx) =>
+    d.stockLedger.groupBy({
+      by: ['projectId', 'materialId'],
+      where: { companyId, ...(projectIds !== 'all' && { projectId: { in: projectIds } }), ...(materialId && { materialId }) },
+      _sum: { qtyDelta: true },
+    });
+  const groups = await (db ? run(db) : transaction(run));
   return groups.map((g) => ({ projectId: g.projectId, materialId: g.materialId, qty: roundQty(g._sum.qtyDelta?.toNumber() ?? 0) }));
 }
 

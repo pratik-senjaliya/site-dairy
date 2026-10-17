@@ -9,7 +9,7 @@ import {
 import { config } from '../../lib/config';
 import { HttpError } from '../../lib/errors';
 import { sendOtp } from '../../lib/otp';
-import { prisma } from '../../lib/prisma';
+import { prisma, transaction } from '../../lib/prisma';
 import { body } from '../../lib/validate';
 import { createCompany } from '../company/setup';
 
@@ -61,7 +61,7 @@ async function checkCode(phone: string, code: string) {
 async function login(req: Request, res: Response, userId: string, deviceId: string, deviceName?: string) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const tokens = await startSession(req, res, user.id, user.companyId, deviceId, deviceName);
-  await prisma.$transaction((tx) =>
+  await transaction((tx) =>
     audit(tx, { me: { id: user.id, companyId: user.companyId, deviceId }, ip: req.ip }, { action: 'login', entityType: 'user', entityId: user.id }),
   );
   return { ...tokens, user: { id: user.id, name: user.name, role: user.role, companyId: user.companyId } };
@@ -108,7 +108,7 @@ auth.post('/signup', async (req, res) => {
     req,
   );
   const phone = readVerified(input.verifiedToken);
-  const { owner } = await prisma.$transaction((tx) => createCompany(tx, { name: input.companyName, ownerName: input.name, phone, language: input.language }));
+  const { owner } = await transaction((tx) => createCompany(tx, { name: input.companyName, ownerName: input.name, phone, language: input.language }));
   res.status(201).json(await login(req, res, owner.id, input.deviceId, input.deviceName));
 });
 
@@ -145,7 +145,7 @@ auth.patch('/me', authenticate, async (req, res) => {
   const input = body(z.object({ name: z.string().trim().min(2).max(80).optional(), language: z.enum(LANGUAGES).optional() }), req);
   const m = me(req);
   const before = await prisma.user.findUniqueOrThrow({ where: { id: m.id } });
-  const user = await prisma.$transaction(async (tx) => {
+  const user = await transaction(async (tx) => {
     const u = await tx.user.update({ where: { id: m.id }, data: input });
     await audit(tx, { me: m, ip: req.ip }, { action: 'update', entityType: 'user', entityId: m.id, before: { name: before.name, language: before.language }, after: input });
     return u;

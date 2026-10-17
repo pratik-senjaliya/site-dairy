@@ -47,7 +47,7 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
     prisma.issue.findMany({ where: { projectId, deletedAt: null, createdAt: { gte: new Date(`${date}T00:00:00+05:30`), lt: new Date(`${addDays(date, 1)}T00:00:00+05:30`) } } }),
     prisma.issue.count({ where: { projectId, deletedAt: null, status: 'open' } }),
     prisma.siteMaterialSetting.findMany({ where: { projectId, deletedAt: null } }),
-    stockFor(prisma, companyId, [projectId]),
+    stockFor(null, companyId, [projectId]),
   ]);
   const [contractors, skills, materials, suppliers, workItems, nodes] = await Promise.all([
     prisma.contractor.findMany({ where: { companyId } }),

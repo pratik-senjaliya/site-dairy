@@ -245,7 +245,7 @@ export async function buildReport(type: ReportType, a: ReportArgs): Promise<Repo
     }
     case 'stock': {
       const [stock, settings] = await Promise.all([
-        stockFor(prisma, a.companyId, a.projectIds),
+        stockFor(null, a.companyId, a.projectIds),
         prisma.siteMaterialSetting.findMany({ where: { projectId: { in: a.projectIds }, deletedAt: null } }),
       ]);
       return {
