@@ -3,8 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, spacing } from '@site-diary/ui-tokens';
-import { router, type ErrorBoundaryProps } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Redirect, router, usePathname, type ErrorBoundaryProps } from 'expo-router';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { Button } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { registerPush } from '../lib/push';
@@ -58,12 +58,24 @@ function useSessionSafe(): { lang: 'gu' | 'hi' | 'en' } {
   }
 }
 
+/** Screens read the phone's copy synchronously; until it is loaded after sign-in, show a spinner. */
+function Screens() {
+  const { status } = useSession();
+  const ready = useDb(() => db.ready);
+  const path = usePathname();
+  if (status === 'out' && path !== '/login') return <Redirect href="/login" />;
+  if (status === 'loading' || (status === 'in' && !ready)) {
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  }
+  return <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />;
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
         <AutoSync />
-        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Screens />
         <StatusBar style="dark" />
       </SessionProvider>
     </SafeAreaProvider>

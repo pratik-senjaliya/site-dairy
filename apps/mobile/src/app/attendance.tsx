@@ -1,7 +1,7 @@
 import { addDays, isoDate } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { Banner, Button, Card, Chip, Field, Row, Screen, Stepper, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
@@ -13,6 +13,13 @@ type Line = { key: string; id?: string; contractorId: string; skillId: string; c
 
 // M4: contractor × skill steppers, defaults = yesterday's numbers, one group photo with time and place.
 export default function Attendance() {
+  // The form starts from today's or the last day's numbers, so it waits until the phone's copy is loaded.
+  const ready = useDb(() => db.ready);
+  if (!ready) return <ActivityIndicator style={{ flex: 1 }} color={colors.primary} />;
+  return <AttendanceForm />;
+}
+
+function AttendanceForm() {
   const t = useT();
   const name = useName();
   const { siteId } = useSite();

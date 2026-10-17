@@ -136,7 +136,7 @@ async function history() {
       await rebuild(companyId, 'grn', grn.id);
     }
     const floor = floors[Math.min(floors.length - 1, 4 + Math.floor((14 - back) / 5))]!;
-    for (const [en, qty] of [['Cement', 40 + rnd(20)], ['Sand', 1]] as const) {
+    for (const [en, qty] of [['Cement', 40 + rnd(20)], ['Sand', 0.5]] as const) {
       const issue = await prisma.materialIssue.create({ data: { companyId, projectId: project.id, materialId: mat(en).id, qty, workItemId: items.find((i) => i.nameEn === 'Slab')!.id, structureNodeId: floor.id, date: d, createdById: store.id } });
       await rebuild(companyId, 'issue', issue.id);
     }

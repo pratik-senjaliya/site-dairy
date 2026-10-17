@@ -35,6 +35,8 @@ class Db {
   pending = new Set<string>();
   syncing = false;
   online = true;
+  /** This user's copy has been read from storage (screens that prefill from it wait for this). */
+  ready = false;
   private version = 0;
   private listeners = new Set<() => void>();
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -55,6 +57,7 @@ class Db {
   /** Load this user's copy (each user on a shared phone has their own). */
   async open(userId: string) {
     if (this.ns === userId) return;
+    this.ready = false;
     this.ns = userId;
     this.tables.clear();
     const k = (s: string) => `db:${userId}:${s}`;
@@ -71,6 +74,7 @@ class Db {
     this.photos = (await kv.getJson<PhotoJob[]>(k('photos'))) ?? meta?.photos ?? [];
     this.errors = meta?.errors ?? [];
     this.pending = new Set(meta?.pending ?? []);
+    this.ready = true;
     this.changed();
   }
 
