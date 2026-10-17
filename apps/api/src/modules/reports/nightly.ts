@@ -9,11 +9,11 @@ import { buildReport } from './report';
 
 /** Public link to one report (no sign-in): what the WhatsApp message carries. Valid 30 days. */
 export const reportLink = (reportId: string) =>
-  `${config.publicWebUrl.replace(/\/$/, '')}/r/${jwt.sign({ rid: reportId }, config.jwtSecret, { expiresIn: '30d' })}`;
+  `${config.publicWebUrl.replace(/\/$/, '')}/r/${jwt.sign({ rid: reportId }, config.jwtSecret, { expiresIn: '30d', audience: 'report' })}`;
 
 export function readReportToken(token: string): string | null {
   try {
-    return (jwt.verify(token, config.jwtSecret) as { rid?: string }).rid ?? null;
+    return (jwt.verify(token, config.jwtSecret, { audience: 'report' }) as { rid?: string }).rid ?? null;
   } catch {
     return null;
   }

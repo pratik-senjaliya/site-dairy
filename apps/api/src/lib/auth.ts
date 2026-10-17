@@ -42,7 +42,7 @@ const cookieBase = { httpOnly: true, sameSite: 'lax', secure: config.cookieSecur
 export const isMobile = (req: Request) => req.get('x-client') === 'mobile';
 
 export function signAccess(userId: string, sessionId: string) {
-  return jwt.sign({ sub: userId, sid: sessionId }, config.jwtSecret, { expiresIn: `${config.accessMinutes}m` });
+  return jwt.sign({ sub: userId, sid: sessionId }, config.jwtSecret, { expiresIn: `${config.accessMinutes}m`, audience: 'access' });
 }
 
 /** Creates a device session and returns the tokens (sets cookies for the web panel). */
@@ -97,7 +97,9 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
   let claims: { sub: string; sid: string } | undefined;
   try {
     const token = tokenOf(req);
-    if (token) claims = jwt.verify(token, config.jwtSecret) as { sub: string; sid: string };
+    // audience: a report link or an OTP-verified token can never be used as a sign-in.
+    const c = token ? (jwt.verify(token, config.jwtSecret, { audience: 'access' }) as { sub?: unknown; sid?: unknown }) : null;
+    if (c && typeof c.sub === 'string' && typeof c.sid === 'string') claims = { sub: c.sub, sid: c.sid };
   } catch {
     // expired or bad: 401 below; the client refreshes and retries
   }

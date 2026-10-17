@@ -26,6 +26,7 @@ class Db {
   private outbox = new Map<string, Outbox>();
   photos: PhotoJob[] = [];
   stock: StockRow[] = [];
+  sites: string[] = [];
   rev = '0';
   today = isoDate();
   lastSync: string | null = null;
@@ -62,11 +63,12 @@ class Db {
       this.tables.set(t, new Map((rows ?? []).map((r) => [r.id, r])));
     }
     this.outbox = new Map(((await kv.getJson<Outbox[]>(k('outbox'))) ?? []).map((o) => [`${o.table}:${o.row.id}`, o]));
-    const meta = await kv.getJson<{ rev: string; lastSync: string | null; stock: StockRow[]; photos: PhotoJob[]; errors: SyncError[]; pending: string[] }>(k('meta'));
+    const meta = await kv.getJson<{ rev: string; lastSync: string | null; stock: StockRow[]; photos: PhotoJob[]; errors: SyncError[]; pending: string[]; sites?: string[] }>(k('meta'));
+    this.sites = meta?.sites ?? [];
     this.rev = meta?.rev ?? '0';
     this.lastSync = meta?.lastSync ?? null;
     this.stock = meta?.stock ?? [];
-    this.photos = meta?.photos ?? [];
+    this.photos = (await kv.getJson<PhotoJob[]>(k('photos'))) ?? meta?.photos ?? [];
     this.errors = meta?.errors ?? [];
     this.pending = new Set(meta?.pending ?? []);
     this.changed();
@@ -78,7 +80,16 @@ class Db {
     await Promise.all([
       ...[...this.tables].map(([t, m]) => kv.setJson(k(`t:${t}`), [...m.values()])),
       kv.setJson(k('outbox'), [...this.outbox.values()]),
-      kv.setJson(k('meta'), { rev: this.rev, lastSync: this.lastSync, stock: this.stock, photos: this.photos, errors: this.errors.slice(0, 50), pending: [...this.pending] }),
+      kv.setJson(k('meta'), { rev: this.rev, lastSync: this.lastSync, stock: this.stock, photos: this.photos, errors: this.errors.slice(0, 50), pending: [...this.pending], sites: this.sites }),
+    ]);
+  }
+
+  /** "Never lose an entry": the outbox and the photo queue are written at once, not after the debounce. */
+  private async persistOutbox() {
+    if (!this.ns) return;
+    await Promise.all([
+      kv.setJson(`db:${this.ns}:outbox`, [...this.outbox.values()]),
+      kv.setJson(`db:${this.ns}:photos`, this.photos),
     ]);
   }
 
@@ -109,6 +120,7 @@ class Db {
     this.table(t).set(full.id, full);
     this.outbox.set(`${t}:${full.id}`, { table: t, row: full });
     this.pending.delete(full.id);
+    void this.persistOutbox();
     this.changed();
     this.soon();
     return full;
@@ -119,6 +131,7 @@ class Db {
   }
   queuePhoto(photoId: string, uri: string) {
     this.photos.push({ photoId, uri });
+    void this.persistOutbox();
     this.changed();
   }
 
@@ -209,7 +222,23 @@ class Db {
     this.stock = p.stock;
     this.today = p.today;
     this.rev = p.rev;
+    if (p.sites) this.dropOtherSites(p.sites);
     this.prune();
+  }
+
+  /** A site taken away from this person disappears from the phone (unsent entries for it stay until refused). */
+  private dropOtherSites(sites: string[]) {
+    this.sites = sites;
+    const keep = new Set(sites);
+    for (const t of PULL_TABLES) {
+      const m = this.table(t);
+      for (const r of m.values()) {
+        if (this.outbox.has(`${t}:${r.id}`)) continue;
+        const pid = t === 'project' ? r.id : (r.projectId ?? (t === 'stockTransfer' ? null : undefined));
+        if (t === 'stockTransfer' && !keep.has(String(r.fromProjectId)) && !keep.has(String(r.toProjectId))) m.delete(r.id);
+        else if (typeof pid === 'string' && !keep.has(pid)) m.delete(r.id);
+      }
+    }
   }
 
   /** Keep the last 30 days of daily entries on the phone. */

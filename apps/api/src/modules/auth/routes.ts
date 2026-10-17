@@ -33,10 +33,10 @@ auth.post('/otp/request', async (req, res) => {
 });
 
 /** A short token proving this phone number passed OTP; used to pick a company or sign up. */
-const signVerified = (phone: string) => jwt.sign({ phone, kind: 'verified' }, config.jwtSecret, { expiresIn: '15m' });
+const signVerified = (phone: string) => jwt.sign({ phone, kind: 'verified' }, config.jwtSecret, { expiresIn: '15m', audience: 'otp' });
 function readVerified(token: string): string {
   try {
-    const c = jwt.verify(token, config.jwtSecret) as { phone?: string; kind?: string };
+    const c = jwt.verify(token, config.jwtSecret, { audience: 'otp' }) as { phone?: string; kind?: string };
     if (c.kind === 'verified' && c.phone) return c.phone;
   } catch {
     // fall through

@@ -120,6 +120,7 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
     assertSite(me, projectId);
   }
   if (existing && existing.projectId && existing.projectId !== projectId) assertSite(me, String(existing.projectId));
+  await guardSettled(tx, table, row, existing, projectId);
 
   // Attendance locks at midnight. Later edits by a supervisor go to an engineer for approval.
   if (table === 'attendanceEntry' && !ctx.approved) {
@@ -170,6 +171,42 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
   return targetId === id ? { kind: 'applied' } : { kind: 'remapped', to: targetId };
 }
 
+const SETTLED = ['submitted', 'approved', 'paid'] as const;
+
+/** Money and approvals already decided on a record freeze it: wages paid on attendance, approved indents, received transfers. */
+async function guardSettled(tx: Tx, table: PushTable, row: Row, existing: Row | null, projectId: string) {
+  if (table === 'attendanceEntry') {
+    for (const r of existing ? [existing, row] : [row]) {
+      const date = r.date instanceof Date ? r.date : day(String(r.date));
+      const s = await tx.wageSettlement.findFirst({
+        where: { projectId, contractorId: String(r.contractorId), deletedAt: null, status: { in: [...SETTLED] }, periodFrom: { lte: date }, periodTo: { gte: date } },
+      });
+      if (s) throw new HttpError(409, 'This day is already in a wage settlement. Cancel that settlement first.', 'settled');
+    }
+  }
+  if (table === 'advance' && existing?.settlementId) throw new HttpError(409, 'This advance is already in a wage settlement', 'settled');
+  if (table === 'indentLine') {
+    const indent = await tx.indent.findUnique({ where: { id: String(row.indentId) } });
+    if (indent && !['draft', 'submitted'].includes(indent.status)) throw new HttpError(409, 'This indent is already decided; raise a new one', 'decided');
+  }
+  if (table === 'indent' && existing && row.deletedAt && !['draft', 'submitted'].includes(String(existing.status))) {
+    throw new HttpError(409, 'An approved indent cannot be deleted', 'decided');
+  }
+  if (table === 'stockTransfer' && existing?.status === 'received') throw new HttpError(409, 'This transfer was already received', 'received');
+}
+
+/** A GRN against a PO moves the PO to partly or fully received. */
+async function updatePoStatus(tx: Tx, poId: string) {
+  const po = await tx.purchaseOrder.findUnique({ where: { id: poId }, include: { lines: { where: { deletedAt: null } } } });
+  if (!po || !['approved', 'sent', 'partly_received', 'received'].includes(po.status)) return;
+  const lines = await tx.grnLine.findMany({ where: { deletedAt: null, grn: { poId, deletedAt: null } } });
+  const got = (m: string) => lines.filter((l) => l.materialId === m).reduce((s, l) => s + l.qty.toNumber() - l.rejectedQty.toNumber(), 0);
+  const any = lines.length > 0;
+  const all = po.lines.every((l) => got(l.materialId) >= l.qty.toNumber() - 1e-9);
+  const status = all && any ? 'received' : any ? 'partly_received' : po.status === 'received' || po.status === 'partly_received' ? 'sent' : po.status;
+  if (status !== po.status) await tx.purchaseOrder.update({ where: { id: poId }, data: { status } });
+}
+
 const APPROVERS: Record<string, ('owner' | 'engineer')[]> = {
   attendanceEntry: ['engineer', 'owner'],
   indent: ['engineer', 'owner'],
@@ -195,7 +232,13 @@ export function newCtx(me: Me, ip: string | null, projects: string[], approved =
 /** Ledger rebuilds, low-stock checks and notices after the rows of one push are in. */
 export async function finish(tx: Tx, ctx: Ctx) {
   const pairs: [string, string][] = [];
-  for (const id of ctx.touched.grn) pairs.push(...(await rebuildLedger(tx, ctx.me.companyId, 'grn', id)));
+  const pos = new Set<string>();
+  for (const id of ctx.touched.grn) {
+    pairs.push(...(await rebuildLedger(tx, ctx.me.companyId, 'grn', id)));
+    const grn = await tx.grn.findUnique({ where: { id }, select: { poId: true } });
+    if (grn?.poId) pos.add(grn.poId);
+  }
+  for (const poId of pos) await updatePoStatus(tx, poId);
   for (const id of ctx.touched.issue) pairs.push(...(await rebuildLedger(tx, ctx.me.companyId, 'issue', id)));
   for (const id of ctx.touched.transfer) pairs.push(...(await rebuildLedger(tx, ctx.me.companyId, 'transfer', id)));
   await checkLowStock(tx, ctx.me.companyId, pairs);

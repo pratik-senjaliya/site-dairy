@@ -148,4 +148,6 @@ export interface PullResponse {
   changes: Partial<Record<PullTable, Record<string, unknown>[]>>;
   stock: StockRow[];
   today: string;
+  /** Sites this person may see now; the phone drops data of sites taken away. */
+  sites: string[];
 }

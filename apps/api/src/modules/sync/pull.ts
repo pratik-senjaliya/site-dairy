@@ -20,9 +20,9 @@ export async function pull(me: Me, since: bigint): Promise<PullResponse> {
   const today = isoDate();
   const from = day(addDays(today, -OFFLINE_DAYS));
 
-  const sites = me.sites === 'all'
-    ? (await prisma.project.findMany({ where: { companyId: me.companyId }, select: { id: true } })).map((p) => p.id)
-    : me.sites;
+  const sites = (
+    await prisma.project.findMany({ where: { companyId: me.companyId, deletedAt: null, ...(me.sites !== 'all' && { id: { in: me.sites } }) }, select: { id: true } })
+  ).map((p) => p.id);
   const site = { projectId: { in: sites } };
   const recent = (field: string) => (first ? { [field]: { gte: from } } : {});
 
@@ -79,5 +79,5 @@ export async function pull(me: Me, since: bigint): Promise<PullResponse> {
   );
 
   const stock = canSee(me.role, 'store') ? await stockFor(prisma, me.companyId, sites) : [];
-  return { rev: hwm.toString(), changes, stock, today };
+  return { rev: hwm.toString(), changes, stock, today, sites };
 }

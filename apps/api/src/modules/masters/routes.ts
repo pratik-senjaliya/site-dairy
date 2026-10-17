@@ -57,9 +57,13 @@ function canWrite(m: Me, kind: MasterKind) {
 
 export const masters = Router();
 
+// Daily rates are money: owner, engineer and accountant only.
+const READERS: Partial<Record<MasterKind, Role[]>> = { contractorRate: ['owner', 'engineer', 'accountant'] };
+
 masters.get('/:kind', async (req, res) => {
   const m = me(req);
   const kind = kindOf(param(req, 'kind'));
+  if (READERS[kind] && !READERS[kind].includes(m.role)) throw new HttpError(403, 'You do not have permission to see this list', 'forbidden');
   const where: Row = { companyId: m.companyId, deletedAt: null };
   if (typeof req.query.projectId === 'string') {
     assertSite(m, req.query.projectId);
