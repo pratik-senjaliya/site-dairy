@@ -15,7 +15,11 @@ WatermelonDB needs a custom native build (its SQLite adapter is not in Expo Go) 
 - **Two phones, same contractor × skill × day**: one row; the later write wins (the second phone's row id is remapped).
 - **Signup**: an unknown phone number can create a company (pilot self-serve; `SIGNUP_OPEN=false` turns it off).
 - **Web panel language**: English with Gujarati names beside materials/skills/work items (office staff and the CA read English); reports follow each user's language. The phone app is Gujarati-first with English and Hindi.
-- **RLS**: not yet. Every query filters by company in the API (tests cover tenant isolation); Postgres row-level security as the second guard is still to do.
+- **RLS**: done (17 Oct). Every company table has a policy; the API sets `app.company_id` per query and runs as `site_app` (no BYPASSRLS). Jobs, sign-in and report links run as "system". Cost: each query runs in a small transaction (a few extra round trips), so the API and database must share a region.
+- **Wages and payments**: supervisors record advances; settlements and their payment are office work (owner, engineer, accountant); supplier payments are owner/accountant. Attendance and advances inside a settlement are frozen until it is cancelled.
+- **Plans**: Pilot 2 active sites and 60 days (a banner warns; nothing is locked when it ends — Site Diary decides), Basic 5 site staff per active site (owners and accountants not counted), Pro unlimited. Changed with `npm run set-plan -w apps/api -- <owner phone> <plan>`.
+- **Notifications** are written in each recipient's language when created.
+- **Crash reports** from the web panel and the phone go to `POST /client-errors` and from there to Sentry, so one DSN covers all three apps.
 
 ## 2026-10-15 — Stack: reuse what the BME app already proved
 

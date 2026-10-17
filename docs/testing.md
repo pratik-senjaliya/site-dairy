@@ -47,7 +47,6 @@ Expo Go has the camera, location, offline storage and sharing that the app uses,
 
 ```bash
 npm run lint && npm run typecheck && npm test     # unit + API integration tests (needs the database)
-npm run e2e:phone                                  # supervisor journey on a 375 px phone, incl. offline entry
-npm run e2e:web                                    # every office page as the owner, approve an indent, make a PO
+npm run e2e                                        # supervisor incl. offline, every office page, other roles
 ```
 The e2e scripts need the API on :4000, the phone web build on :8081 and `next start` on :3000.

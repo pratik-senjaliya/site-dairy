@@ -139,6 +139,13 @@ export const allow =
     next();
   };
 
+export const allowRoles =
+  (...roles: Me['role'][]): RequestHandler =>
+  (req, _res, next) => {
+    if (!roles.includes(me(req).role)) throw new HttpError(403, 'You do not have permission to do this', 'forbidden');
+    next();
+  };
+
 export function assertCan(m: Me, module: Module, action: Action) {
   if (!can(m.role, module, action)) throw new HttpError(403, 'You do not have permission to do this', 'forbidden');
 }

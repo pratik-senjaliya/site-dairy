@@ -2,7 +2,7 @@ import { isoDateSchema, paiseSchema, parseSettings, qtySchema, uuidSchema } from
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
-import { allow, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
+import { allow, allowRoles, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
 import { day } from '../../lib/json';
@@ -101,7 +101,7 @@ const paymentSchema = z.object({
   reference: z.string().trim().max(100).nullable().optional(),
 });
 
-purchase.post('/supplier-payments', allow('wages', 'C'), async (req, res) => {
+purchase.post('/supplier-payments', allowRoles('owner', 'accountant'), async (req, res) => {
   const m = me(req);
   const input = body(paymentSchema, req);
   if (input.projectId) assertSite(m, input.projectId);

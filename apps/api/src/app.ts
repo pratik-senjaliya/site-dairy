@@ -11,6 +11,11 @@ export function createApp() {
   app.set('trust proxy', config.trustProxy);
   app.set('json replacer', jsonReplacer);
   app.use(cors({ origin: config.webOrigins, credentials: true }));
+  app.disable('x-powered-by');
+  app.use((_req, res, next) => {
+    res.set({ 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY' });
+    next();
+  });
   app.use(express.json({ limit: '5mb' }));
   app.use(cookieParser());
   app.use('/api/v1', v1);

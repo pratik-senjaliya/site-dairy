@@ -2,7 +2,7 @@ import { isoDateSchema, uuidSchema } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
-import { allow, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
+import { allow, allowRoles, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
 import { day } from '../../lib/json';
@@ -12,6 +12,9 @@ import { requestApproval } from '../sync/push';
 import { previewWages } from './service';
 
 export const wages = Router();
+
+/** Settlements and payments are office work (owner, engineer, accountant); a supervisor's "C" on wages is for advances. */
+const office = allowRoles('owner', 'engineer', 'accountant');
 
 const period = z.object({ projectId: uuidSchema, contractorId: uuidSchema, from: isoDateSchema, to: isoDateSchema }).refine((p) => p.from <= p.to, 'Start is after end');
 
@@ -33,7 +36,7 @@ wages.get('/', allow('wages', 'V'), async (req, res) => {
 });
 
 // Weekly/fortnightly settlement: computed on the server, then the owner approves, then it is marked paid.
-wages.post('/', allow('wages', 'C'), async (req, res) => {
+wages.post('/', office, async (req, res) => {
   const m = me(req);
   const input = body(period, req);
   assertSite(m, input.projectId);
@@ -61,7 +64,7 @@ wages.post('/', allow('wages', 'C'), async (req, res) => {
   res.status(201).json(saved);
 });
 
-wages.post('/:id/pay', allow('wages', 'C'), async (req, res) => {
+wages.post('/:id/pay', office, async (req, res) => {
   const m = me(req);
   const { mode } = body(z.object({ mode: z.enum(['cash', 'upi', 'bank']) }), req);
   const saved = await write(m.companyId, async (tx) => {
@@ -77,7 +80,7 @@ wages.post('/:id/pay', allow('wages', 'C'), async (req, res) => {
 });
 
 /** A rejected settlement frees its advances for the next one. */
-wages.post('/:id/cancel', allow('wages', 'C'), async (req, res) => {
+wages.post('/:id/cancel', office, async (req, res) => {
   const m = me(req);
   const saved = await write(m.companyId, async (tx) => {
     const before = await tx.wageSettlement.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null } });

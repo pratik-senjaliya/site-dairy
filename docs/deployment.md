@@ -22,6 +22,11 @@ Pilot setup (low cost, India region):
 5. **Phone web build on Vercel** (optional): root `apps/mobile`, env `EXPO_PUBLIC_API_URL=https://<api>`. Add both Vercel URLs to the API's `WEB_ORIGIN` (comma-separated) and set `PUBLIC_WEB_URL` to the office panel URL.
 6. **WhatsApp** (when Meta approves): create a template named `nightly_report` (language gu) with three body variables — name, date, link — and set `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`. Until then the report is in-app and shared with the link/PDF from the phone.
 
+## Database role and region
+
+- The first migration run creates a `site_app` role (no BYPASSRLS) that the API switches to for every query, so row-level security holds even if the connection user could bypass it. If the database user cannot create roles, the migration says so and the policies still apply through FORCE RLS to a non-superuser owner.
+- Put the API and the database in the **same region** (e.g. Render Singapore + Supabase Singapore): each query runs in its own short transaction to set the company, which costs a few round trips.
+
 ## Jobs
 
 pg-boss runs inside the API (schema `pgboss` in the same database): a tick every 5 minutes sends, per company and in Asia/Kolkata time, the 7 pm no-entry reminders (supervisor, then engineer 30 min later), the weekly wage reminder and the nightly report (3 retries; the owner is told if it still fails). `RUN_JOBS=false` turns them off for an extra API instance.

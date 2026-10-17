@@ -30,6 +30,7 @@ try {
     await phone.goto(APP);
     await phone.locator('input').first().fill('9800000004');
     await phone.getByText('OTP મોકલો').click();
+    await phone.getByText('ખાતરી કરો').waitFor(); // the code screen has replaced the phone screen
     await phone.locator('input').first().fill('123456');
     await phone.getByText('ખાતરી કરો').click();
     await phone.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });

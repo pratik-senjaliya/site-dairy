@@ -10,7 +10,7 @@ import { errorText, fileUrl, patch, post } from '@/lib/api';
 import { date, money, qty } from '@/lib/format';
 import { useFetch } from '@/lib/hooks';
 import { useLookups } from '@/lib/masters';
-import { useCan, useMe } from '@/lib/session';
+import { useMe } from '@/lib/session';
 
 interface StockRow { materialId: string; qty: number; minStock: number | null }
 interface Grn { id: string; date: string; supplierId: string | null; challanNo: string | null; vehicleNo: string | null; lines: { id: string; materialId: string; qty: number; rejectedQty: number; ratePaise: number | null }[]; photos: { id: string; uploaded: boolean }[] }
@@ -22,7 +22,6 @@ interface SupplierLedger { duePaise: number; rows: { id: string; date: string; k
 // W8: stock statement and ledger, GRN register, usage, transfers, supplier ledger and payments.
 export default function StorePage() {
   const { message } = App.useApp();
-  const can = useCan();
   const L = useLookups();
   const [site, setSite] = useState<string | undefined>();
   const [range, setRange] = useState<[string, string]>([addDays(isoDate(), -30), isoDate()]);
@@ -115,7 +114,7 @@ export default function StorePage() {
             <Space direction="vertical" style={{ width: '100%' }}>
               <Space wrap>
                 <Select style={{ width: 280 }} placeholder="Supplier" value={supplier} onChange={setSupplier} showSearch optionFilterProp="label" options={L.suppliers.map((s) => ({ value: s.id, label: String(s.name) }))} />
-                {supplier && can('wages', 'C') ? <Button onClick={() => { payForm.setFieldsValue({ date: dayjs(), mode: 'bank' }); setPaying(true); }}>Record payment</Button> : null}
+                {supplier && (role === 'owner' || role === 'accountant') ? <Button onClick={() => { payForm.setFieldsValue({ date: dayjs(), mode: 'bank' }); setPaying(true); }}>Record payment</Button> : null}
                 {supplier ? <Button href={fileUrl(`/reports/supplier-ledger?supplierId=${supplier}&format=xlsx`)}>Excel</Button> : null}
                 {sledger.data ? <Typography.Text strong>Due: {money(sledger.data.duePaise)}</Typography.Text> : null}
               </Space>

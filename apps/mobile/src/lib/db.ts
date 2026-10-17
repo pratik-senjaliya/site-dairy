@@ -244,10 +244,21 @@ class Db {
   /** Keep the last 30 days of daily entries on the phone. */
   private prune() {
     const from = addDays(isoDate(), -KEEP_DAYS);
+    const old = (t: PullTable, r: Row, day: unknown) => typeof day === 'string' && day.slice(0, 10) < from && !this.outbox.has(`${t}:${r.id}`);
     for (const t of DATED) {
       const m = this.table(t);
-      for (const r of m.values()) if (typeof r.date === 'string' && r.date < from && !this.outbox.has(`${t}:${r.id}`)) m.delete(r.id);
+      for (const r of m.values()) if (old(t, r, r.date)) m.delete(r.id);
     }
+    // Finished business older than 30 days: photos, solved problems, decided indents, completed transfers.
+    for (const r of this.table('photo').values()) if (old('photo', r, r.takenAt) && !this.photos.some((p) => p.photoId === r.id)) this.table('photo').delete(r.id);
+    for (const r of this.table('issue').values()) if (r.status === 'resolved' && old('issue', r, r.updatedAt)) this.table('issue').delete(r.id);
+    for (const r of this.table('indent').values()) {
+      if (r.status !== 'submitted' && r.status !== 'draft' && old('indent', r, r.createdAt)) {
+        this.table('indent').delete(r.id);
+        for (const l of this.table('indentLine').values()) if (l.indentId === r.id) this.table('indentLine').delete(l.id);
+      }
+    }
+    for (const r of this.table('stockTransfer').values()) if (r.status !== 'sent' && old('stockTransfer', r, r.updatedAt)) this.table('stockTransfer').delete(r.id);
   }
 
   async close() {

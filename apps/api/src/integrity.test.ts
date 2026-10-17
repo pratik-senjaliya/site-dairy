@@ -129,3 +129,18 @@ test('PO: PDF for the office, a public link and WhatsApp message for the supplie
   const big = await store.call<{ id: string }>('POST', '/purchase/pos', { projectId: w.siteA.id, supplierId: supplier.body.id, lines: [{ materialId: w.cement.id, qty: 1000, ratePaise: 38000 }] });
   assert.equal((await store.call('GET', `/purchase/pos/${big.body.id}/share`)).status, 409);
 });
+
+test('security review: supervisors record advances but not settlements or payments; hidden records are 404', async () => {
+  const w = await world();
+  const sup = await signIn(w.people.supervisor);
+  assert.equal((await sup.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: today, to: today })).status, 403);
+  const s = await prisma.supplier.create({ data: { companyId: w.companyId, name: 'S' } });
+  assert.equal((await sup.call('POST', '/purchase/supplier-payments', { supplierId: s.id, amountPaise: 100, date: today, mode: 'cash' })).status, 403);
+  const adv = await sup.call<PushResult>('POST', '/sync/push', { changes: { advance: [{ id: uuid(), projectId: w.siteA.id, contractorId: w.contractor.id, amountPaise: 1000, date: today, mode: 'cash' }] } });
+  assert.equal(adv.body.applied, 1);
+  const other = await world();
+  const owner = await signIn(w.people.owner);
+  assert.equal((await owner.call('GET', `/dashboard/site/${other.siteA.id}`)).status, 404, 'another company’s site');
+  const res = await fetch(`${base()}/health`);
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+});

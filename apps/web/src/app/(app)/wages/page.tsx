@@ -10,7 +10,7 @@ import { errorText, fileUrl, get, post } from '@/lib/api';
 import { date, money, qty } from '@/lib/format';
 import { useFetch } from '@/lib/hooks';
 import { useLookups } from '@/lib/masters';
-import { useCan } from '@/lib/session';
+import { useMe } from '@/lib/session';
 
 interface Settlement { id: string; contractorId: string; periodFrom: string; periodTo: string; grossPaise: number; advancesPaise: number; netPaise: number; status: string; paidAt: string | null; paidMode: string | null }
 interface Advance { id: string; contractorId: string; amountPaise: number; date: string; mode: string; settlementId: string | null }
@@ -20,7 +20,6 @@ const TONE: Record<string, string> = { submitted: 'gold', approved: 'blue', paid
 // W5: days × rate − advances = payable; owner approves; mark paid.
 export default function WagesPage() {
   const { message } = App.useApp();
-  const can = useCan();
   const L = useLookups();
   const [site, setSite] = useState<string | undefined>();
   const settlements = useFetch<Settlement[]>(site ? `/wages?projectId=${site}` : null);
@@ -30,7 +29,8 @@ export default function WagesPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [form] = Form.useForm();
   const [advForm] = Form.useForm();
-  const canCreate = can('wages', 'C');
+  const role = useMe()?.user.role;
+  const canCreate = role === 'owner' || role === 'engineer' || role === 'accountant';
 
   const period = () => {
     const v = form.getFieldsValue() as { contractorId?: string; range?: [dayjs.Dayjs, dayjs.Dayjs] };
