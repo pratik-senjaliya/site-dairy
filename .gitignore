@@ -24,3 +24,5 @@ apps/mobile/android/
 .metro-health-check*
 e2e/.out/
 uploads/
+apps/mobile/dist-demo/
+site-diary-demo.html

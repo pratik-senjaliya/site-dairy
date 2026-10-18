@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, Button, Card, Chips, Field, Input, T } from '../components/ui';
-import { ApiError, getDeviceId, getServer, post, setServer } from '../lib/api';
+import { ApiError, DEMO_BUILD, getDeviceId, getServer, post, setDemo, setServer } from '../lib/api';
 import { notice } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
@@ -53,6 +53,19 @@ export default function Login() {
           </View>
           <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
           {error ? <Banner tone="error" text={error} /> : null}
+
+          {DEMO_BUILD || step === 'phone' ? (
+            <Card style={DEMO_BUILD ? { borderColor: colors.primary, borderWidth: 2 } : undefined}>
+              <T.h2>{t('demo.title')}</T.h2>
+              <T.small>{t('demo.hint')}</T.small>
+              {(['supervisor', 'owner', 'engineer', 'store', 'accountant'] as const).map((role) => (
+                <Button key={role} kind={role === 'supervisor' ? 'primary' : 'secondary'} small label={t(`role.${role}`)} busy={busy} onPress={() => run(async () => {
+                  await setDemo(true);
+                  await finish(await post<Verify>('/auth/demo', { role }));
+                })} />
+              ))}
+            </Card>
+          ) : null}
 
           {step === 'phone' && (
             <Card>
@@ -106,7 +119,7 @@ export default function Login() {
           )}
 
           <View style={{ gap: spacing.sm }}>
-            {server === null ? (
+            {DEMO_BUILD ? null : server === null ? (
               <Pressable onPress={() => setServerText(getServer())} hitSlop={8}>
                 <Text style={{ color: colors.muted, fontSize: type.label, textAlign: 'center' }}>{t('login.server')}: {getServer()}</Text>
               </Pressable>

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SyncBadge } from '../components/SyncBadge';
 import { Banner, Button, Card, Row, Screen, T, Tile } from '../components/ui';
+import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { notice, useCan, useOnline, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -87,6 +88,7 @@ function FieldHome() {
         <T.body muted>{t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })} · {today}</T.body>
         <Pressable onPress={() => router.push('/sites')} hitSlop={8}><Text style={{ color: colors.primary, fontWeight: '700' }}>{t('home.changeSite')}</Text></Pressable>
       </Row>
+      {isDemo() ? <Banner tone="info" text={t('demo.banner')} onPress={() => router.push('/profile')} /> : null}
       {stats.firstSync ? <Banner tone="info" text={t('home.firstSync')} /> : null}
       {stats.marker && stats.marker !== 'work' ? <Banner tone="info" text={t(`marker.${stats.marker}` as 'marker.work')} /> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
@@ -118,6 +120,7 @@ function OfficeHome() {
   const { data, error, loading, reload } = useOnline<Dashboard>('/dashboard');
   return (
     <Screen back={false} title={me?.company.name ?? ''} right={<Bell />}>
+      {isDemo() ? <Banner tone="info" text={t('demo.banner')} onPress={() => router.push('/profile')} /> : null}
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={reload} /> : null}
       {data ? (
         <>

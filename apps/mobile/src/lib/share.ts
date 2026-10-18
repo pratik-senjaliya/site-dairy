@@ -1,9 +1,11 @@
 import { isoDate } from '@site-diary/shared';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
-import { apiUrl, authHeaders } from './api';
+import { Platform, Share } from 'react-native';
+import { apiUrl, authHeaders, isDemo } from './api';
 import { db } from './db';
+import { demoReportText } from '../demo/server';
+import { showToast } from '../components/Dialogs';
 
 /**
  * Today's site report as a PDF through the phone's share sheet (WhatsApp, etc.).
@@ -11,6 +13,16 @@ import { db } from './db';
  */
 export async function shareDailyReport(projectId: string, title: string, date = isoDate()) {
   await db.sync();
+  if (isDemo()) {
+    // The demo has no server to make the PDF; it shares the same summary as text.
+    const text = await demoReportText(projectId);
+    if (Platform.OS === 'web') {
+      showToast(title, text);
+      return;
+    }
+    await Share.share({ title, message: text });
+    return;
+  }
   const url = apiUrl(`/reports/daily?projectId=${projectId}&to=${date}&from=${date}&format=pdf`);
   if (Platform.OS === 'web') {
     const res = await fetch(url, { headers: authHeaders() });
@@ -30,6 +42,5 @@ export async function shareLink(link: string) {
     window.open(link, '_blank');
     return;
   }
-  const { Share } = await import('react-native');
   await Share.share({ message: link });
 }

@@ -3,8 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors, spacing } from '@site-diary/ui-tokens';
-import { Redirect, router, usePathname, type ErrorBoundaryProps } from 'expo-router';
+import { router, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { DialogHost } from '../components/Dialogs';
 import { Button } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { registerPush } from '../lib/push';
@@ -63,7 +64,11 @@ function Screens() {
   const { status } = useSession();
   const ready = useDb(() => db.ready);
   const path = usePathname();
-  if (status === 'out' && path !== '/login') return <Redirect href="/login" />;
+  // Signed out on any other screen: go to login. Done from an effect so the screen stack stays mounted
+  // (swapping the stack for a <Redirect> while a screen also navigates loops forever).
+  useEffect(() => {
+    if (status === 'out' && path !== '/login') router.replace('/login');
+  }, [status, path]);
   if (status === 'loading' || (status === 'in' && !ready)) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
@@ -76,6 +81,7 @@ export default function RootLayout() {
       <SessionProvider>
         <AutoSync />
         <Screens />
+        <DialogHost />
         <StatusBar style="dark" />
       </SessionProvider>
     </SafeAreaProvider>

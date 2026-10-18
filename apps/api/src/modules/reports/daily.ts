@@ -70,7 +70,7 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
   for (const e of week) perDay.set(e.date.toISOString(), (perDay.get(e.date.toISOString()) ?? 0) + workers(e));
   const yesterday = perDay.get(day(addDays(date, -1)).toISOString()) ?? 0;
   const avg7 = perDay.size ? Math.round([...perDay.values()].reduce((a, b) => a + b, 0) / perDay.size) : 0;
-  const changePct = avg7 ? Math.round(((todayWorkers - avg7) / avg7) * 100) : null;
+  const changePct = avg7 && attendance.length ? Math.round(((todayWorkers - avg7) / avg7) * 100) : null; // nothing entered yet is not a 100% drop
 
   const byContractor = contractors
     .map((c) => {

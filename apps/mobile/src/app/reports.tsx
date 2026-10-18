@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Banner, Button, Card, Empty, Row, Screen, T } from '../components/ui';
-import { post } from '../lib/api';
+import { isDemo, post } from '../lib/api';
 import { notice, useOnline, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
@@ -17,6 +17,7 @@ export default function Reports() {
 
   return (
     <Screen title={t('home.reports')}>
+      {isDemo() ? <Banner tone="info" text={t('demo.reportNote')} /> : null}
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={reload} /> : null}
       {gets ? (
         <Button label={t('reports.sendNow')} busy={busy} onPress={() => {

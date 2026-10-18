@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { randomUUID } from 'expo-crypto';
 import { Platform } from 'react-native';
 import { kv, secure } from './kv';
+import { demoApi, DemoError, saveDemoPhoto } from '../demo/server';
 
 // The phone talks to the API directly with a bearer token (X-Client: mobile); the refresh token is
 // bound to this device id and rotates on every use.
@@ -15,6 +16,16 @@ const DEFAULT_URL =
     : `http://${devHost ?? 'localhost'}:4000`);
 
 let baseUrl = DEFAULT_URL;
+
+/** Demo mode: the app answers itself (src/demo/server.ts); no server or internet. Built-in with EXPO_PUBLIC_DEMO=1. */
+export const DEMO_BUILD = process.env.EXPO_PUBLIC_DEMO === '1';
+let demo = DEMO_BUILD;
+export const isDemo = () => demo;
+export async function setDemo(on: boolean) {
+  demo = DEMO_BUILD || on;
+  if (on) await kv.set('demo', '1');
+  else await kv.remove('demo');
+}
 let access: string | null = null;
 let deviceId = '';
 let onSignedOut: () => void = () => {};
@@ -28,6 +39,7 @@ export class ApiError extends Error {
 export async function initApi(signedOut: () => void) {
   onSignedOut = signedOut;
   baseUrl = (await kv.get('server')) ?? DEFAULT_URL;
+  demo = DEMO_BUILD || (await kv.get('demo')) === '1';
   deviceId = (await kv.get('deviceId')) ?? '';
   if (!deviceId) {
     deviceId = randomUUID();
@@ -83,6 +95,14 @@ async function refresh(): Promise<boolean> {
 }
 
 export async function api<T>(method: string, path: string, body?: unknown, retry = true): Promise<T> {
+  if (demo) {
+    try {
+      return (await demoApi(method, path, body, access)) as T;
+    } catch (e) {
+      if (e instanceof DemoError) throw new ApiError(e.status, e.message, e.code);
+      throw e;
+    }
+  }
   let res: Response;
   try {
     res = await fetch(apiUrl(path), {
@@ -109,6 +129,10 @@ export const post = <T>(path: string, body?: unknown) => api<T>('POST', path, bo
 
 /** Raw upload (photos), with one refresh on 401. */
 export async function putBlob(path: string, blob: Blob, type: string): Promise<void> {
+  if (demo) {
+    await saveDemoPhoto(path.split('/')[2]!, blob);
+    return;
+  }
   const send = () => fetch(apiUrl(path), { method: 'PUT', headers: { 'content-type': type, ...authHeaders() }, body: blob });
   let res = await send();
   if (res.status === 401 && (await refresh())) res = await send();

@@ -1,6 +1,6 @@
 import type { Language } from '@prisma/client';
 import { companySettingsSchema } from '@site-diary/shared';
-import { MATERIALS, SKILLS, WORK_ITEM_TEMPLATES } from '../../catalog';
+import { MATERIALS, SKILLS, WORK_ITEM_TEMPLATES } from '@site-diary/shared';
 import type { Tx } from '../../lib/db';
 
 /** New tenant: company, its owner and the starting lists (skills, materials, work-item templates). */

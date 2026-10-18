@@ -3,7 +3,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/.next/**', '**/.expo/**', '**/node_modules/**', '**/*.d.ts', 'apps/mobile/babel.config.js'] },
+  { ignores: ['**/dist/**', '**/dist-demo/**', '**/.next/**', '**/.expo/**', '**/node_modules/**', '**/*.d.ts', 'apps/mobile/babel.config.js'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

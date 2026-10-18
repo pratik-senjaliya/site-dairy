@@ -1,7 +1,7 @@
 import type { Locale } from '@site-diary/i18n';
 import type { CompanySettings, Role } from '@site-diary/shared';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, ApiError, clearTokens, get, getDeviceId, initApi, post, saveTokens } from './api';
+import { api, ApiError, clearTokens, DEMO_BUILD, get, getDeviceId, initApi, post, saveTokens, setDemo } from './api';
 import { db } from './db';
 import { kv, secure } from './kv';
 
@@ -90,6 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       async signOut() {
         // Entries not yet sent stay on the phone for this user and go out at the next sign-in.
         await post('/auth/logout').catch(() => {});
+        if (!DEMO_BUILD) await setDemo(false);
         await clearTokens();
         await kv.remove('me');
         await db.close();

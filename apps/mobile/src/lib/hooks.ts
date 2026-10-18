@@ -2,6 +2,7 @@ import { can, type Action, type Module } from '@site-diary/shared';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
+import { askConfirm, showToast } from '../components/Dialogs';
 import { ApiError, get } from './api';
 import { useSession } from './session';
 
@@ -40,12 +41,12 @@ export function useOnline<T>(path: string | null) {
 }
 
 export function notice(title: string, message?: string) {
-  if (Platform.OS === 'web') window.alert(message ? `${title}\n\n${message}` : title);
-  else Alert.alert(title, message);
+  // Short confirmations never block the next tap: a toast on every platform.
+  showToast(title, message);
 }
 
 export function confirm(title: string, message: string, ok: string, cancel: string): Promise<boolean> {
-  if (Platform.OS === 'web') return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  if (Platform.OS === 'web') return askConfirm(title, message, ok, cancel);
   return new Promise((resolve) => Alert.alert(title, message, [{ text: cancel, style: 'cancel', onPress: () => resolve(false) }, { text: ok, onPress: () => resolve(true) }]));
 }
 

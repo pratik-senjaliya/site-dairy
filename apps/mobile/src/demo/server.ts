@@ -1,0 +1,322 @@
+import { t as tr, type Locale } from '@site-diary/i18n';
+import {
+  acceptedQty, addDays, companySettingsSchema, isLowStock, isoDate, PUSH_ORDER, roundQty, stockDelta, type PullResponse, type PushResult, type StockRow,
+} from '@site-diary/shared';
+import { randomUUID } from 'expo-crypto';
+import { kv } from '../lib/kv';
+import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
+
+// A small stand-in for the API, inside the app, for trying Site Diary with no server or internet.
+// It answers the same paths with the same shapes; data lives on this phone. Each role keeps its own
+// phone copy (as on real phones) and they meet here, so the owner sees what the supervisor entered.
+
+interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string }
+
+const KEY = 'demo:server:v1';
+let state: State | null = null;
+
+class DemoError extends Error {
+  constructor(public status: number, message: string, public code = 'error') {
+    super(message);
+  }
+}
+export { DemoError };
+
+async function load(): Promise<State> {
+  if (state) return state;
+  const saved = await kv.getJson<State>(KEY);
+  if (saved && saved.t.project?.[0]) state = saved;
+  else {
+    const s = seedDemo();
+    state = { rev: 1, t: s.t, approvals: s.approvals, notices: [], companyId: s.companyId };
+  }
+  return state;
+}
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const save = () => {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => void (state && kv.setJson(KEY, state)), 200);
+};
+
+export async function resetDemo() {
+  state = null;
+  await kv.remove(KEY);
+}
+
+const rows = (s: State, table: string) => (s.t[table] ??= []);
+const live = (s: State, table: string) => rows(s, table).filter((r) => !r.deletedAt);
+const find = (s: State, table: string, id: unknown) => rows(s, table).find((r) => r.id === id);
+// As on the real server, the person comes from the sign-in token ("demo:<user id>").
+let current: string | null = null;
+const me = (s: State) => {
+  const u = find(s, 'user', current?.startsWith('demo:') ? current.slice(5) : null);
+  if (!u) throw new DemoError(401, 'Please sign in', 'unauthenticated');
+  return u;
+};
+const lang = (s: State): Locale => (me(s).language as Locale) ?? 'gu';
+
+function notify(s: State, userIds: unknown[], kind: string, title: string, body?: string) {
+  const at = new Date().toISOString();
+  for (const userId of new Set(userIds)) s.notices.unshift({ id: randomUUID(), userId, kind, title, body: body ?? null, entityType: null, entityId: null, readAt: null, createdAt: at });
+}
+const idsOf = (s: State, roles: string[]) => live(s, 'user').filter((u) => roles.includes(String(u.role))).map((u) => u.id);
+const userLang = (s: State, id: unknown): Locale => (find(s, 'user', id)?.language as Locale) ?? 'gu';
+
+function stock(s: State): StockRow[] {
+  const m = new Map<string, number>();
+  const add = (projectId: unknown, materialId: unknown, d: number) => m.set(`${String(projectId)}|${String(materialId)}`, (m.get(`${String(projectId)}|${String(materialId)}`) ?? 0) + d);
+  for (const g of live(s, 'grn')) for (const l of live(s, 'grnLine').filter((x) => x.grnId === g.id)) add(g.projectId, l.materialId, stockDelta('grn', acceptedQty(Number(l.qty), Number(l.rejectedQty ?? 0))));
+  for (const i of live(s, 'materialIssue')) add(i.projectId, i.materialId, stockDelta('issue', Number(i.qty)));
+  for (const x of live(s, 'stockTransfer')) {
+    if (x.status === 'cancelled') continue;
+    add(x.fromProjectId, x.materialId, stockDelta('transfer_out', Number(x.qty)));
+    if (x.status === 'received') add(x.toProjectId, x.materialId, stockDelta('transfer_in', Number(x.qty)));
+  }
+  return [...m].map(([k, qty]) => ({ projectId: k.split('|')[0]!, materialId: k.split('|')[1]!, qty: roundQty(qty) }));
+}
+
+function summary(s: State, projectId: string, date: string) {
+  const project = find(s, 'project', projectId)!;
+  const day = live(s, 'siteDay').find((d) => d.projectId === projectId && d.date === date);
+  const att = live(s, 'attendanceEntry').filter((a) => a.projectId === projectId);
+  const workersOn = (d: string) => att.filter((a) => a.date === d).reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount), 0);
+  const todays = att.filter((a) => a.date === date);
+  const week = Array.from({ length: 7 }, (_, i) => addDays(date, -(i + 1))).map(workersOn).filter((n) => n > 0);
+  const avg7 = week.length ? Math.round(week.reduce((a, b) => a + b, 0) / week.length) : 0;
+  const workers = workersOn(date);
+  const mat = (id: unknown) => find(s, 'material', id);
+  const node = (id: unknown) => {
+    const n = find(s, 'structureNode', id);
+    const p = n ? find(s, 'structureNode', n.parentId) : undefined;
+    return n ? (p ? `${String(p.name)} · ${String(n.name)}` : String(n.name)) : null;
+  };
+  const grns = live(s, 'grn').filter((g) => g.projectId === projectId && g.date === date);
+  const st = stock(s);
+  const low = live(s, 'siteMaterialSetting').filter((x) => x.projectId === projectId).map((x) => {
+    const m = mat(x.materialId);
+    const qty = st.find((y) => y.projectId === projectId && y.materialId === x.materialId)?.qty ?? 0;
+    return { material: String(m?.nameEn ?? ''), materialGu: String(m?.nameGu ?? ''), unit: String(m?.unit ?? ''), qty, min: Number(x.minStock) };
+  }).filter((r) => isLowStock(r.qty, r.min));
+  const progress = live(s, 'dailyProgress').filter((p) => p.projectId === projectId && p.date === date);
+  const photos = live(s, 'photo').filter((p) => p.projectId === projectId && String(p.takenAt).slice(0, 10) === date);
+  const marker = String(day?.marker ?? 'work');
+  const missing = marker === 'work' ? [...(todays.length ? [] : ['attendance']), ...(progress.length ? [] : ['progress'])] : [];
+  const changePct = avg7 && todays.length ? Math.round(((workers - avg7) / avg7) * 100) : null; // nothing entered yet is not a 100% drop
+  const alerts = [
+    ...(changePct !== null && Math.abs(changePct) >= 20 && todays.length ? [`Labour ${changePct > 0 ? 'up' : 'down'} ${Math.abs(changePct)}% vs 7-day average (${avg7})`] : []),
+    ...low.map((l) => `Low stock: ${l.material} ${l.qty} ${l.unit} (min ${l.min})`),
+  ];
+  const contractors = live(s, 'contractor');
+  return {
+    project: { id: projectId, name: String(project.name) }, date, marker, note: (day?.note as string | null) ?? null,
+    labour: {
+      workers, manDays: todays.reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount) / 2, 0), yesterday: workersOn(addDays(date, -1)), avg7, changePct,
+      byContractor: contractors.map((c) => ({ contractor: String(c.name), workers: todays.filter((a) => a.contractorId === c.id).reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount), 0) })).filter((c) => c.workers),
+    },
+    materialIn: grns.flatMap((g) => live(s, 'grnLine').filter((l) => l.grnId === g.id).map((l) => ({
+      material: String(mat(l.materialId)?.nameEn ?? ''), materialGu: String(mat(l.materialId)?.nameGu ?? ''), unit: String(mat(l.materialId)?.unit ?? ''), qty: Number(l.qty), rejected: Number(l.rejectedQty ?? 0),
+      supplier: (find(s, 'supplier', g.supplierId)?.name as string | undefined) ?? null, challanNo: (g.challanNo as string | null) ?? null,
+    }))),
+    materialUsed: live(s, 'materialIssue').filter((i) => i.projectId === projectId && i.date === date).map((i) => ({
+      material: String(mat(i.materialId)?.nameEn ?? ''), materialGu: String(mat(i.materialId)?.nameGu ?? ''), unit: String(mat(i.materialId)?.unit ?? ''), qty: Number(i.qty),
+      workItem: (find(s, 'workItem', i.workItemId)?.nameEn as string | undefined) ?? null, floor: node(i.structureNodeId),
+    })),
+    progress: progress.map((p) => ({ workItem: String(find(s, 'workItem', p.workItemId)?.nameEn ?? ''), workItemGu: String(find(s, 'workItem', p.workItemId)?.nameGu ?? ''), floor: node(p.structureNodeId), percent: Number(p.percent), note: (p.note as string | null) ?? null })),
+    photos: photos.map((p) => ({ id: p.id, sourceType: p.sourceType, uploaded: true })),
+    issuesOpened: [], openIssues: live(s, 'issue').filter((i) => i.projectId === projectId && i.status === 'open').length,
+    lowStock: low, missing, alerts,
+  };
+}
+
+function approvalView(s: State, a: DemoRow) {
+  const lines = live(s, 'indentLine').filter((l) => l.indentId === a.entityId).map((l) => ({ material: find(s, 'material', l.materialId), qty: Number(l.qty) }));
+  const indent = find(s, 'indent', a.entityId);
+  const p = (a.proposal ?? {}) as Record<string, unknown>;
+  return {
+    ...a, requestedBy: find(s, 'user', a.requestedById)?.name ?? null, project: find(s, 'project', a.projectId)?.name ?? null,
+    details: a.entityType === 'indent' ? { lines, neededBy: indent?.neededBy, note: indent?.note }
+      : { current: find(s, 'attendanceEntry', a.entityId) ?? null, proposed: p, contractor: find(s, 'contractor', p.contractorId)?.name, skill: find(s, 'skill', p.skillId)?.nameGu },
+  };
+}
+
+function push(s: State, changes: Record<string, DemoRow[]>): PushResult {
+  const u = me(s);
+  const result: PushResult = { applied: 0, remapped: {}, pending: [], rejected: [] };
+  const today = isoDate();
+  const touchedLow = new Set<string>();
+  for (const table of PUSH_ORDER) {
+    for (const raw of changes[table] ?? []) {
+      const row = { ...raw } as DemoRow;
+      if (table === 'attendanceEntry') {
+        const late = String(row.date) < today && row.recordedOn !== row.date;
+        if (late && u.role === 'supervisor') {
+          s.approvals.unshift({ id: randomUUID(), projectId: row.projectId, entityType: 'attendanceEntry', entityId: row.id, requestedById: u.id, status: 'pending', proposal: row, createdAt: new Date().toISOString() });
+          notify(s, idsOf(s, ['owner', 'engineer']), 'approval_needed', tr(userLang(s, idsOf(s, ['owner'])[0]), 'notify.approvalNeeded', { what: tr('gu', 'approval.attendanceEntry') }));
+          result.pending.push(row.id);
+          continue;
+        }
+        delete row.recordedOn;
+      }
+      const list = rows(s, table);
+      const i = list.findIndex((r) => r.id === row.id);
+      const now = new Date().toISOString();
+      const saved = { ...(i >= 0 ? list[i] : { companyId: s.companyId, createdAt: now, createdById: u.id }), ...row, updatedAt: now, serverRev: ++s.rev, ...(table === 'photo' && { uploaded: true }) } as DemoRow;
+      if (i >= 0) list[i] = saved;
+      else list.push(saved);
+      result.applied++;
+      if (table === 'indent' && row.status === 'submitted' && !s.approvals.some((a) => a.entityId === row.id)) {
+        s.approvals.unshift({ id: randomUUID(), projectId: row.projectId, entityType: 'indent', entityId: row.id, requestedById: u.id, status: 'pending', proposal: null, createdAt: now });
+        for (const id of idsOf(s, ['owner', 'engineer'])) notify(s, [id], 'approval_needed', tr(userLang(s, id), 'notify.approvalNeeded', { what: tr(userLang(s, id), 'approval.indent') }), tr(userLang(s, id), 'notify.from', { name: String(u.name) }));
+      }
+      if (table === 'grnLine' || table === 'materialIssue') touchedLow.add(String(table === 'grnLine' ? find(s, 'grn', row.grnId)?.projectId : row.projectId));
+    }
+  }
+  for (const projectId of touchedLow) {
+    for (const l of summary(s, projectId, today).lowStock) {
+      for (const id of idsOf(s, ['owner', 'engineer', 'store'])) {
+        const lg = userLang(s, id);
+        notify(s, [id], 'low_stock', tr(lg, 'notify.lowStock', { material: lg === 'en' ? l.material : l.materialGu, site: String(find(s, 'project', projectId)?.name) }), tr(lg, 'notify.lowStockBody', { qty: l.qty, unit: l.unit, min: l.min }));
+      }
+    }
+  }
+  return result;
+}
+
+export async function demoApi(method: string, path: string, body: unknown, token: string | null): Promise<unknown> {
+  const s = await load();
+  current = token;
+  const url = new URL(path, 'http://demo');
+  const p = url.pathname;
+  const q = (k: string) => url.searchParams.get(k);
+  const b = (body ?? {}) as Record<string, unknown>;
+  const today = isoDate();
+  const out = (v: unknown) => (save(), v);
+
+  if (p === '/auth/otp/request') return { sent: true };
+  if (p === '/auth/otp/verify' || p === '/auth/demo') {
+    const digits = String(b.phone ?? '').replace(/\D/g, '').slice(-10);
+    const u = live(s, 'user').find((x) => (b.role ? x.role === b.role : digits.length === 10 && String(x.phone).endsWith(digits)));
+    if (!u) throw new DemoError(403, 'Demo: use 98000 00001 (owner), …02 engineer, …03 supervisor, …04 store, …05 accountant', 'no_account');
+    return out({ accessToken: `demo:${u.id}`, refreshToken: `demo:${u.id}`, user: { id: u.id, name: u.name, role: u.role, companyId: s.companyId } });
+  }
+  if (p === '/auth/logout') return out({ ok: true });
+  if (p === '/auth/push-token') return { ok: true };
+  if (p === '/auth/me' && method === 'PATCH') {
+    Object.assign(me(s), { language: b.language ?? me(s).language });
+    return out({ ok: true });
+  }
+  const u = me(s);
+  if (p === '/auth/me') {
+    return {
+      user: { id: u.id, name: u.name, phone: u.phone, role: u.role, language: u.language },
+      company: { id: s.companyId, name: 'Shree Ganesh Builders (demo)', plan: 'pilot', settings: companySettingsSchema.parse({}), planStatus: { label: 'Pilot', endsOn: addDays(today, 45), daysLeft: 45 } },
+      projects: live(s, 'project').map((x) => ({ id: x.id, name: x.name, status: x.status })),
+    };
+  }
+  if (p === '/sync/pull') {
+    const since = Number(q('since') ?? 0);
+    const changes: Record<string, DemoRow[]> = {};
+    for (const [table, list] of Object.entries(s.t)) {
+      const fresh = list.filter((r) => Number(r.serverRev) > since && (since > 0 || !r.deletedAt));
+      if (fresh.length) changes[table] = fresh;
+    }
+    const res: PullResponse = { rev: String(s.rev), changes, stock: stock(s), today, sites: live(s, 'project').map((x) => x.id) };
+    return res;
+  }
+  if (p === '/sync/push') return out(push(s, (b.changes ?? {}) as Record<string, DemoRow[]>));
+  if (p === '/dashboard') {
+    const date = q('date') ?? today;
+    const sites = live(s, 'project').map((x) => summary(s, x.id, date));
+    return {
+      date,
+      totals: {
+        workers: sites.reduce((a, x) => a + x.labour.workers, 0), yesterday: sites.reduce((a, x) => a + x.labour.yesterday, 0),
+        grnLines: sites.reduce((a, x) => a + x.materialIn.length, 0), issues: sites.reduce((a, x) => a + x.materialUsed.length, 0), photos: sites.reduce((a, x) => a + x.photos.length, 0),
+        sitesMissingEntry: sites.filter((x) => x.missing.includes('attendance')).length, pendingApprovals: s.approvals.filter((a) => a.status === 'pending').length,
+      },
+      sites,
+    };
+  }
+  if (p.startsWith('/dashboard/site/')) {
+    const id = p.split('/').pop()!;
+    const date = q('date') ?? today;
+    const trend = Array.from({ length: 14 }, (_, i) => addDays(date, i - 13)).map((d) => ({ date: d, workers: live(s, 'attendanceEntry').filter((a) => a.projectId === id && a.date === d).reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount), 0) }));
+    return { ...summary(s, id, date), trend };
+  }
+  if (p === '/approvals/count') return { count: ['owner', 'engineer'].includes(String(u.role)) ? s.approvals.filter((a) => a.status === 'pending').length : 0 };
+  if (p === '/approvals' && method === 'GET') {
+    const status = q('status');
+    return s.approvals.filter((a) => !status || a.status === status).map((a) => approvalView(s, a));
+  }
+  const decideMatch = p.match(/^\/approvals\/([^/]+)\/decide$/);
+  if (decideMatch) {
+    const a = s.approvals.find((x) => x.id === decideMatch[1]);
+    if (!a || a.status !== 'pending') throw new DemoError(409, 'Already decided', 'decided');
+    const approved = b.decision === 'approve';
+    if (!approved && !b.reason) throw new DemoError(400, 'Please give a reason for rejecting', 'reason_needed');
+    Object.assign(a, { status: approved ? 'approved' : 'rejected', decidedById: u.id, decidedAt: new Date().toISOString(), reason: b.reason ?? null });
+    if (a.entityType === 'indent') {
+      const i = find(s, 'indent', a.entityId);
+      if (i) Object.assign(i, { status: approved ? 'approved' : 'rejected', serverRev: ++s.rev });
+    } else if (approved) {
+      const row = { ...(a.proposal as DemoRow) };
+      delete row.recordedOn;
+      const list = rows(s, 'attendanceEntry');
+      const at = list.findIndex((r) => r.id === row.id);
+      const saved = { companyId: s.companyId, ...(at >= 0 ? list[at] : {}), ...row, serverRev: ++s.rev } as DemoRow;
+      if (at >= 0) list[at] = saved;
+      else list.push(saved);
+    }
+    const lg = userLang(s, a.requestedById);
+    notify(s, [a.requestedById], approved ? 'approved' : 'rejected', tr(lg, approved ? 'notify.approved' : 'notify.rejected', { what: tr(lg, `approval.${String(a.entityType)}` as 'approval.indent') }), b.reason ? `${String(u.name)}: ${String(b.reason)}` : tr(lg, 'notify.by', { name: String(u.name) }));
+    return out(a);
+  }
+  if (p === '/notifications' && method === 'GET') {
+    const items = s.notices.filter((n) => n.userId === u.id).slice(0, 50);
+    if (!items.length && (u.role === 'owner' || u.role === 'engineer')) {
+      notify(s, [u.id], 'nightly_report', tr(lang(s), 'notify.nightly', { date: addDays(today, -1) }), 'Shivam Heights');
+      save();
+    }
+    const mine = s.notices.filter((n) => n.userId === u.id).slice(0, 50);
+    return { items: mine, unread: mine.filter((n) => !n.readAt).length };
+  }
+  if (p === '/notifications/read') {
+    for (const n of s.notices) if (n.userId === u.id && !n.readAt) n.readAt = new Date().toISOString();
+    return out({ ok: true });
+  }
+  if (p === '/reports/nightly/history') return [];
+  if (p === '/reports/nightly/run') return { id: null, link: null };
+  if (p === '/registers/photos') {
+    return live(s, 'photo').filter((x) => x.projectId === q('projectId') && String(x.takenAt).slice(0, 10) >= String(q('from')) && String(x.takenAt).slice(0, 10) <= String(q('to'))).map((x) => ({ ...x, uploaded: true }));
+  }
+  throw new DemoError(404, `Not in the demo: ${p}`, 'not_found');
+}
+
+/** Today's site summary as text, for the demo's "Send report" (the real app shares a PDF). */
+export async function demoReportText(projectId: string): Promise<string> {
+  const s = await load();
+  const x = summary(s, projectId, isoDate());
+  const l = lang(s);
+  return [
+    `${tr(l, 'report.daily')} · ${x.project.name} · ${x.date}`,
+    `${tr(l, 'report.labour')}: ${x.labour.workers} ${tr(l, 'report.workers')} (${tr(l, 'report.yesterday')} ${x.labour.yesterday})`,
+    ...x.materialIn.map((m) => `↓ ${l === 'en' ? m.material : m.materialGu} ${m.qty} ${m.unit}${m.supplier ? ` · ${m.supplier}` : ''}`),
+    ...x.materialUsed.map((m) => `↑ ${l === 'en' ? m.material : m.materialGu} ${m.qty} ${m.unit}${m.floor ? ` · ${m.floor}` : ''}`),
+    ...x.progress.map((p) => `✓ ${l === 'en' ? p.workItem : p.workItemGu}${p.floor ? ` · ${p.floor}` : ''} ${p.percent}%`),
+    ...x.alerts.map((a) => `⚠ ${a}`),
+  ].join('\n');
+}
+
+export const DEMO_PEOPLE = DEMO_USERS;
+
+/** Photos taken in the demo stay on this phone, keyed by photo id, so every role can see them. */
+export async function saveDemoPhoto(photoId: string, blob: Blob) {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  await kv.set(`demo:photo:${photoId}`, dataUrl);
+}
+export const demoPhoto = (photoId: string) => kv.get(`demo:photo:${photoId}`);

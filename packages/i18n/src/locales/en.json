@@ -214,5 +214,12 @@
   "error.body": "Your entries are safe on this phone. Tap to go back to the home screen.",
   "error.home": "Go to home",
   "site.photos": "Photos today",
-  "notify.fromDetail": "From {name} · {detail}"
+  "notify.fromDetail": "From {name} · {detail}",
+  "demo.title": "Try the demo — no internet needed",
+  "demo.hint": "A sample builder with one site and two weeks of entries. Choose who you are:",
+  "demo.banner": "Demo — everything stays on this phone",
+  "demo.switch": "Switch person",
+  "demo.reset": "Start the demo again",
+  "demo.resetConfirm": "All demo entries made on this phone will be removed.",
+  "demo.reportNote": "In the demo the report is shared as text; the real app sends a PDF."
 }

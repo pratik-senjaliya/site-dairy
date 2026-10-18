@@ -54,6 +54,8 @@ try {
     await phone.screenshot({ path: `${out}/roles-store-today.png` });
     const before = await phone.getByText('કાઢી નાખો', { exact: true }).count();
     await phone.getByText('કાઢી નાખો', { exact: true }).last().click();
+    await phone.getByText('આ એન્ટ્રી કાઢી નાખવી છે?').waitFor(); // the app's own confirm dialog
+    await phone.getByText('કાઢી નાખો', { exact: true }).last().click();
     for (let i = 0; (await phone.getByText('કાઢી નાખો', { exact: true }).count()) !== before - 1; i++) {
       if (i > 50) throw new Error('entry not removed');
       await phone.waitForTimeout(200);

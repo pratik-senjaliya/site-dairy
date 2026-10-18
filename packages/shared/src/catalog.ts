@@ -1,7 +1,9 @@
 // Starting lists copied into every new company (editable per company afterwards).
 // Gujarati first; English names are what the CA and the web panel exports use.
-import type { ProjectType } from '@prisma/client';
-import type { Unit } from '@site-diary/shared';
+import type { PROJECT_TYPES } from './masters';
+import type { Unit } from './schemas';
+
+type ProjectType = (typeof PROJECT_TYPES)[number];
 
 export const SKILLS: { gu: string; en: string }[] = [
   { gu: 'કડિયા', en: 'Mason (kadiya)' },

@@ -17,6 +17,10 @@ export const kv = {
     }
   },
   setJson: (key: string, value: unknown) => AsyncStorage.setItem(key, JSON.stringify(value)),
+  async removePrefix(prefix: string) {
+    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith(prefix));
+    if (keys.length) await AsyncStorage.multiRemove(keys);
+  },
 };
 
 const secureAvailable = Platform.OS !== 'web';

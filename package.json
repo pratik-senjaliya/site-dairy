@@ -21,10 +21,11 @@
     "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
     "test": "npm run build:packages && npm test -w packages/shared -w packages/i18n && npm test -w apps/api",
     "e2e:phone": "node e2e/phone.mjs",
-    "build:mobile-web": "npm run build:packages && cd apps/mobile && expo export --platform web",
+    "build:mobile-web": "npm run build:packages && cd apps/mobile && expo export --platform web --clear",
     "e2e:web": "node e2e/web.mjs",
     "e2e:roles": "node e2e/roles.mjs",
-    "e2e": "node e2e/phone.mjs && node e2e/web.mjs && node e2e/roles.mjs"
+    "e2e": "node e2e/phone.mjs && node e2e/web.mjs && node e2e/roles.mjs",
+    "build:demo-page": "npm run build:packages && cd apps/mobile && rm -rf dist-demo && EXPO_PUBLIC_DEMO=1 expo export --platform web --clear --output-dir dist-demo && cd ../.. && node infra/demo-page.mjs apps/mobile/dist-demo site-diary-demo.html"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
