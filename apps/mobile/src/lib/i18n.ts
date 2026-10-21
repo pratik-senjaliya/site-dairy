@@ -1,5 +1,5 @@
 import { t, type MessageKey } from '@site-diary/i18n';
-import { formatNumber } from '@site-diary/shared';
+import { formatNumber, shortDate, weekday } from '@site-diary/shared';
 import { useSession } from './session';
 
 export type { MessageKey };
@@ -17,3 +17,9 @@ export function useName() {
 }
 
 export const num = (n: number) => formatNumber(n);
+
+/** "ગુરુવાર 22/10" — the way a day is named on site. */
+export function useDayName() {
+  const t = useT();
+  return (iso: string) => `${t(`day.${weekday(iso)}` as MessageKey)} ${shortDate(iso)}`;
+}

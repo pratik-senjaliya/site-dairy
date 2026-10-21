@@ -9,7 +9,7 @@ import { Banner, Button, Card, Row, Screen, T, Tile } from '../components/ui';
 import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { notice, useCan, useOnline, useSite } from '../lib/hooks';
-import { useT } from '../lib/i18n';
+import { useDayName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { shareDailyReport } from '../lib/share';
 
@@ -39,6 +39,7 @@ export default function Home() {
 
 function FieldHome() {
   const t = useT();
+  const dayName = useDayName();
   const can = useCan();
   const { me } = useSession();
   const { siteId, site } = useSite();
@@ -86,7 +87,7 @@ function FieldHome() {
       }
     >
       <Row style={{ justifyContent: 'space-between' }}>
-        <T.body muted>{t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })} · {today}</T.body>
+        <T.body muted>{t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })} · {dayName(today)}</T.body>
         <Pressable onPress={() => router.push('/sites')} hitSlop={8}><Text style={{ color: colors.primary, fontWeight: '700' }}>{t('home.changeSite')}</Text></Pressable>
       </Row>
       {isDemo() ? <Banner tone="info" text={t('demo.banner')} onPress={() => router.push('/profile')} /> : null}
