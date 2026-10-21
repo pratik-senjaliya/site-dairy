@@ -211,6 +211,7 @@
   "common.delete": "Delete",
   "common.deleteConfirm": "Delete this entry?",
   "common.todayEntries": "Entered today",
+  "common.more": "More ({count}) ▾",
   "advance.worker": "Worker (optional)",
   "advance.wholeContractor": "Contractor",
   "error.title": "Something went wrong",

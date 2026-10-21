@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { QtyField, RowChips } from '../components/pickers';
+import { QtyField, RowChips, useMaterials } from '../components/pickers';
 import { Button, Card, Empty, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { notice, useSite } from '../lib/hooks';
@@ -12,7 +12,7 @@ export default function Transfer() {
   const name = useName();
   const { me } = useSession();
   const { siteId } = useSite();
-  const materials = useDb(() => db.rows('material'));
+  const materials = useMaterials();
   const projects = useDb(() => db.rows('project').filter((p) => p.id !== siteId && p.status === 'active'));
   const incoming = useDb(() => db.rows('stockTransfer').filter((r) => r.toProjectId === siteId && r.status === 'sent'));
   const outgoing = useDb(() => db.rows('stockTransfer').filter((r) => r.fromProjectId === siteId).slice(-5));
@@ -34,7 +34,7 @@ export default function Transfer() {
       <Card>
         <T.h2>{t('transfer.send')}</T.h2>
         <RowChips label={t('transfer.toSite')} rows={projects} value={to} onChange={setTo} nameOf={(p) => String(p.name)} />
-        <RowChips label={t('report.material')} rows={materials} value={materialId} onChange={setMaterial} nameOf={name} />
+        <RowChips label={t('report.material')} rows={materials} max={8} value={materialId} onChange={setMaterial} nameOf={name} />
         {materialId ? <QtyField label={t('report.qty')} unit={unit} value={qty} onChange={setQty} /> : null}
         <Button label={t('transfer.send')} disabled={!to || !materialId || !qty} onPress={() => {
           db.save('stockTransfer', { fromProjectId: siteId, toProjectId: to, materialId, qty, status: 'sent' });

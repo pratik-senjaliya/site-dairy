@@ -4,7 +4,7 @@ import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { RowChips, TextField } from '../components/pickers';
+import { byUse, RowChips, TextField } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Button, Card, Chip, Chips, Field, Row, Screen, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
@@ -21,7 +21,11 @@ export default function Progress() {
   const name = useName();
   const { siteId } = useSite();
   const today = isoDate();
-  const items = useDb(() => db.rows('workItem').filter((w) => w.projectId === siteId).sort((a, b) => Number(a.sort) - Number(b.sort)));
+  // Work items in template order, the ones this site works on now first.
+  const items = useDb(() => byUse(
+    db.rows('workItem').filter((w) => w.projectId === siteId).sort((a, b) => Number(a.sort) - Number(b.sort)),
+    [...db.rows('dailyProgress'), ...db.rows('materialIssue')].filter((r) => r.projectId === siteId).map((r) => r.workItemId),
+  ));
   const floors = useDb(() => db.rows('structureNode').filter((n) => n.projectId === siteId && n.kind === 'floor').sort((a, b) => Number(a.sort) - Number(b.sort)));
   const entries = useDb(() => db.rows('dailyProgress').filter((p) => p.projectId === siteId && p.date === today));
   const siteDay = useDb(() => db.rows('siteDay').find((d) => d.projectId === siteId && d.date === today));
@@ -36,6 +40,13 @@ export default function Progress() {
 
   // Last % for this work item and floor, so the supervisor only moves it forward.
   const last = useDb(() => db.rows('dailyProgress').filter((p) => p.workItemId === workItemId && (p.structureNodeId ?? null) === nodeId).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]);
+
+  // A work item usually continues on the floor it was on last time.
+  const pickItem = (id: string | null) => {
+    setItem(id);
+    const prev = db.rows('dailyProgress').filter((p) => p.projectId === siteId && p.workItemId === id).sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
+    if (prev) setNode((prev.structureNodeId as string | null) ?? null);
+  };
 
   const saveEntry = () => {
     if (!siteId || !workItemId || percent === null) return;
@@ -70,7 +81,7 @@ export default function Progress() {
             label: `${name(items.find((i) => i.id === e.workItemId))} · ${String(e.percent)}%`,
             sub: e.structureNodeId ? floorName(floors.find((f) => f.id === e.structureNodeId) ?? { id: '', name: '' }) : undefined,
           }))} />
-          <RowChips label={t('report.workItem')} rows={items} value={workItemId} onChange={setItem} nameOf={name} />
+          <RowChips label={t('report.workItem')} rows={items} max={8} value={workItemId} onChange={pickItem} nameOf={name} />
           <RowChips label={t('report.floor')} rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone />
           <Field label={t('report.percent')} hint={last ? t('progress.last', { percent: Number(last.percent), date: String(last.date) }) : undefined}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

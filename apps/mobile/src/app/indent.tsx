@@ -3,7 +3,7 @@ import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { QtyField, RowChips, TextField } from '../components/pickers';
+import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
 import { Button, Card, Chip, Field, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
@@ -18,7 +18,7 @@ export default function Indent() {
   const name = useName();
   const { siteId } = useSite();
   const [indentId] = useState(randomUUID);
-  const materials = useDb(() => db.rows('material'));
+  const materials = useMaterials();
   const mine = useDb(() => db.rows('indent').filter((i) => i.projectId === siteId).sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, 8));
   const lines = useDb(() => db.rows('indentLine'));
   const [items, setItems] = useState<Line[]>([]);
@@ -37,7 +37,7 @@ export default function Indent() {
     }} />}>
       {items.map((l) => <T.body key={l.id} bold>• {name(materials.find((m) => m.id === l.materialId))} · {l.qty} {unit(l.materialId)}</T.body>)}
       <Card>
-        <RowChips label={t('report.material')} rows={materials} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
+        <RowChips label={t('report.material')} rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
         {current.materialId ? (
           <>
             <QtyField label={t('report.qty')} unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty }))} />

@@ -1,6 +1,6 @@
 import { isoDate, rupeesToPaise, formatPaise } from '@site-diary/shared';
 import { useState } from 'react';
-import { RowChips } from '../components/pickers';
+import { byUse, RowChips } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Button, Chips, Field, Input, Screen } from '../components/ui';
 import { db, useDb } from '../lib/db';
@@ -11,7 +11,7 @@ import { useT } from '../lib/i18n';
 export default function Advance() {
   const t = useT();
   const { siteId } = useSite();
-  const contractors = useDb(() => db.rows('contractor'));
+  const contractors = useDb(() => byUse(db.rows('contractor'), db.rows('attendanceEntry').filter((a) => a.projectId === siteId).map((a) => a.contractorId)));
   const recent = useDb(() => db.rows('advance').filter((a) => a.projectId === siteId && a.date === isoDate()));
   const [contractorId, setContractor] = useState<string | null>(null);
   const [workerId, setWorker] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export default function Advance() {
         done();
       }} />}
     >
-      <RowChips label={t('report.contractor')} rows={contractors} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={(r) => String(r.name)} />
+      <RowChips label={t('report.contractor')} rows={contractors} max={8} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={(r) => String(r.name)} />
       {workers.length ? <RowChips label={t('advance.worker')} rows={workers} value={workerId} onChange={setWorker} nameOf={(r) => String(r.name)} allowNone noneLabel={t('advance.wholeContractor')} /> : null}
       <Field label={t('advance.amount')}>
         <Input value={amount} onChangeText={setAmount} keyboardType="number-pad" placeholder="₹ 2,000" style={{ fontSize: 24 }} />

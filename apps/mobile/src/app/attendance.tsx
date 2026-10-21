@@ -3,6 +3,7 @@ import { colors, spacing } from '@site-diary/ui-tokens';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
+import { byUse } from '../components/pickers';
 import { Banner, Button, Card, Chip, Field, Row, Screen, Stepper, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
@@ -24,7 +25,7 @@ function AttendanceForm() {
   const name = useName();
   const { siteId } = useSite();
   const today = isoDate();
-  const contractors = useDb(() => db.rows('contractor'));
+  const contractors = useDb(() => byUse(db.rows('contractor'), db.rows('attendanceEntry').filter((a) => a.projectId === siteId).map((a) => a.contractorId)));
   const skills = useDb(() => db.rows('skill').sort((a, b) => Number(a.sort) - Number(b.sort)));
   const pending = useDb(() => db.pending);
 

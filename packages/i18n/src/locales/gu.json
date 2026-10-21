@@ -211,6 +211,7 @@
   "common.delete": "કાઢી નાખો",
   "common.deleteConfirm": "આ એન્ટ્રી કાઢી નાખવી છે?",
   "common.todayEntries": "આજે ભરેલું",
+  "common.more": "બીજા ({count}) ▾",
   "advance.worker": "માણસ (જરૂરી નથી)",
   "advance.wholeContractor": "કોન્ટ્રાક્ટર",
   "error.title": "કંઈક ખોટું થયું",

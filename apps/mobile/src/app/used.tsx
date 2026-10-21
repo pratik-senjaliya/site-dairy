@@ -1,6 +1,6 @@
 import { isoDate } from '@site-diary/shared';
 import { useState } from 'react';
-import { QtyField, RowChips } from '../components/pickers';
+import { byUse, QtyField, RowChips, useMaterials } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Banner, Button, Screen } from '../components/ui';
 import { db, useDb } from '../lib/db';
@@ -13,8 +13,12 @@ export default function Used() {
   const t = useT();
   const name = useName();
   const { siteId } = useSite();
-  const materials = useDb(() => db.rows('material'));
-  const items = useDb(() => db.rows('workItem').filter((w) => w.projectId === siteId).sort((a, b) => Number(a.sort) - Number(b.sort)));
+  const materials = useMaterials();
+  // Work items in template order, the ones this site works on now first.
+  const items = useDb(() => byUse(
+    db.rows('workItem').filter((w) => w.projectId === siteId).sort((a, b) => Number(a.sort) - Number(b.sort)),
+    [...db.rows('dailyProgress'), ...db.rows('materialIssue')].filter((r) => r.projectId === siteId).map((r) => r.workItemId),
+  ));
   const floors = useDb(() => db.rows('structureNode').filter((n) => n.projectId === siteId && n.kind === 'floor').sort((a, b) => Number(a.sort) - Number(b.sort)));
   const stock = useDb(() => db.stock);
   const [materialId, setMaterial] = useState<string | null>(null);
@@ -27,6 +31,15 @@ export default function Used() {
     label: `${name(db.find('material', r.materialId as string))} ${String(r.qty)} ${String(db.find('material', r.materialId as string)?.unit ?? '')}`,
     sub: [name(db.find('workItem', r.workItemId as string)), r.structureNodeId ? floorName(db.find('structureNode', r.structureNodeId as string) ?? { id: '', name: '' }) : ''].filter(Boolean).join(' · '),
   })));
+  // Same material as last time usually goes to the same work and floor: start from that entry.
+  const pickMaterial = (id: string | null) => {
+    setMaterial(id);
+    const last = db.rows('materialIssue').filter((r) => r.projectId === siteId && r.materialId === id).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    if (!last) return;
+    setQty(Number(last.qty));
+    setItem((last.workItemId as string | null) ?? null);
+    setNode((last.structureNodeId as string | null) ?? null);
+  };
   const onHand = stock.find((s) => s.projectId === siteId && s.materialId === materialId)?.qty;
 
   return (
@@ -35,10 +48,10 @@ export default function Used() {
       notice(t('common.saved'));
       done();
     }} />}>
-      <RowChips label={t('report.material')} rows={materials} value={materialId} onChange={setMaterial} nameOf={name} />
+      <RowChips label={t('report.material')} rows={materials} max={8} value={materialId} onChange={pickMaterial} nameOf={name} />
       {material ? <QtyField label={t('report.qty')} unit={String(material.unit)} value={qty} onChange={setQty} /> : null}
       {onHand !== undefined && qty > onHand ? <Banner text={t('used.moreThanStock', { qty: onHand })} /> : null}
-      <RowChips label={t('report.workItem')} rows={items} value={workItemId} onChange={setItem} nameOf={name} allowNone />
+      <RowChips label={t('report.workItem')} rows={items} max={8} value={workItemId} onChange={setItem} nameOf={name} allowNone />
       <RowChips label={t('report.floor')} rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone />
       <TodayEntries entries={today} />
     </Screen>

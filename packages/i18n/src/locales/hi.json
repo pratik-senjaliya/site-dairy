@@ -211,6 +211,7 @@
   "common.delete": "हटाएँ",
   "common.deleteConfirm": "यह एंट्री हटानी है?",
   "common.todayEntries": "आज भरा",
+  "common.more": "और ({count}) ▾",
   "advance.worker": "मज़दूर (ज़रूरी नहीं)",
   "advance.wholeContractor": "ठेकेदार",
   "error.title": "कुछ गड़बड़ हुई",
