@@ -80,16 +80,20 @@ function account(s: State, projectId: string, contractorId: unknown, from: strin
   const days = live(s, 'attendanceEntry').filter((a) => a.projectId === projectId && a.contractorId === contractorId && String(a.date) >= from && String(a.date) <= to)
     .map((a) => ({ date: String(a.date), skillId: String(a.skillId), count: Number(a.count), halfDayCount: Number(a.halfDayCount), otHours: Number(a.otHours) }));
   const rates = live(s, 'contractorRate').filter((r) => r.contractorId === contractorId).map((r) => ({ skillId: String(r.skillId), dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: String(r.effectiveFrom) }));
-  const advances = live(s, 'advance').filter((a) => a.projectId === projectId && a.contractorId === contractorId && !a.settlementId && String(a.date) <= to).reduce((x, a) => x + Number(a.amountPaise), 0);
-  const result = settlePeriod(days, rates, advances);
+  const open = live(s, 'advance').filter((a) => a.projectId === projectId && a.contractorId === contractorId && !a.settlementId && String(a.date) <= to);
+  const result = settlePeriod(days, rates, open.reduce((x, a) => x + Number(a.amountPaise), 0));
   const bySkill = [...new Set(days.map((d) => d.skillId))].map((skillId) => {
     const mine = days.filter((d) => d.skillId === skillId);
     return { skillId, manDays: settlePeriod(mine, rates, 0).manDays, otHours: mine.reduce((x, d) => x + d.otHours, 0), gross: settlePeriod(mine, rates, 0).gross };
   });
   const perDay = new Map<string, number>();
   for (const d of days) perDay.set(d.date, (perDay.get(d.date) ?? 0) + d.count + d.halfDayCount / 2);
-  return { ...result, bySkill, days: [...perDay].sort().map(([date, manDays]) => ({ date, manDays })) };
+  return { ...result, bySkill, days: [...perDay].sort().map(([date, manDays]) => ({ date, manDays })), advanceIds: open.map((a) => a.id) };
 }
+
+/** Last settled day for a contractor at a site (any settlement not rejected). */
+const settledTill = (s: State, projectId: string, contractorId: unknown) =>
+  live(s, 'wageSettlement').filter((w) => w.projectId === projectId && w.contractorId === contractorId && w.status !== 'rejected').map((w) => String(w.periodTo)).sort().at(-1) ?? null;
 
 function summary(s: State, projectId: string, date: string) {
   const project = find(s, 'project', projectId)!;
@@ -152,6 +156,10 @@ function approvalView(s: State, a: DemoRow) {
   return {
     ...a, requestedBy: find(s, 'user', a.requestedById)?.name ?? null, project: find(s, 'project', a.projectId)?.name ?? null,
     details: a.entityType === 'indent' ? { lines, neededBy: indent?.neededBy, note: indent?.note }
+      : a.entityType === 'wageSettlement' ? (() => {
+        const w = find(s, 'wageSettlement', a.entityId);
+        return { contractor: find(s, 'contractor', w?.contractorId)?.name, periodFrom: w?.periodFrom, periodTo: w?.periodTo, grossPaise: w?.grossPaise, advancesPaise: w?.advancesPaise, netPaise: w?.netPaise };
+      })()
       : { current: find(s, 'attendanceEntry', a.entityId) ?? null, proposed: p, contractor: find(s, 'contractor', p.contractorId)?.name, skill: find(s, 'skill', p.skillId)?.nameGu },
   };
 }
@@ -272,9 +280,40 @@ export async function demoApi(method: string, path: string, body: unknown, token
       ...live(s, 'attendanceEntry').filter((a) => a.projectId === projectId && String(a.date) >= from && String(a.date) <= to).map((a) => a.contractorId),
       ...live(s, 'advance').filter((a) => a.projectId === projectId && !a.settlementId && String(a.date) <= to).map((a) => a.contractorId),
     ]);
-    const list = live(s, 'contractor').filter((c) => ids.has(c.id)).map((c) => ({ contractor: { id: c.id, name: String(c.name), phone: (c.phone as string | null) ?? null }, ...account(s, projectId, c.id, from, to), settledTill: null }));
+    const list = live(s, 'contractor').filter((c) => ids.has(c.id)).map((c) => {
+      const till = settledTill(s, projectId, c.id);
+      const start = till && till >= from ? addDays(till, 1) : from;
+      const { advanceIds: _ids, ...money } = account(s, projectId, c.id, start, to);
+      return { contractor: { id: c.id, name: String(c.name), phone: (c.phone as string | null) ?? null }, from: start, ...money, settledTill: till };
+    });
     const sum = (k: 'manDays' | 'gross' | 'advances' | 'net') => list.reduce((x, r) => x + r[k], 0);
     return { projectId, from, to, contractors: list, total: { manDays: sum('manDays'), gross: sum('gross'), advances: sum('advances'), net: sum('net') } };
+  }
+  if (p === '/wages' && method === 'GET') return live(s, 'wageSettlement').filter((w) => w.projectId === q('projectId')).sort((a, b) => String(b.periodTo).localeCompare(String(a.periodTo)));
+  if (p === '/wages' && method === 'POST') {
+    if (!['owner', 'engineer', 'accountant'].includes(String(u.role))) throw new DemoError(403, 'You do not have permission to do this', 'forbidden');
+    const [projectId, contractorId, from, to] = [String(b.projectId), String(b.contractorId), String(b.from), String(b.to)];
+    if (live(s, 'wageSettlement').some((w) => w.projectId === projectId && w.contractorId === contractorId && w.status !== 'rejected' && String(w.periodFrom) <= to && String(w.periodTo) >= from)) throw new DemoError(409, 'These days are already in another settlement', 'overlap');
+    const a = account(s, projectId, contractorId, from, to);
+    if (a.missingRates.length) throw new DemoError(400, 'Some skills have no rate for this contractor. Add rates first.', 'missing_rates');
+    if (!a.manDays) throw new DemoError(400, 'No attendance in this period', 'empty');
+    const owner = u.role === 'owner';
+    const w: DemoRow = { id: randomUUID(), companyId: s.companyId, projectId, contractorId, periodFrom: from, periodTo: to, grossPaise: a.gross, advancesPaise: a.advances, netPaise: a.net, status: owner ? 'approved' : 'submitted', createdById: u.id, createdAt: new Date().toISOString() };
+    rows(s, 'wageSettlement').push(w);
+    for (const id of a.advanceIds) Object.assign(find(s, 'advance', id) ?? {}, { settlementId: w.id, serverRev: ++s.rev });
+    if (!owner) {
+      s.approvals.unshift({ id: randomUUID(), projectId, entityType: 'wageSettlement', entityId: w.id, requestedById: u.id, status: 'pending', proposal: null, createdAt: w.createdAt });
+      for (const id of idsOf(s, ['owner'])) notify(s, [id], 'approval_needed', tr(userLang(s, id), 'notify.approvalNeeded', { what: tr(userLang(s, id), 'approval.wageSettlement') }), tr(userLang(s, id), 'notify.from', { name: String(u.name) }));
+    }
+    return out(w);
+  }
+  const payMatch = p.match(/^\/wages\/([^/]+)\/pay$/);
+  if (payMatch) {
+    const w = find(s, 'wageSettlement', payMatch[1]);
+    if (!w) throw new DemoError(404, 'Not found', 'not_found');
+    if (w.status !== 'approved') throw new DemoError(409, 'Only an approved settlement can be paid', 'not_approved');
+    Object.assign(w, { status: 'paid', paidAt: new Date().toISOString(), paidMode: b.mode });
+    return out(w);
   }
   if (p === '/approvals/count') return { count: ['owner', 'engineer'].includes(String(u.role)) ? s.approvals.filter((a) => a.status === 'pending').length : 0 };
   if (p === '/approvals' && method === 'GET') {
@@ -291,6 +330,9 @@ export async function demoApi(method: string, path: string, body: unknown, token
     if (a.entityType === 'indent') {
       const i = find(s, 'indent', a.entityId);
       if (i) Object.assign(i, { status: approved ? 'approved' : 'rejected', serverRev: ++s.rev });
+    } else if (a.entityType === 'wageSettlement') {
+      Object.assign(find(s, 'wageSettlement', a.entityId) ?? {}, { status: approved ? 'approved' : 'rejected', approvedById: u.id });
+      if (!approved) for (const x of live(s, 'advance').filter((x) => x.settlementId === a.entityId)) Object.assign(x, { settlementId: null, serverRev: ++s.rev });
     } else if (approved) {
       const row = { ...(a.proposal as DemoRow) };
       delete row.recordedOn;

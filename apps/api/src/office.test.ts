@@ -148,8 +148,10 @@ test('contractor hisab: per contractor and skill, advances deducted, settled-til
   assert.equal(r.body.total.net, rupeesToPaise(6700));
 
   await eng.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d1, to: d1 });
-  const after = await eng.call<{ contractors: { settledTill: string | null; advances: number }[] }>('GET', url);
+  const after = await eng.call<{ contractors: { settledTill: string | null; from: string; manDays: number; advances: number }[] }>('GET', url);
   assert.equal(after.body.contractors[0]!.settledTill, d1);
+  assert.equal(after.body.contractors[0]!.from, today, 'settled days are not owed again');
+  assert.equal(after.body.contractors[0]!.manDays, 7);
   assert.equal(after.body.contractors[0]!.advances, 0, 'the settlement took the advance');
 
   assert.equal((await sup.call('GET', url)).status, 403, 'supervisors do not see rates and money');
