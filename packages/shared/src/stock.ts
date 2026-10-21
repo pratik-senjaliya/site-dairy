@@ -26,3 +26,13 @@ export function isLowStock(onHand: number, minStock: number | null | undefined):
 export function roundQty(q: number): number {
   return Math.round(q * 1000) / 1000;
 }
+
+/**
+ * How long stock lasts at the recent rate of use: `used` over the last few days, spread over the
+ * days the site actually worked then. Null when nothing was used (no rate to go by).
+ */
+export function stockDaysLeft(onHand: number, used: number, workDays: number): { perDay: number; days: number } | null {
+  if (used <= 0 || workDays <= 0) return null;
+  const perDay = roundQty(used / workDays);
+  return { perDay, days: Math.max(0, Math.floor(onHand / perDay)) };
+}

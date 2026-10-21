@@ -1,6 +1,7 @@
 import { addDays, isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
@@ -22,7 +23,9 @@ export default function Indent() {
   const mine = useDb(() => db.rows('indent').filter((i) => i.projectId === siteId).sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, 8));
   const lines = useDb(() => db.rows('indentLine'));
   const [items, setItems] = useState<Line[]>([]);
-  const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: '', qty: 0 });
+  // From the stock screen: the material that is running out, and about a week's use.
+  const from = useLocalSearchParams<{ material?: string; qty?: string }>();
+  const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: from.material ?? '', qty: Number(from.qty) || 0 });
   const [neededIn, setNeededIn] = useState(2);
   const [note, setNote] = useState('');
   const all = current.materialId && current.qty ? [...items, current] : items;

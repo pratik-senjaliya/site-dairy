@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { addDays, daysBetween, isoDate, shortDate, wageWeek } from './dates';
 import { formatPaise, rupeesToPaise } from './money';
 import { phoneSchema } from './schemas';
-import { acceptedQty, isLowStock, stockDelta, stockOnHand } from './stock';
+import { acceptedQty, isLowStock, stockDaysLeft, stockDelta, stockOnHand } from './stock';
 import { settleWages } from './wages';
 
 test('wages: days × rate − advances, half days and overtime', () => {
@@ -89,4 +89,12 @@ test('wage week ends on the wage day', () => {
   assert.deepEqual(wageWeek('2026-10-25', 6), { from: '2026-10-25', to: '2026-10-31' });
   assert.deepEqual(wageWeek('2026-10-22', 0), { from: '2026-10-19', to: '2026-10-25' });
   assert.equal(shortDate('2026-10-08'), '08/10');
+});
+
+test('stock days left at the recent rate of use', () => {
+  // 270 bags used over 6 working days = 45 a day; 100 on hand lasts 2 full days.
+  assert.deepEqual(stockDaysLeft(100, 270, 6), { perDay: 45, days: 2 });
+  assert.deepEqual(stockDaysLeft(-5, 10, 2), { perDay: 5, days: 0 });
+  assert.equal(stockDaysLeft(100, 0, 6), null, 'not used lately');
+  assert.equal(stockDaysLeft(100, 10, 0), null);
 });
