@@ -239,5 +239,10 @@
   "hisab.none": "આ દિવસોમાં હાજરી કે ઉપાડ નથી.",
   "hisab.send": "હિસાબ WhatsApp પર મોકલો",
   "hisab.byDay": "દિવસ પ્રમાણે",
-  "hisab.hint": "હાજરી × ભાવ − બાકી ઉપાડ. પાકો હિસાબ ઓફિસ કરે છે."
+  "hisab.hint": "હાજરી × ભાવ − બાકી ઉપાડ. પાકો હિસાબ ઓફિસ કરે છે.",
+  "alert.labourUp": "માણસ 7 દિવસની સરેરાશ ({avg}) કરતાં {pct}% વધારે",
+  "alert.labourDown": "માણસ 7 દિવસની સરેરાશ ({avg}) કરતાં {pct}% ઓછા",
+  "alert.lowStock": "સ્ટોક ઓછો: {material} {qty} {unit} (ઓછામાં ઓછું {min})",
+  "alert.rejected": "ગેટ પર પાછું મોકલ્યું: {material} {qty}",
+  "alert.noEntry": "{time} સુધી હાજરી ભરાઈ નથી"
 }

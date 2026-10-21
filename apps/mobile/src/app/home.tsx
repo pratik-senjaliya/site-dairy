@@ -1,3 +1,4 @@
+import { noticeText, type Notice } from '@site-diary/i18n';
 import { formatPaise, isLowStock, type StockRow } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
@@ -15,7 +16,7 @@ import { shareDailyReport } from '../lib/share';
 interface Dashboard {
   date: string;
   totals: { workers: number; yesterday: number; labourCostPaise: number; grnLines: number; photos: number; sitesMissingEntry: number; pendingApprovals: number };
-  sites: { project: { id: string; name: string }; labour: { workers: number; yesterday: number; changePct: number | null; costPaise: number; costMissingRates: boolean }; materialIn: unknown[]; materialUsed: unknown[]; progress: unknown[]; photos: unknown[]; missing: string[]; alerts: string[]; marker: string }[];
+  sites: { project: { id: string; name: string }; labour: { workers: number; yesterday: number; changePct: number | null; costPaise: number; costMissingRates: boolean }; materialIn: unknown[]; materialUsed: unknown[]; progress: unknown[]; photos: unknown[]; missing: string[]; alerts: Notice[]; marker: string }[];
 }
 
 function Bell() {
@@ -118,7 +119,7 @@ function FieldHome() {
 function OfficeHome() {
   const t = useT();
   const can = useCan();
-  const { me } = useSession();
+  const { me, lang } = useSession();
   const { data, error, loading, reload } = useOnline<Dashboard>('/dashboard');
   return (
     <Screen back={false} title={me?.company.name ?? ''} right={<Bell />}>
@@ -151,7 +152,7 @@ function OfficeHome() {
                 {t('owner.siteLine', { grn: s.materialIn.length, used: s.materialUsed.length, progress: s.progress.length, photos: s.photos.length })}
                 {s.labour.changePct !== null ? ` · ${s.labour.changePct > 0 ? '+' : ''}${s.labour.changePct}%` : ''}
               </T.small>
-              {s.alerts.map((a) => <T.small key={a} color={colors.warning}>⚠ {a}</T.small>)}
+              {s.alerts.map((a) => noticeText(lang, a)).map((a) => <T.small key={a} color={colors.warning}>⚠ {a}</T.small>)}
               {s.missing.length && s.marker === 'work' ? <T.small color={colors.danger}>{t('report.missing')}: {s.missing.map((m) => t(`missing.${m}` as 'missing.attendance')).join(', ')}</T.small> : null}
             </Card>
           ))}

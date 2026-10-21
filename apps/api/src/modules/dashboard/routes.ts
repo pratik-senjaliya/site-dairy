@@ -29,7 +29,7 @@ dashboard.get('/', async (req, res) => {
   const sites = (await Promise.all(projects.map((p) => siteDaySummary(m.companyId, p.id, d)))).map((s) => withoutCost(m.role, s));
   const afterCutoff = d < isoDate() || nowHHMM() >= cfg.noEntryCutoff;
   for (const s of sites) {
-    if (afterCutoff && s.missing.includes('attendance')) s.alerts.unshift(`No attendance entered by ${cfg.noEntryCutoff}`);
+    if (afterCutoff && s.missing.includes('attendance')) s.alerts.unshift({ key: 'alert.noEntry', vars: { time: cfg.noEntryCutoff } });
   }
   const pendingApprovals = await prisma.approval.count({ where: { companyId: m.companyId, status: 'pending', deletedAt: null, ...siteOrCompanyWide(m) } });
   res.json({

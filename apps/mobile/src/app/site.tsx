@@ -1,3 +1,4 @@
+import { noticeText, type Notice } from '@site-diary/i18n';
 import { formatPaise } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
@@ -15,7 +16,7 @@ interface SiteDetail {
   materialIn: { material: string; materialGu: string; qty: number; unit: string; supplier: string | null }[];
   materialUsed: { material: string; materialGu: string; qty: number; unit: string; floor: string | null }[];
   progress: { workItem: string; workItemGu: string; floor: string | null; percent: number; note: string | null }[];
-  photos: unknown[]; openIssues: number; alerts: string[]; missing: string[];
+  photos: unknown[]; openIssues: number; alerts: Notice[]; missing: string[];
   trend: { date: string; workers: number }[];
 }
 
@@ -34,7 +35,7 @@ export default function Site() {
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={reload} /> : null}
       {d ? (
         <>
-          {d.alerts.map((a) => <Banner key={a} text={a} />)}
+          {d.alerts.map((a) => noticeText(lang, a)).map((a) => <Banner key={a} text={a} />)}
           <Row style={{ gap: spacing.md }}>
             <Card style={{ flex: 1 }}><T.big>{d.labour.workers}</T.big><T.small>{t('report.workers')}</T.small></Card>
             <Card style={{ flex: 1 }}><T.big>{d.labour.yesterday}</T.big><T.small>{t('report.yesterday')}</T.small></Card>

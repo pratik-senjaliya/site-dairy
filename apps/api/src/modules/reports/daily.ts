@@ -1,4 +1,5 @@
 import { addDays, isLowStock, isoDate, parseSettings, roundQty, settlePeriod } from '@site-diary/shared';
+import type { Notice } from '@site-diary/i18n';
 import { isoOf } from '../../lib/json';
 import { day } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
@@ -31,7 +32,7 @@ export interface SiteDaySummary {
   openIssues: number;
   lowStock: { material: string; materialGu: string; unit: string; qty: number; min: number }[];
   missing: string[];
-  alerts: string[];
+  alerts: Notice[];
 }
 
 /** One site's day: the source for the dashboard, the site detail screen and the nightly report. */
@@ -113,13 +114,13 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
     if (!progress.length) missing.push('progress');
   }
   const cfg = parseSettings(company.settings);
-  const alerts: string[] = [];
+  const alerts: Notice[] = [];
   if (changePct !== null && Math.abs(changePct) >= cfg.labourAlertPercent && attendance.length) {
-    alerts.push(`Labour ${changePct > 0 ? 'up' : 'down'} ${Math.abs(changePct)}% vs 7-day average (${avg7})`);
+    alerts.push({ key: changePct > 0 ? 'alert.labourUp' : 'alert.labourDown', vars: { pct: Math.abs(changePct), avg: avg7 } });
   }
-  for (const l of lowStock) alerts.push(`Low stock: ${l.material} ${l.qty} ${l.unit} (min ${l.min})`);
+  for (const l of lowStock) alerts.push({ key: 'alert.lowStock', vars: { material: l.material, qty: l.qty, unit: l.unit, min: l.min }, gu: { material: l.materialGu } });
   const rejected = grns.flatMap((g) => g.lines).filter((l) => l.rejectedQty.toNumber() > 0);
-  for (const l of rejected) alerts.push(`Rejected at gate: ${mat(l.materialId)?.nameEn ?? ''} ${l.rejectedQty.toNumber()}`);
+  for (const l of rejected) alerts.push({ key: 'alert.rejected', vars: { material: mat(l.materialId)?.nameEn ?? '', qty: l.rejectedQty.toNumber() }, gu: { material: mat(l.materialId)?.nameGu ?? '' } });
 
   return {
     project: { id: project.id, name: project.name },

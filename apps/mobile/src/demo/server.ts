@@ -1,4 +1,4 @@
-import { t as tr, type Locale } from '@site-diary/i18n';
+import { noticeText, t as tr, type Locale, type Notice } from '@site-diary/i18n';
 import {
   acceptedQty, addDays, can, companySettingsSchema, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
@@ -118,9 +118,9 @@ function summary(s: State, projectId: string, date: string) {
   const marker = String(day?.marker ?? 'work');
   const missing = marker === 'work' ? [...(todays.length ? [] : ['attendance']), ...(progress.length ? [] : ['progress'])] : [];
   const changePct = avg7 && todays.length ? Math.round(((workers - avg7) / avg7) * 100) : null; // nothing entered yet is not a 100% drop
-  const alerts = [
-    ...(changePct !== null && Math.abs(changePct) >= 20 && todays.length ? [`Labour ${changePct > 0 ? 'up' : 'down'} ${Math.abs(changePct)}% vs 7-day average (${avg7})`] : []),
-    ...low.map((l) => `Low stock: ${l.material} ${l.qty} ${l.unit} (min ${l.min})`),
+  const alerts: Notice[] = [
+    ...(changePct !== null && Math.abs(changePct) >= 20 && todays.length ? [{ key: changePct > 0 ? 'alert.labourUp' : 'alert.labourDown', vars: { pct: Math.abs(changePct), avg: avg7 } } as const] : []),
+    ...low.map((l) => ({ key: 'alert.lowStock', vars: { material: l.material, qty: l.qty, unit: l.unit, min: l.min }, gu: { material: l.materialGu } }) as const),
   ];
   const contractors = live(s, 'contractor');
   const cost = contractors.map((c) => account(s, projectId, c.id, date, date)).reduce((a, r) => ({ gross: a.gross + r.gross, missing: a.missing || r.missingRates.length > 0 }), { gross: 0, missing: false });
@@ -336,7 +336,7 @@ export async function demoReportText(projectId: string): Promise<string> {
     ...x.materialIn.map((m) => `↓ ${l === 'en' ? m.material : m.materialGu} ${m.qty} ${m.unit}${m.supplier ? ` · ${m.supplier}` : ''}`),
     ...x.materialUsed.map((m) => `↑ ${l === 'en' ? m.material : m.materialGu} ${m.qty} ${m.unit}${m.floor ? ` · ${m.floor}` : ''}`),
     ...x.progress.map((p) => `✓ ${l === 'en' ? p.workItem : p.workItemGu}${p.floor ? ` · ${p.floor}` : ''} ${p.percent}%`),
-    ...x.alerts.map((a) => `⚠ ${a}`),
+    ...x.alerts.map((a) => `⚠ ${noticeText(l, a)}`),
   ].join('\n');
 }
 

@@ -1,5 +1,5 @@
 import { formatPaise, isoDate, settlePeriod } from '@site-diary/shared';
-import { t, type Locale } from '@site-diary/i18n';
+import { noticeText, t, type Locale } from '@site-diary/i18n';
 import { day, isoOf } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { supplierLedger } from '../purchase/routes';
@@ -106,7 +106,7 @@ export function dailyTables(s: SiteDaySummary, l: Locale): { highlights: Report[
     });
   }
   const notes = [
-    ...s.alerts,
+    ...s.alerts.map((a) => noticeText(l, a)),
     ...(s.missing.length ? [`${t(l, 'report.missing')}: ${s.missing.map((m) => t(l, `missing.${m}` as 'missing.attendance')).join(', ')}`] : []),
   ];
   if (notes.length) tables.unshift({ title: t(l, 'report.alerts'), columns: [{ key: 'alert', header: '' }], rows: notes.map((alert) => ({ alert })) });

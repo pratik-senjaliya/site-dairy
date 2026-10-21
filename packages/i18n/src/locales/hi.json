@@ -239,5 +239,10 @@
   "hisab.none": "इन दिनों में हाजिरी या एडवांस नहीं है.",
   "hisab.send": "हिसाब WhatsApp पर भेजें",
   "hisab.byDay": "दिन के हिसाब से",
-  "hisab.hint": "हाजिरी × रेट − बाकी एडवांस. पक्का हिसाब ऑफिस करता है."
+  "hisab.hint": "हाजिरी × रेट − बाकी एडवांस. पक्का हिसाब ऑफिस करता है.",
+  "alert.labourUp": "मज़दूर 7 दिन के औसत ({avg}) से {pct}% ज़्यादा",
+  "alert.labourDown": "मज़दूर 7 दिन के औसत ({avg}) से {pct}% कम",
+  "alert.lowStock": "स्टॉक कम: {material} {qty} {unit} (कम से कम {min})",
+  "alert.rejected": "गेट पर वापस किया: {material} {qty}",
+  "alert.noEntry": "{time} तक हाजिरी नहीं भरी"
 }

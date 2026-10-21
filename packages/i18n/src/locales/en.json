@@ -239,5 +239,10 @@
   "hisab.none": "No attendance or advance in these days.",
   "hisab.send": "Send hisab on WhatsApp",
   "hisab.byDay": "Day by day",
-  "hisab.hint": "Attendance × rate − advances not yet settled. The office makes the settlement."
+  "hisab.hint": "Attendance × rate − advances not yet settled. The office makes the settlement.",
+  "alert.labourUp": "Labour up {pct}% vs 7-day average ({avg})",
+  "alert.labourDown": "Labour down {pct}% vs 7-day average ({avg})",
+  "alert.lowStock": "Low stock: {material} {qty} {unit} (min {min})",
+  "alert.rejected": "Rejected at gate: {material} {qty}",
+  "alert.noEntry": "No attendance entered by {time}"
 }
