@@ -35,6 +35,14 @@ npm run dev:web                        # http://localhost:3000 shows API + DB st
 npm run dev:mobile                     # Expo dev server
 npm run lint && npm run typecheck && npm test
 npm run prisma:migrate -w apps/api -- --name <name>   # after schema changes
+npm run build:mobile-web               # phone app as a website (apps/mobile/dist)
+npm run build:demo-page                # site-diary-demo.html: the no-server demo in one file
+
+# Android (from apps/mobile; full guide with install steps: docs/android.md)
+npx eas-cli@latest login                                   # browser login, once per computer
+npx eas-cli@latest build -p android --profile demo         # APK, no server needed
+npx eas-cli@latest build -p android --profile pilot        # APK against EXPO_PUBLIC_API_URL (https)
+npx eas-cli@latest update --channel demo --message "…"     # JS-only fix to installed APKs
 ```
 
 Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` if api.expo.dev is unreachable). Read `apps/mobile/AGENTS.md` before touching Expo APIs.
@@ -64,6 +72,8 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - [x] 8. Owner dashboard (`/dashboard`, `modules/reports/daily.ts` builds each site's day) + approval inbox (`modules/approvals`).
 - [x] 9. Nightly report: pg-boss tick (`src/jobs.ts`) → report (`modules/reports/report.ts`) → PDF (Noto fonts, Gujarati shaped) → in-app + WhatsApp Cloud API when configured; signed public link. Also 7 pm no-entry and wage-day reminders.
 - [x] 10. Pilot hardening: crash reports from all apps via the API to Sentry, `infra/backup.sh`, `eas.json`, push registration (needs `eas init`), app icon, plan limits, `render.yaml`, Vercel configs.
+- [x] 11. Demo mode: the phone app can answer itself (`apps/mobile/src/demo/`, `EXPO_PUBLIC_DEMO=1` or the demo buttons on the login screen); `demo` APK profile; one-file browser demo (`infra/demo-page.mjs`, `e2e/demo.mjs`).
+- [x] 12. EAS linked: project @pratik-senjaliya/site-diary (ID in `apps/mobile/app.json`), EAS Update channels `demo`/`pilot`. Building and installing on a phone: `docs/android.md`.
 - What is left needs the owner's accounts or real devices: `docs/release-checklist.md`.
 
 Tests: `npm test` (46: calcs, i18n parity, API incl. RLS, tenant isolation, site scope, attendance lock, frozen settlements, stock, wages, PO threshold and PDF, plans, reports, nightly job), `npm run e2e` (supervisor incl. offline, every office page, store keeper/accountant/engineer). How to try it: `docs/testing.md`.
@@ -77,4 +87,8 @@ Demo phones after seeding (OTP 123456 with `OTP_DEV_CODE`): owner 98000 00001, e
 - Interactive transactions: `transaction()` or `write()` from `lib/`, never `prisma.$transaction(async …)` (a test fails otherwise).
 - Notifications take message keys (`notify.*` in packages/i18n) so each person gets their own language.
 - Writes to synced tables go through `write(companyId, tx => …)` (`lib/db.ts`); daily entries go through `applyRow` (`modules/sync/push.ts`) even from the web panel.
-- Mobile: native packages via `EXPO_OFFLINE=1 npx expo install <pkg>`; keep everything Expo Go compatible until the pilot APK.
+- Mobile: native packages via `EXPO_OFFLINE=1 npx expo install <pkg>`; keep everything Expo Go compatible until the pilot APK. A native package or `app.json` plugin change needs a new APK; JS-only changes can go out with `eas update`.
+- Mobile web exports use `--clear`: Metro caches inlined `EXPO_PUBLIC_*` values, so without it a demo export leaks into the next regular one.
+- EAS cloud builds run `npm install` at the root, then `eas-build-post-install` (apps/mobile) builds `packages/*`, whose `dist/` is not in git. Keep that hook.
+- Release APKs refuse plain `http://` servers; an APK needs an https API. Use Expo Go to test against a laptop.
+- `eas` commands need a person's browser login (or `EXPO_TOKEN` in the environment): ask, don't try to work around it.

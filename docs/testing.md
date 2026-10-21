@@ -41,7 +41,7 @@ Expo Go has the camera, location, offline storage and sharing that the app uses,
 - **API + database + photos**: `render.yaml` (Render), Postgres on Supabase or Render, a private R2/Supabase bucket. Details in `docs/deployment.md`.
 - **Office panel**: Vercel project with root `apps/web` (`vercel.json` is there); set `API_URL` to the API address.
 - **Phone app in a browser** (fastest to share with a builder): Vercel project with root `apps/mobile`; set `EXPO_PUBLIC_API_URL` to the API address and add that site's URL to the API's `WEB_ORIGIN`.
-- **Android app (APK)**: `npx eas-cli@latest build -p android --profile pilot` (needs a free Expo account; set the API address in `eas.json`). Over-the-air fixes during the pilot: `npx eas-cli@latest update --channel pilot`.
+- **Android app (APK)**: step by step in `docs/android.md`: the demo APK (no server), Expo Go against your computer, and the pilot APK against the hosted API, plus over-the-air updates.
 
 ## Automated checks
 

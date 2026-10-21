@@ -17,7 +17,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://site-diary-api.onrender.com"
-      }
+      },
+      "autoIncrement": true
     },
     "production": {
       "channel": "production",
@@ -34,7 +35,8 @@
       },
       "env": {
         "EXPO_PUBLIC_DEMO": "1"
-      }
+      },
+      "autoIncrement": true
     }
   },
   "submit": {

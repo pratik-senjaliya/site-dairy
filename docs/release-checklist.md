@@ -42,7 +42,7 @@ Automated proof: 46 unit/API tests (`npm test`), 3 browser journeys (`npm run e2
 2. **Hosting**: Render (API), Vercel (web + phone web build), Supabase or Render Postgres, R2/Supabase bucket — `docs/deployment.md`.
 3. **SMS OTP**: MSG91 account + DLT-approved OTP template → `OTP_PROVIDER=msg91`.
 4. **WhatsApp**: Meta Business number + approved `nightly_report` template → `WHATSAPP_*`.
-5. **Android app**: free Expo account → `eas init` (adds the project id that turns on push) → `eas build -p android --profile pilot`; Google Play developer account for the internal testing track.
+5. **Android app**: Expo account and EAS project done (@pratik-senjaliya/site-diary). Left: `eas build -p android --profile pilot` once the API is on https, FCM key for push, Google Play developer account for the internal testing track. Steps: `docs/android.md`.
 6. **Sentry** project (optional) → `SENTRY_DSN`.
 7. **Pilot data**: each builder's contractors, materials, suppliers (Excel import) and sites.
 
