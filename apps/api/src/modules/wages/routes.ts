@@ -5,7 +5,7 @@ import { audit } from '../../lib/audit';
 import { allow, allowRoles, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
-import { day } from '../../lib/json';
+import { day, isoOf } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { body, param, query } from '../../lib/validate';
 import { requestApproval } from '../sync/push';
@@ -22,6 +22,31 @@ wages.get('/preview', allow('wages', 'V', 'C'), async (req, res) => {
   const q = query(period, req);
   assertSite(me(req), q.projectId);
   res.json(await previewWages(prisma, q.projectId, q.contractorId, q.from, q.to));
+});
+
+/** Contractor hisab for one site: every contractor with attendance in the period or advances still to deduct. */
+wages.get('/summary', allow('wages', 'V'), async (req, res) => {
+  const m = me(req);
+  const q = query(z.object({ projectId: uuidSchema, from: isoDateSchema, to: isoDateSchema }), req);
+  assertSite(m, q.projectId);
+  const [worked, owing, settled] = await Promise.all([
+    prisma.attendanceEntry.findMany({ where: { companyId: m.companyId, projectId: q.projectId, deletedAt: null, date: { gte: day(q.from), lte: day(q.to) } }, select: { contractorId: true }, distinct: ['contractorId'] }),
+    prisma.advance.findMany({ where: { companyId: m.companyId, projectId: q.projectId, deletedAt: null, settlementId: null, date: { lte: day(q.to) } }, select: { contractorId: true }, distinct: ['contractorId'] }),
+    prisma.wageSettlement.groupBy({ by: ['contractorId'], where: { companyId: m.companyId, projectId: q.projectId, deletedAt: null, status: { not: 'rejected' } }, _max: { periodTo: true } }),
+  ]);
+  const ids = [...new Set([...worked, ...owing].map((r) => r.contractorId))];
+  const contractors = await prisma.contractor.findMany({ where: { companyId: m.companyId, id: { in: ids } }, orderBy: { name: 'asc' } });
+  const rows = await Promise.all(
+    contractors.map(async (c) => {
+      const p = await previewWages(prisma, q.projectId, c.id, q.from, q.to);
+      const till = settled.find((s) => s.contractorId === c.id)?._max.periodTo;
+      const { advanceIds: _ids, days, ...money } = p;
+      const perDay = new Map<string, number>();
+      for (const d of days) perDay.set(d.date, (perDay.get(d.date) ?? 0) + d.count + d.halfDayCount / 2);
+      return { contractor: { id: c.id, name: c.name, phone: c.phone }, ...money, days: [...perDay].map(([date, manDays]) => ({ date, manDays })), settledTill: till ? isoOf(till) : null };
+    }),
+  );
+  res.json({ ...q, contractors: rows, total: { manDays: rows.reduce((s, r) => s + r.manDays, 0), gross: rows.reduce((s, r) => s + r.gross, 0), advances: rows.reduce((s, r) => s + r.advances, 0), net: rows.reduce((s, r) => s + r.net, 0) } });
 });
 
 wages.get('/', allow('wages', 'V'), async (req, res) => {

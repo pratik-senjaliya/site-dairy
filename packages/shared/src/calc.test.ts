@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addDays, daysBetween, isoDate } from './dates';
+import { addDays, daysBetween, isoDate, shortDate, wageWeek } from './dates';
 import { formatPaise, rupeesToPaise } from './money';
 import { phoneSchema } from './schemas';
 import { acceptedQty, isLowStock, stockDelta, stockOnHand } from './stock';
@@ -79,4 +79,14 @@ test('plans: pilot ends after 60 days, basic allows 5 people per active site', a
   assert.deepEqual([pilot.endsOn, pilot.daysLeft, pilot.maxActiveSites], ['2026-11-30', 40, 2]);
   assert.equal(planStatus('basic', '2026-01-01', '2026-10-21', 3).maxUsers, 15);
   assert.equal(planStatus('pro', '2026-01-01', '2026-10-21', 3).maxUsers, null);
+});
+
+test('wage week ends on the wage day', () => {
+  // 2026-10-22 is a Thursday; wages are paid on Saturday (6).
+  assert.deepEqual(wageWeek('2026-10-22', 6), { from: '2026-10-18', to: '2026-10-24' });
+  assert.deepEqual(wageWeek('2026-10-22', 6, 1), { from: '2026-10-11', to: '2026-10-17' });
+  assert.deepEqual(wageWeek('2026-10-24', 6), { from: '2026-10-18', to: '2026-10-24' }, 'the wage day closes its own week');
+  assert.deepEqual(wageWeek('2026-10-25', 6), { from: '2026-10-25', to: '2026-10-31' });
+  assert.deepEqual(wageWeek('2026-10-22', 0), { from: '2026-10-19', to: '2026-10-25' });
+  assert.equal(shortDate('2026-10-08'), '08/10');
 });

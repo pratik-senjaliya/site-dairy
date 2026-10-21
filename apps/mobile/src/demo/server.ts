@@ -1,6 +1,6 @@
 import { t as tr, type Locale } from '@site-diary/i18n';
 import {
-  acceptedQty, addDays, companySettingsSchema, isLowStock, isoDate, PUSH_ORDER, roundQty, stockDelta, type PullResponse, type PushResult, type StockRow,
+  acceptedQty, addDays, can, companySettingsSchema, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
 import { randomUUID } from 'expo-crypto';
 import { kv } from '../lib/kv';
@@ -12,7 +12,7 @@ import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
 
 interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string }
 
-const KEY = 'demo:server:v1';
+const KEY = 'demo:server:v2'; // v2: contractor rates and advances for the hisab
 let state: State | null = null;
 
 class DemoError extends Error {
@@ -75,6 +75,22 @@ function stock(s: State): StockRow[] {
   return [...m].map(([k, qty]) => ({ projectId: k.split('|')[0]!, materialId: k.split('|')[1]!, qty: roundQty(qty) }));
 }
 
+/** One contractor's wages at a site, as the API's previewWages: attendance × rate in force − unsettled advances. */
+function account(s: State, projectId: string, contractorId: unknown, from: string, to: string) {
+  const days = live(s, 'attendanceEntry').filter((a) => a.projectId === projectId && a.contractorId === contractorId && String(a.date) >= from && String(a.date) <= to)
+    .map((a) => ({ date: String(a.date), skillId: String(a.skillId), count: Number(a.count), halfDayCount: Number(a.halfDayCount), otHours: Number(a.otHours) }));
+  const rates = live(s, 'contractorRate').filter((r) => r.contractorId === contractorId).map((r) => ({ skillId: String(r.skillId), dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: String(r.effectiveFrom) }));
+  const advances = live(s, 'advance').filter((a) => a.projectId === projectId && a.contractorId === contractorId && !a.settlementId && String(a.date) <= to).reduce((x, a) => x + Number(a.amountPaise), 0);
+  const result = settlePeriod(days, rates, advances);
+  const bySkill = [...new Set(days.map((d) => d.skillId))].map((skillId) => {
+    const mine = days.filter((d) => d.skillId === skillId);
+    return { skillId, manDays: settlePeriod(mine, rates, 0).manDays, otHours: mine.reduce((x, d) => x + d.otHours, 0), gross: settlePeriod(mine, rates, 0).gross };
+  });
+  const perDay = new Map<string, number>();
+  for (const d of days) perDay.set(d.date, (perDay.get(d.date) ?? 0) + d.count + d.halfDayCount / 2);
+  return { ...result, bySkill, days: [...perDay].sort().map(([date, manDays]) => ({ date, manDays })) };
+}
+
 function summary(s: State, projectId: string, date: string) {
   const project = find(s, 'project', projectId)!;
   const day = live(s, 'siteDay').find((d) => d.projectId === projectId && d.date === date);
@@ -107,10 +123,11 @@ function summary(s: State, projectId: string, date: string) {
     ...low.map((l) => `Low stock: ${l.material} ${l.qty} ${l.unit} (min ${l.min})`),
   ];
   const contractors = live(s, 'contractor');
+  const cost = contractors.map((c) => account(s, projectId, c.id, date, date)).reduce((a, r) => ({ gross: a.gross + r.gross, missing: a.missing || r.missingRates.length > 0 }), { gross: 0, missing: false });
   return {
     project: { id: projectId, name: String(project.name) }, date, marker, note: (day?.note as string | null) ?? null,
     labour: {
-      workers, manDays: todays.reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount) / 2, 0), yesterday: workersOn(addDays(date, -1)), avg7, changePct,
+      workers, manDays: todays.reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount) / 2, 0), costPaise: cost.gross, costMissingRates: cost.missing, yesterday: workersOn(addDays(date, -1)), avg7, changePct,
       byContractor: contractors.map((c) => ({ contractor: String(c.name), workers: todays.filter((a) => a.contractorId === c.id).reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount), 0) })).filter((c) => c.workers),
     },
     materialIn: grns.flatMap((g) => live(s, 'grnLine').filter((l) => l.grnId === g.id).map((l) => ({
@@ -216,7 +233,8 @@ export async function demoApi(method: string, path: string, body: unknown, token
   if (p === '/sync/pull') {
     const since = Number(q('since') ?? 0);
     const changes: Record<string, DemoRow[]> = {};
-    for (const [table, list] of Object.entries(s.t)) {
+    for (const table of PULL_TABLES) {
+      const list = rows(s, table);
       const fresh = list.filter((r) => Number(r.serverRev) > since && (since > 0 || !r.deletedAt));
       if (fresh.length) changes[table] = fresh;
     }
@@ -224,13 +242,15 @@ export async function demoApi(method: string, path: string, body: unknown, token
     return res;
   }
   if (p === '/sync/push') return out(push(s, (b.changes ?? {}) as Record<string, DemoRow[]>));
+  // Labour cost comes from contractor rates, which only roles that see wages may read.
+  const costFor = <T extends { labour: { costPaise: number; costMissingRates: boolean } }>(x: T): T => (can(u.role as Role, 'wages', 'V') ? x : { ...x, labour: { ...x.labour, costPaise: 0, costMissingRates: false } });
   if (p === '/dashboard') {
     const date = q('date') ?? today;
-    const sites = live(s, 'project').map((x) => summary(s, x.id, date));
+    const sites = live(s, 'project').map((x) => costFor(summary(s, x.id, date)));
     return {
       date,
       totals: {
-        workers: sites.reduce((a, x) => a + x.labour.workers, 0), yesterday: sites.reduce((a, x) => a + x.labour.yesterday, 0),
+        workers: sites.reduce((a, x) => a + x.labour.workers, 0), yesterday: sites.reduce((a, x) => a + x.labour.yesterday, 0), labourCostPaise: sites.reduce((a, x) => a + x.labour.costPaise, 0),
         grnLines: sites.reduce((a, x) => a + x.materialIn.length, 0), issues: sites.reduce((a, x) => a + x.materialUsed.length, 0), photos: sites.reduce((a, x) => a + x.photos.length, 0),
         sitesMissingEntry: sites.filter((x) => x.missing.includes('attendance')).length, pendingApprovals: s.approvals.filter((a) => a.status === 'pending').length,
       },
@@ -241,7 +261,20 @@ export async function demoApi(method: string, path: string, body: unknown, token
     const id = p.split('/').pop()!;
     const date = q('date') ?? today;
     const trend = Array.from({ length: 14 }, (_, i) => addDays(date, i - 13)).map((d) => ({ date: d, workers: live(s, 'attendanceEntry').filter((a) => a.projectId === id && a.date === d).reduce((x, a) => x + Number(a.count) + Number(a.halfDayCount), 0) }));
-    return { ...summary(s, id, date), trend };
+    return { ...costFor(summary(s, id, date)), trend };
+  }
+  if (p === '/wages/summary') {
+    if (!can(u.role as Role, 'wages', 'V')) throw new DemoError(403, 'You do not have permission to do this', 'forbidden');
+    const projectId = String(q('projectId'));
+    const from = String(q('from'));
+    const to = String(q('to'));
+    const ids = new Set([
+      ...live(s, 'attendanceEntry').filter((a) => a.projectId === projectId && String(a.date) >= from && String(a.date) <= to).map((a) => a.contractorId),
+      ...live(s, 'advance').filter((a) => a.projectId === projectId && !a.settlementId && String(a.date) <= to).map((a) => a.contractorId),
+    ]);
+    const list = live(s, 'contractor').filter((c) => ids.has(c.id)).map((c) => ({ contractor: { id: c.id, name: String(c.name), phone: (c.phone as string | null) ?? null }, ...account(s, projectId, c.id, from, to), settledTill: null }));
+    const sum = (k: 'manDays' | 'gross' | 'advances' | 'net') => list.reduce((x, r) => x + r[k], 0);
+    return { projectId, from, to, contractors: list, total: { manDays: sum('manDays'), gross: sum('gross'), advances: sum('advances'), net: sum('net') } };
   }
   if (p === '/approvals/count') return { count: ['owner', 'engineer'].includes(String(u.role)) ? s.approvals.filter((a) => a.status === 'pending').length : 0 };
   if (p === '/approvals' && method === 'GET') {

@@ -1,4 +1,4 @@
-import { isLowStock, type StockRow } from '@site-diary/shared';
+import { formatPaise, isLowStock, type StockRow } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -14,8 +14,8 @@ import { shareDailyReport } from '../lib/share';
 
 interface Dashboard {
   date: string;
-  totals: { workers: number; yesterday: number; grnLines: number; photos: number; sitesMissingEntry: number; pendingApprovals: number };
-  sites: { project: { id: string; name: string }; labour: { workers: number; yesterday: number; changePct: number | null }; materialIn: unknown[]; materialUsed: unknown[]; progress: unknown[]; photos: unknown[]; missing: string[]; alerts: string[]; marker: string }[];
+  totals: { workers: number; yesterday: number; labourCostPaise: number; grnLines: number; photos: number; sitesMissingEntry: number; pendingApprovals: number };
+  sites: { project: { id: string; name: string }; labour: { workers: number; yesterday: number; changePct: number | null; costPaise: number; costMissingRates: boolean }; materialIn: unknown[]; materialUsed: unknown[]; progress: unknown[]; photos: unknown[]; missing: string[]; alerts: string[]; marker: string }[];
 }
 
 function Bell() {
@@ -106,6 +106,7 @@ function FieldHome() {
         <Tile label={t('home.stock')} badge={stats.low || undefined} tone={stats.low ? 'warn' : undefined} hint={stats.low ? t('home.lowCount', { count: stats.low }) : undefined} onPress={() => router.push('/stock')} />
         {can('store', 'C') && <Tile label={t('home.transfers')} badge={stats.incoming} onPress={() => router.push('/transfer')} />}
         {approvals.data ? <Tile label={t('home.approvals')} badge={approvals.data.count} onPress={() => router.push('/approvals')} /> : null}
+        {can('wages', 'V') && <Tile label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         {can('reports', 'V') && <Tile label={t('home.siteToday')} onPress={() => router.push({ pathname: '/site', params: { id: siteId } })} />}
         {can('reports', 'V') && <Tile label={t('home.reports')} onPress={() => router.push('/reports')} />}
         <Tile label={t('home.profile')} onPress={() => router.push('/profile')} />
@@ -116,6 +117,7 @@ function FieldHome() {
 
 function OfficeHome() {
   const t = useT();
+  const can = useCan();
   const { me } = useSession();
   const { data, error, loading, reload } = useOnline<Dashboard>('/dashboard');
   return (
@@ -128,11 +130,22 @@ function OfficeHome() {
             <Card style={{ flex: 1 }}><T.big>{data.totals.workers}</T.big><T.small>{t('owner.workersToday', { yesterday: data.totals.yesterday })}</T.small></Card>
             <Card style={{ flex: 1 }} onPress={() => router.push('/approvals')}><T.big color={data.totals.pendingApprovals ? colors.primary : undefined}>{data.totals.pendingApprovals}</T.big><T.small>{t('home.approvals')}</T.small></Card>
           </Row>
+          {data.totals.labourCostPaise ? (
+            <Card onPress={() => router.push('/hisab')}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <View>
+                  <T.small>{t('owner.labourCost')}{data.sites.some((x) => x.labour.costMissingRates) ? ` · ${t('owner.costMissing')}` : ''}</T.small>
+                  <T.big>{formatPaise(data.totals.labourCostPaise)}</T.big>
+                </View>
+                <T.body color={colors.primary} bold>{t('home.hisab')} ›</T.body>
+              </Row>
+            </Card>
+          ) : null}
           {data.sites.map((s) => (
             <Card key={s.project.id} onPress={() => router.push({ pathname: '/site', params: { id: s.project.id } })}>
               <Row style={{ justifyContent: 'space-between' }}>
                 <T.h2>{s.project.name}</T.h2>
-                <T.body bold>{t('attendance.workers', { count: s.labour.workers })}</T.body>
+                <T.body bold>{t('attendance.workers', { count: s.labour.workers })}{s.labour.costPaise ? ` · ${formatPaise(s.labour.costPaise)}` : ''}</T.body>
               </Row>
               <T.small>
                 {t('owner.siteLine', { grn: s.materialIn.length, used: s.materialUsed.length, progress: s.progress.length, photos: s.photos.length })}
@@ -147,6 +160,7 @@ function OfficeHome() {
       <Button kind="secondary" label={loading ? t('common.loading') : t('common.refresh')} onPress={reload} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
         <Tile label={t('home.approvals')} onPress={() => router.push('/approvals')} />
+        {can('wages', 'V') && <Tile label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         <Tile label={t('home.reports')} onPress={() => router.push('/reports')} />
         <Tile label={t('home.profile')} onPress={() => router.push('/profile')} />
       </View>

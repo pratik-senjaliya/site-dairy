@@ -1,4 +1,6 @@
+import { formatPaise } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
+import { router } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
@@ -9,7 +11,7 @@ import { useSession } from '../lib/session';
 
 interface SiteDetail {
   project: { name: string }; date: string; marker: string; note: string | null;
-  labour: { workers: number; yesterday: number; avg7: number; byContractor: { contractor: string; workers: number }[] };
+  labour: { workers: number; yesterday: number; avg7: number; costPaise: number; costMissingRates: boolean; byContractor: { contractor: string; workers: number }[] };
   materialIn: { material: string; materialGu: string; qty: number; unit: string; supplier: string | null }[];
   materialUsed: { material: string; materialGu: string; qty: number; unit: string; floor: string | null }[];
   progress: { workItem: string; workItemGu: string; floor: string | null; percent: number; note: string | null }[];
@@ -49,6 +51,14 @@ export default function Site() {
             </View>
             <Row style={{ justifyContent: 'space-between' }}><T.small>{d.trend[0]?.date.slice(5)}</T.small><T.small>{d.trend.at(-1)?.date.slice(5)}</T.small></Row>
           </Card>
+          {d.labour.costPaise ? (
+            <Card onPress={() => router.push({ pathname: '/hisab', params: { site: id } })}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T.body>{t('owner.labourCost')}{d.labour.costMissingRates ? ` · ${t('owner.costMissing')}` : ''}</T.body>
+                <T.h2>{formatPaise(d.labour.costPaise)}</T.h2>
+              </Row>
+            </Card>
+          ) : null}
           <Card>
             <T.h2>{t('report.labour')}</T.h2>
             {d.labour.byContractor.length ? d.labour.byContractor.map((c) => <Row key={c.contractor} style={{ justifyContent: 'space-between' }}><T.body>{c.contractor}</T.body><T.body bold>{c.workers}</T.body></Row>) : <T.small>{t('report.nothing')}</T.small>}

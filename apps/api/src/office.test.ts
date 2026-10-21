@@ -115,3 +115,50 @@ test('every table with server_rev has the sync trigger', async () => {
       AND NOT EXISTS (SELECT 1 FROM information_schema.triggers t WHERE t.event_object_table = c.table_name AND t.trigger_name = 'set_server_rev')`;
   assert.deepEqual(missing, []);
 });
+
+test('contractor hisab: per contractor and skill, advances deducted, settled-till shown, office roles only', async () => {
+  const w = await world();
+  const eng = await signIn(w.people.engineer);
+  await eng.call('POST', '/masters/contractorRate', { contractorId: w.contractor.id, skillId: w.kadiya.id, dailyRatePaise: rupeesToPaise(900), effectiveFrom: addDays(today, -30) });
+  await eng.call('POST', '/masters/contractorRate', { contractorId: w.contractor.id, skillId: w.majur.id, dailyRatePaise: rupeesToPaise(550), effectiveFrom: addDays(today, -30) });
+  const sup = await signIn(w.people.supervisor);
+  const d1 = addDays(today, -1);
+  await sup.call('POST', '/sync/push', {
+    changes: {
+      attendanceEntry: [
+        { id: uuid(), projectId: w.siteA.id, date: today, contractorId: w.contractor.id, skillId: w.kadiya.id, count: 2, halfDayCount: 0, otHours: 4 },
+        { id: uuid(), projectId: w.siteA.id, date: today, contractorId: w.contractor.id, skillId: w.majur.id, count: 4, halfDayCount: 2, otHours: 0 },
+        { id: uuid(), projectId: w.siteA.id, date: d1, recordedOn: d1, contractorId: w.contractor.id, skillId: w.kadiya.id, count: 3, halfDayCount: 0, otHours: 0 },
+      ],
+      advance: [{ id: uuid(), projectId: w.siteA.id, contractorId: w.contractor.id, amountPaise: rupeesToPaise(1000), date: d1, mode: 'cash' }],
+    },
+  });
+  const url = `/wages/summary?projectId=${w.siteA.id}&from=${d1}&to=${today}`;
+  const r = await eng.call<{ contractors: { contractor: { id: string }; manDays: number; gross: number; advances: number; net: number; bySkill: { skillId: string; manDays: number; gross: number }[]; days: { date: string; manDays: number }[]; settledTill: string | null }[]; total: { net: number } }>('GET', url);
+  assert.equal(r.status, 200);
+  const c = r.body.contractors.find((x) => x.contractor.id === w.contractor.id)!;
+  // kadiya 5 days × 900 + 4h × 900/8 = 4950; majur 5 days × 550 = 2750
+  assert.equal(c.manDays, 10);
+  assert.equal(c.gross, rupeesToPaise(7700));
+  assert.equal(c.advances, rupeesToPaise(1000));
+  assert.equal(c.net, rupeesToPaise(6700));
+  assert.equal(c.bySkill.find((s) => s.skillId === w.kadiya.id)!.gross, rupeesToPaise(4950));
+  assert.deepEqual(c.days, [{ date: d1, manDays: 3 }, { date: today, manDays: 7 }]);
+  assert.equal(c.settledTill, null);
+  assert.equal(r.body.total.net, rupeesToPaise(6700));
+
+  await eng.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d1, to: d1 });
+  const after = await eng.call<{ contractors: { settledTill: string | null; advances: number }[] }>('GET', url);
+  assert.equal(after.body.contractors[0]!.settledTill, d1);
+  assert.equal(after.body.contractors[0]!.advances, 0, 'the settlement took the advance');
+
+  assert.equal((await sup.call('GET', url)).status, 403, 'supervisors do not see rates and money');
+  // Today's labour cost on the dashboard: kadiya 2 × 900 + 4h OT = 2250, majur 5 days × 550 = 2750.
+  const owner = await signIn(w.people.owner);
+  const dash = await owner.call<{ totals: { labourCostPaise: number }; sites: { project: { id: string }; labour: { costPaise: number; costMissingRates: boolean } }[] }>('GET', '/dashboard');
+  assert.equal(dash.body.sites.find((x) => x.project.id === w.siteA.id)!.labour.costPaise, rupeesToPaise(5000));
+  assert.equal(dash.body.totals.labourCostPaise, rupeesToPaise(5000));
+  const supSite = await sup.call<{ labour: { costPaise: number } }>('GET', `/dashboard/site/${w.siteA.id}`);
+  assert.equal(supSite.body.labour.costPaise, 0, 'no rates for supervisors');
+  assert.equal((await eng.call('GET', `/wages/summary?projectId=${w.siteB.id}&from=${d1}&to=${today}`)).status, 403, 'only assigned sites');
+});

@@ -20,3 +20,18 @@ export function daysBetween(from: string, to: string): string[] {
   for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
   return out;
 }
+
+/** 0 = Sunday … 6 = Saturday, for an ISO date. */
+export const weekday = (iso: string) => new Date(`${iso}T12:00:00Z`).getUTCDay();
+
+/**
+ * The wage week holding `date`: seven days ending on the company's wage day (default Saturday).
+ * `weeksBack` 1 is the week before, already due for payment.
+ */
+export function wageWeek(date: string, wageDay: number, weeksBack = 0): { from: string; to: string } {
+  const to = addDays(date, ((wageDay - weekday(date) + 7) % 7) - 7 * weeksBack);
+  return { from: addDays(to, -6), to };
+}
+
+/** "2026-10-18" → "18/10", the way dates are written on site. */
+export const shortDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;

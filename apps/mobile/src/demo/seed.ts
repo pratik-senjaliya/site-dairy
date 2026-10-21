@@ -36,6 +36,9 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
     { name: 'Jay Ambe Shuttering', trade: 'Shuttering', skills: ['Carpenter', 'Helper'] },
     { name: 'Mahadev Steel Works', trade: 'Steel', skills: ['Bar bender', 'Helper'] },
   ].map((c) => ({ row: add('contractor', base({ name: c.name, trade: c.trade, rateType: 'daily' })), skills: c.skills.map(sk) }));
+  // Daily rates (₹) per contractor × skill, for the hisab and today's labour cost.
+  const rate = (en: string) => (en.startsWith('Mason') ? 950 : en.startsWith('Carpenter') ? 900 : en.startsWith('Bar') ? 850 : 550);
+  for (const c of contractors) for (const s of c.skills) add('contractorRate', base({ contractorId: c.row.id, skillId: s.id, dailyRatePaise: rupeesToPaise(rate(String(s.nameEn))), effectiveFrom: addDays(today, -120) }));
   add('worker', base({ contractorId: contractors[1]!.row.id, name: 'Ramesh Vaghela', skillId: sk('Carpenter').id }));
   const suppliers = ['Umiya Cement Traders', 'Khodiyar Sand Supplier', 'Shakti Steel'].map((name) => add('supplier', base({ name })));
   const mat = (en: string) => materials.find((m) => m.nameEn === en)!;
@@ -67,6 +70,8 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
     add('materialIssue', base({ projectId, materialId: mat('Sand').id, qty: 0.5, workItemId: items[5]!.id, structureNodeId: floors[3]!.id, date, createdById: store.id }));
     add('dailyProgress', base({ projectId, date, workItemId: items[2]!.id, structureNodeId: floor.id, percent: Math.min(100, 20 + (14 - back) * 6), note: 'કોલમ શટરિંગ અને કાસ્ટિંગ', createdById: sup.id }));
   }
+  add('advance', base({ projectId, contractorId: contractors[0]!.row.id, workerId: null, amountPaise: rupeesToPaise(5000), date: addDays(today, -2), mode: 'cash', settlementId: null, createdById: sup.id }));
+  add('advance', base({ projectId, contractorId: contractors[1]!.row.id, workerId: null, amountPaise: rupeesToPaise(3000), date: addDays(today, -4), mode: 'upi', settlementId: null, createdById: sup.id }));
   const indent = add('indent', base({ projectId, status: 'submitted', requestedById: sup.id, neededBy: addDays(today, 3), note: 'સ્લેબ માટે', createdById: sup.id }));
   add('indentLine', base({ indentId: indent.id, materialId: mat('Cement').id, qty: 300 }));
   add('indentLine', base({ indentId: indent.id, materialId: mat('TMT steel').id, qty: 2500 }));

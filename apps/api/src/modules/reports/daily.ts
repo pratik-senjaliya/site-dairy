@@ -1,4 +1,5 @@
-import { addDays, isLowStock, isoDate, parseSettings, roundQty } from '@site-diary/shared';
+import { addDays, isLowStock, isoDate, parseSettings, roundQty, settlePeriod } from '@site-diary/shared';
+import { isoOf } from '../../lib/json';
 import { day } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { stockFor } from '../store/ledger';
@@ -14,6 +15,9 @@ export interface SiteDaySummary {
   labour: {
     workers: number;
     manDays: number;
+    /** Today's wages at the rates in force (attendance × rate + overtime); `costMissingRates` when some skill has no rate. */
+    costPaise: number;
+    costMissingRates: boolean;
     yesterday: number;
     avg7: number;
     changePct: number | null;
@@ -57,6 +61,14 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
     prisma.workItem.findMany({ where: { projectId } }),
     prisma.structureNode.findMany({ where: { projectId } }),
   ]);
+  const rates = await prisma.contractorRate.findMany({ where: { contractorId: { in: [...new Set(attendance.map((e) => e.contractorId))] }, deletedAt: null } });
+  const cost = contractors
+    .map((c) => settlePeriod(
+      attendance.filter((e) => e.contractorId === c.id).map((e) => ({ date, skillId: e.skillId, count: e.count, halfDayCount: e.halfDayCount, otHours: e.otHours.toNumber() })),
+      rates.filter((r) => r.contractorId === c.id).map((r) => ({ skillId: r.skillId, dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: isoOf(r.effectiveFrom) })),
+      0,
+    ))
+    .reduce((acc, r) => ({ gross: acc.gross + r.gross, missing: acc.missing || r.missingRates.length > 0 }), { gross: 0, missing: false });
   const mat = (id: string) => materials.find((m) => m.id === id);
   const nodeName = (id: string | null) => {
     const n = nodes.find((x) => x.id === id);
@@ -114,7 +126,7 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
     date,
     marker,
     note: siteDay?.note ?? null,
-    labour: { workers: todayWorkers, manDays: attendance.reduce((s, e) => s + manDays(e), 0), yesterday, avg7, changePct, byContractor },
+    labour: { workers: todayWorkers, manDays: attendance.reduce((s, e) => s + manDays(e), 0), costPaise: cost.gross, costMissingRates: cost.missing, yesterday, avg7, changePct, byContractor },
     materialIn: grns.flatMap((g) =>
       g.lines.map((l) => {
         const m = mat(l.materialId);
