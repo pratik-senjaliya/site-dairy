@@ -56,6 +56,19 @@
         }
       ]
     ],
-    "scheme": "sitediary"
+    "scheme": "sitediary",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6f333777-ca21-43ad-b1ef-8caadba2b246"
+      }
+    },
+    "owner": "pratik-senjaliya",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6f333777-ca21-43ad-b1ef-8caadba2b246"
+    }
   }
 }
