@@ -162,5 +162,11 @@ test('contractor hisab: per contractor and skill, advances deducted, settled-til
   assert.equal(dash.body.totals.labourCostPaise, rupeesToPaise(5000));
   const supSite = await sup.call<{ labour: { costPaise: number } }>('GET', `/dashboard/site/${w.siteA.id}`);
   assert.equal(supSite.body.labour.costPaise, 0, 'no rates for supervisors');
+  // The daily/nightly report carries the cost for the owner, not in the copy a supervisor shares.
+  type Rep = { highlights: { label: string; value: string }[] };
+  const ownerRep = await owner.call<Rep>('GET', `/reports/daily?projectId=${w.siteA.id}&lang=en`);
+  assert.deepEqual(ownerRep.body.highlights.find((h) => h.label === 'Labour cost'), { label: 'Labour cost', value: '₹5,000' });
+  const supRep = await sup.call<Rep>('GET', `/reports/daily?projectId=${w.siteA.id}&lang=en`);
+  assert.ok(!supRep.body.highlights.some((h) => h.label === 'Labour cost'));
   assert.equal((await eng.call('GET', `/wages/summary?projectId=${w.siteB.id}&from=${d1}&to=${today}`)).status, 403, 'only assigned sites');
 });

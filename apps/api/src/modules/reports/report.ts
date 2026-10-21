@@ -31,6 +31,8 @@ export interface ReportArgs {
   to: string;
   supplierId?: string;
   locale: Locale;
+  /** Daily report: add the day's labour cost (contractor rates), for readers who may see wages. */
+  withCost?: boolean;
 }
 
 const names = async (companyId: string) => {
@@ -50,7 +52,7 @@ const period = (a: ReportArgs) => (a.from === a.to ? a.from : `${a.from} to ${a.
 const range = (a: ReportArgs) => ({ gte: day(a.from), lte: day(a.to) });
 
 /** The daily report for one or more sites; also the nightly report. */
-export function dailyTables(s: SiteDaySummary, l: Locale): { highlights: Report['highlights']; tables: Table[] } {
+export function dailyTables(s: SiteDaySummary, l: Locale, withCost = false): { highlights: Report['highlights']; tables: Table[] } {
   const name = (en: string, gu: string) => (l === 'en' ? en : gu || en);
   const tables: Table[] = [];
   if (s.marker !== 'work') tables.push({ title: t(l, `marker.${s.marker}` as 'marker.work'), columns: [{ key: 'note', header: t(l, 'report.note') }], rows: [{ note: s.note ?? '' }] });
@@ -113,6 +115,7 @@ export function dailyTables(s: SiteDaySummary, l: Locale): { highlights: Report[
   return {
     highlights: [
       { label: t(l, 'report.workers'), value: String(s.labour.workers) },
+      ...(withCost && s.labour.costPaise ? [{ label: t(l, 'owner.labourCostDay'), value: formatPaise(s.labour.costPaise) }] : []),
       { label: t(l, 'report.yesterday'), value: String(s.labour.yesterday) },
       { label: t(l, 'report.avg7'), value: String(s.labour.avg7) },
       { label: t(l, 'report.photos'), value: String(s.photos.length) },
@@ -140,9 +143,13 @@ export async function buildReport(type: ReportType, a: ReportArgs): Promise<Repo
         photos.push(...ph.map((p) => ({ id: p.id, storageKey: p.storageKey, caption: `${s.project.name} · ${p.sourceType}` })));
       }
       const total = summaries.reduce((x, s) => x + s.labour.workers, 0);
+      const cost = summaries.reduce((x, s) => x + s.labour.costPaise, 0);
       return {
         ...base, title: t(a.locale, 'report.daily'), subtitle: `${sitesLabel} · ${a.to}`,
-        highlights: summaries.length === 1 ? dailyTables(summaries[0]!, a.locale).highlights : [{ label: t(a.locale, 'report.workers'), value: String(total) }],
+        highlights: summaries.length === 1 ? dailyTables(summaries[0]!, a.locale, a.withCost).highlights : [
+          { label: t(a.locale, 'report.workers'), value: String(total) },
+          ...(a.withCost && cost ? [{ label: t(a.locale, 'owner.labourCostDay'), value: formatPaise(cost) }] : []),
+        ],
         tables, photos,
       };
     }

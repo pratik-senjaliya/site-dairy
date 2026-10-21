@@ -1,3 +1,4 @@
+import { can } from '@site-diary/shared';
 import { Router } from 'express';
 import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
@@ -24,7 +25,7 @@ publicReports.get('/:token', async (req, res) => {
     await prisma.project.findMany({ where: { companyId: row.companyId, deletedAt: null, status: 'active', ...(user.role !== 'owner' && { id: { in: user.sites.map((s) => s.projectId) } }) }, select: { id: true } })
   ).map((p) => p.id);
   const date = row.date.toISOString().slice(0, 10);
-  const report = await buildReport('daily', { companyId: row.companyId, projectIds, from: date, to: date, locale: user.language });
+  const report = await buildReport('daily', { companyId: row.companyId, projectIds, from: date, to: date, locale: user.language, withCost: can(user.role, 'wages', 'V') });
   res.json({ ...report, photos: undefined, language: user.language });
 });
 

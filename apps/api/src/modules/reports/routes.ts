@@ -1,4 +1,4 @@
-import { isoDate, isoDateSchema, uuidSchema } from '@site-diary/shared';
+import { can, isoDate, isoDateSchema, uuidSchema } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
@@ -66,7 +66,7 @@ reports.get('/:type', async (req, res) => {
     assertSite(m, q.projectId);
     projectIds = [q.projectId];
   }
-  const r = await buildReport(type, { companyId: m.companyId, projectIds, from: q.from, to: q.to, supplierId: q.supplierId, locale: q.lang ?? m.language });
+  const r = await buildReport(type, { companyId: m.companyId, projectIds, from: q.from, to: q.to, supplierId: q.supplierId, locale: q.lang ?? m.language, withCost: can(m.role, 'wages', 'V') });
   if (q.format !== 'json') {
     await transaction((tx) => audit(tx, { me: m, ip: req.ip }, { action: 'export', entityType: 'report', entityId: null, after: { type, format: q.format, from: q.from, to: q.to, projectIds } }));
   }

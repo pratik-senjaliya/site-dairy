@@ -1,4 +1,4 @@
-import { isoDate } from '@site-diary/shared';
+import { can, isoDate } from '@site-diary/shared';
 import jwt from 'jsonwebtoken';
 import { config } from '../../lib/config';
 import { notify } from '../../lib/notify';
@@ -32,7 +32,7 @@ export async function runNightlyFor(userId: string, date = isoDate()) {
   ).map((p) => p.id);
   if (!projectIds.length) return null;
 
-  const report = await buildReport('daily', { companyId: user.companyId, projectIds, from: date, to: date, locale: user.language });
+  const report = await buildReport('daily', { companyId: user.companyId, projectIds, from: date, to: date, locale: user.language, withCost: can(user.role, 'wages', 'V') });
   const pdf = await toPdf(report);
   const pdfKey = `${user.companyId}/reports/${date}/${user.id}.pdf`;
   await putFile(pdfKey, pdf, 'application/pdf');
