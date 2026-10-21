@@ -221,6 +221,7 @@
   "common.nextDay": "अगला दिन",
   "advance.worker": "मज़दूर (ज़रूरी नहीं)",
   "advance.wholeContractor": "ठेकेदार",
+  "advance.sofar": "इस हफ़्ते: {days} मज़दूर-दिन · हिसाब बाकी एडवांस {amount}",
   "error.title": "कुछ गड़बड़ हुई",
   "error.body": "आपकी एंट्री फोन में सुरक्षित हैं। होम स्क्रीन पर जाने के लिए दबाएँ।",
   "error.home": "होम पर जाएँ",

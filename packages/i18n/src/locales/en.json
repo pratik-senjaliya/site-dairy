@@ -221,6 +221,7 @@
   "common.nextDay": "Next day",
   "advance.worker": "Worker (optional)",
   "advance.wholeContractor": "Contractor",
+  "advance.sofar": "This week: {days} man-days · upad not yet settled {amount}",
   "error.title": "Something went wrong",
   "error.body": "Your entries are safe on this phone. Tap to go back to the home screen.",
   "error.home": "Go to home",

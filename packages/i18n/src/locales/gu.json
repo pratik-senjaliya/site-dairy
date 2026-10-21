@@ -221,6 +221,7 @@
   "common.nextDay": "પછીનો દિવસ",
   "advance.worker": "માણસ (જરૂરી નથી)",
   "advance.wholeContractor": "કોન્ટ્રાક્ટર",
+  "advance.sofar": "આ અઠવાડિયે: {days} માણસ-દિવસ · હિસાબ બાકી ઉપાડ {amount}",
   "error.title": "કંઈક ખોટું થયું",
   "error.body": "તમારી એન્ટ્રી ફોનમાં સુરક્ષિત છે. હોમ સ્ક્રીન પર જવા દબાવો.",
   "error.home": "હોમ પર જાઓ",
