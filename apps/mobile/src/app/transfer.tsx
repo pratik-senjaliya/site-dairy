@@ -1,12 +1,13 @@
+import { formatNumber } from '@site-diary/shared';
 import { useState } from 'react';
 import { QtyField, RowChips, useMaterials } from '../components/pickers';
-import { Button, Card, Empty, Screen, T } from '../components/ui';
+import { Ask, Button, Card, DiaryLine, Empty, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 
-// Site-to-site transfer: the sending site records it, the receiving site confirms it arrived.
+// Site-to-site transfer: what is on the way here comes first (confirm it arrived), then sending to another site.
 export default function Transfer() {
   const t = useT();
   const name = useName();
@@ -19,30 +20,47 @@ export default function Transfer() {
   const [to, setTo] = useState<string | null>(null);
   const [materialId, setMaterial] = useState<string | null>(null);
   const [qty, setQty] = useState(0);
-  const unit = String(materials.find((m) => m.id === materialId)?.unit ?? '');
   const siteName = (id: unknown) => me?.projects.find((p) => p.id === id)?.name ?? String(db.find('project', id as string)?.name ?? '');
+  const item = (r: Record<string, unknown>) => {
+    const m = db.find('material', r.materialId as string);
+    return `${name(m)} ${formatNumber(Number(r.qty))} ${String(m?.unit ?? '')}`;
+  };
+  const line = to && materialId && qty ? t('transfer.line', { site: siteName(to), item: item({ materialId, qty }) }) : null;
 
   return (
     <Screen title={t('home.transfers')}>
       <T.h2>{t('transfer.incoming')}</T.h2>
       {incoming.length ? incoming.map((r) => (
         <Card key={r.id}>
-          <T.body bold>{name(materials.find((m) => m.id === r.materialId))} · {String(r.qty)} · {t('transfer.from', { site: siteName(r.fromProjectId) })}</T.body>
+          <T.body bold>{item(r)} · {t('transfer.from', { site: siteName(r.fromProjectId) })}</T.body>
           <Button small label={t('transfer.received')} onPress={() => { db.save('stockTransfer', { ...r, status: 'received' }); notice(t('common.saved')); }} />
         </Card>
       )) : <Empty text={t('transfer.noneIncoming')} />}
       <Card>
         <T.h2>{t('transfer.send')}</T.h2>
-        <RowChips label={t('transfer.toSite')} rows={projects} value={to} onChange={setTo} nameOf={(p) => String(p.name)} />
-        <RowChips label={t('report.material')} rows={materials} max={8} value={materialId} onChange={setMaterial} nameOf={name} />
-        {materialId ? <QtyField label={t('report.qty')} unit={unit} value={qty} onChange={setQty} /> : null}
-        <Button label={t('transfer.send')} disabled={!to || !materialId || !qty} onPress={() => {
-          db.save('stockTransfer', { fromProjectId: siteId, toProjectId: to, materialId, qty, status: 'sent' });
-          setQty(0);
-          notice(t('common.saved'));
-        }} />
+        {projects.length ? (
+          <>
+            <Ask q={t('transfer.qTo')}>
+              <RowChips label="" rows={projects} value={to} onChange={setTo} nameOf={(p) => String(p.name)} />
+            </Ask>
+            <Ask q={t('transfer.qWhat')}>
+              <RowChips label="" rows={materials} max={8} value={materialId} onChange={setMaterial} nameOf={name} />
+            </Ask>
+            {materialId ? (
+              <Ask q={t('indent.qHowMuch')}>
+                <QtyField label="" unit={String(db.find('material', materialId)?.unit ?? '')} value={qty} onChange={setQty} />
+              </Ask>
+            ) : null}
+            {line ? <DiaryLine text={line} /> : null}
+            <Button label={t('transfer.send')} disabled={!line} onPress={() => {
+              db.save('stockTransfer', { fromProjectId: siteId, toProjectId: to, materialId, qty, status: 'sent' });
+              setQty(0);
+              notice(t('common.saved'));
+            }} />
+          </>
+        ) : <T.small>{t('transfer.noOtherSite')}</T.small>}
       </Card>
-      {outgoing.map((r) => <T.small key={r.id}>→ {siteName(r.toProjectId)} · {name(materials.find((m) => m.id === r.materialId))} {String(r.qty)} · {t(`status.${String(r.status)}` as 'status.sent')}</T.small>)}
+      {outgoing.map((r) => <T.small key={r.id}>→ {siteName(r.toProjectId)} · {item(r)} · {t(`status.${String(r.status)}` as 'status.sent')}</T.small>)}
     </Screen>
   );
 }

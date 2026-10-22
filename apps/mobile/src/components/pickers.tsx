@@ -50,6 +50,10 @@ export function QtyField({ label, unit, value, onChange }: { label: string; unit
         <Stepper label={label || t('report.qty')} value={value} onChange={onChange} step={fine ? 0.5 : unit === 'kg' ? 50 : 1} decimals={fine ? 3 : unit === 'kg' ? 1 : 0} max={9_999_999} />
         {!label && unit ? <Text style={{ fontSize: 18, fontWeight: '700', color: colors.ink }}>{unit}</Text> : null}
       </View>
+      {/* Big quantities without a hundred taps: add 10 / 50 / 100 at a time. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {(fine ? [1, 5] : unit === 'kg' ? [100, 500, 1000] : [10, 50, 100]).map((n) => <Chip key={n} label={`+${n}`} tone="muted" onPress={() => onChange(Math.round((value + n) * 1000) / 1000)} />)}
+      </View>
     </Field>
   );
 }

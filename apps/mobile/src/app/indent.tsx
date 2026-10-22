@@ -1,11 +1,11 @@
-import { addDays, isoDate } from '@site-diary/shared';
+import { addDays, formatNumber, isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
-import { Button, Card, Chip, Field, Row, Screen, T } from '../components/ui';
+import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -30,30 +30,54 @@ export default function Indent() {
   const [note, setNote] = useState('');
   const all = current.materialId && current.qty ? [...items, current] : items;
   const unit = (id: string) => String(materials.find((m) => m.id === id)?.unit ?? '');
+  const item = (l: { materialId: unknown; qty: unknown }) => `${name(materials.find((m) => m.id === l.materialId))} ${formatNumber(Number(l.qty))} ${unit(String(l.materialId))}`;
+  const when = neededIn === 0 ? t('indent.whenToday') : neededIn === 1 ? t('indent.whenTomorrow') : t('indent.whenIn', { count: neededIn });
 
   return (
-    <Screen title={t('home.indent')} footer={<Button label={t('indent.send')} disabled={!all.length} onPress={() => {
-      db.save('indent', { id: indentId, projectId: siteId, status: 'submitted', neededBy: addDays(isoDate(), neededIn), note: note || null });
-      for (const l of all) db.save('indentLine', { id: l.id, indentId, materialId: l.materialId, qty: l.qty });
-      notice(t('common.saved'), t('indent.sentHint'));
-      done();
-    }} />}>
-      {items.map((l) => <T.body key={l.id} bold>• {name(materials.find((m) => m.id === l.materialId))} · {l.qty} {unit(l.materialId)}</T.body>)}
-      <Card>
-        <RowChips label={t('report.material')} rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
-        {current.materialId ? (
-          <>
-            <QtyField label={t('report.qty')} unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty }))} />
-            <Button kind="secondary" small label={t('grn.addAnother')} disabled={!current.qty} onPress={() => { setItems((x) => [...x, current]); setCurrent({ id: randomUUID(), materialId: '', qty: 0 }); }} />
-          </>
-        ) : null}
-      </Card>
-      <Field label={t('indent.neededBy')}>
+    <Screen
+      title={t('home.indent')}
+      footer={
+        <>
+          {all.length ? <DiaryLine text={t('indent.line', { items: all.map(item).join(', '), when })} /> : null}
+          <Button label={t('indent.send')} disabled={!all.length} onPress={() => {
+            db.save('indent', { id: indentId, projectId: siteId, status: 'submitted', neededBy: addDays(isoDate(), neededIn), note: note || null });
+            for (const l of all) db.save('indentLine', { id: l.id, indentId, materialId: l.materialId, qty: l.qty });
+            notice(t('common.saved'), t('indent.sentHint'));
+            done();
+          }} />
+        </>
+      }
+    >
+      {items.length ? (
+        <Card>
+          <T.small>{t('grn.added')}</T.small>
+          {items.map((l) => (
+            <Row key={l.id} style={{ justifyContent: 'space-between' }}>
+              <T.body bold>{item(l)}</T.body>
+              <Button kind="ghost" small label="✕" onPress={() => setItems((x) => x.filter((y) => y.id !== l.id))} />
+            </Row>
+          ))}
+        </Card>
+      ) : null}
+      <Ask q={t('indent.qWhat')}>
+        <RowChips label="" rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
+      </Ask>
+      {current.materialId ? (
+        <>
+          <Ask q={t('indent.qHowMuch')}>
+            <QtyField label="" unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty }))} />
+          </Ask>
+          <Button kind="secondary" small label={t('grn.addAnother')} disabled={!current.qty} onPress={() => { setItems((x) => [...x, current]); setCurrent({ id: randomUUID(), materialId: '', qty: 0 }); }} />
+        </>
+      ) : null}
+      <Ask q={t('indent.qWhen')}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {[0, 1, 2, 3, 5, 7].map((d) => <Chip key={d} label={d === 0 ? t('common.today') : d === 1 ? t('indent.tomorrow') : t('indent.inDays', { count: d })} selected={neededIn === d} onPress={() => setNeededIn(d)} />)}
         </View>
-      </Field>
-      <TextField label={t('report.note')} value={note} onChange={setNote} multiline />
+      </Ask>
+      <Ask q={t('progress.qNote')} optional>
+        <TextField label="" value={note} onChange={setNote} multiline placeholder={t('progress.voiceHint')} />
+      </Ask>
       {mine.length ? (
         <Card>
           <T.h2>{t('indent.recent')}</T.h2>
