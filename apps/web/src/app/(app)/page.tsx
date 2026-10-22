@@ -8,18 +8,18 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Page } from '@/components/Page';
 import { useFetch } from '@/lib/hooks';
-import { qty } from '@/lib/format';
+import { money, qty } from '@/lib/format';
 import { useMe } from '@/lib/session';
 
 interface Site {
   project: { id: string; name: string }; marker: string; note: string | null;
-  labour: { workers: number; yesterday: number; avg7: number; changePct: number | null; byContractor: { contractor: string; workers: number }[] };
+  labour: { workers: number; yesterday: number; avg7: number; changePct: number | null; costPaise: number; costMissingRates: boolean; byContractor: { contractor: string; workers: number }[] };
   materialIn: { material: string; qty: number; unit: string; supplier: string | null }[];
   materialUsed: { material: string; qty: number; unit: string }[];
   progress: { workItem: string; floor: string | null; percent: number }[];
   photos: { id: string; uploaded: boolean }[]; openIssues: number; alerts: Notice[]; missing: string[];
 }
-interface Dashboard { date: string; totals: { workers: number; yesterday: number; grnLines: number; issues: number; photos: number; sitesMissingEntry: number; pendingApprovals: number }; sites: Site[] }
+interface Dashboard { date: string; totals: { workers: number; yesterday: number; labourCostPaise: number; grnLines: number; issues: number; photos: number; sitesMissingEntry: number; pendingApprovals: number }; sites: Site[] }
 
 // W1: today across sites — labour vs yesterday, material in/used, photos, missing entries, alerts.
 export default function DashboardPage() {
@@ -35,17 +35,18 @@ export default function DashboardPage() {
       ) : null}
       {t ? (
         <Row gutter={[16, 16]}>
-          <Col xs={12} md={6}><Card><Statistic title="Workers" value={t.workers} suffix={<Typography.Text type="secondary" style={{ fontSize: 13 }}>yesterday {t.yesterday}</Typography.Text>} /></Card></Col>
-          <Col xs={12} md={6}><Card><Statistic title="Material receipts (lines)" value={t.grnLines} /></Card></Col>
-          <Col xs={12} md={6}><Card><Statistic title="Photos" value={t.photos} /></Card></Col>
-          <Col xs={12} md={6}><Link href="/approvals"><Card hoverable><Statistic title="Pending approvals" value={t.pendingApprovals} valueStyle={{ color: t.pendingApprovals ? colors.primary : undefined }} /></Card></Link></Col>
+          <Col xs={12} md={8} xl={4}><Card><Statistic title="Workers" value={t.workers} suffix={<Typography.Text type="secondary" style={{ fontSize: 13 }}>yesterday {t.yesterday}</Typography.Text>} /></Card></Col>
+          {t.labourCostPaise ? <Col xs={12} md={8} xl={5}><Card><Statistic title={`Labour cost${data.sites.some((x) => x.labour.costMissingRates) ? ' (some rates missing)' : ''}`} value={money(t.labourCostPaise)} /></Card></Col> : null}
+          <Col xs={12} md={8} xl={5}><Card><Statistic title="Material receipts (lines)" value={t.grnLines} /></Card></Col>
+          <Col xs={12} md={8} xl={5}><Card><Statistic title="Photos" value={t.photos} /></Card></Col>
+          <Col xs={12} md={8} xl={5}><Link href="/approvals"><Card hoverable><Statistic title="Pending approvals" value={t.pendingApprovals} valueStyle={{ color: t.pendingApprovals ? colors.primary : undefined }} /></Card></Link></Col>
         </Row>
       ) : null}
       {data && !data.sites.length ? <Empty description={<>No active sites yet. <Link href="/projects">Add a site</Link></>} /> : null}
       <Row gutter={[16, 16]}>
         {data?.sites.map((s) => (
           <Col xs={24} lg={12} key={s.project.id}>
-            <Card title={s.project.name} extra={<Typography.Text strong>{s.labour.workers} workers{s.labour.changePct !== null ? <Tag style={{ marginLeft: 8 }} color={Math.abs(s.labour.changePct) >= 20 ? 'orange' : 'default'}>{s.labour.changePct > 0 ? '+' : ''}{s.labour.changePct}% vs 7-day</Tag> : null}</Typography.Text>}>
+            <Card title={s.project.name} extra={<Typography.Text strong>{s.labour.workers} workers{s.labour.costPaise ? ` · ${money(s.labour.costPaise)}` : ''}{s.labour.changePct !== null ? <Tag style={{ marginLeft: 8 }} color={Math.abs(s.labour.changePct) >= 20 ? 'orange' : 'default'}>{s.labour.changePct > 0 ? '+' : ''}{s.labour.changePct}% vs 7-day</Tag> : null}</Typography.Text>}>
               {s.marker !== 'work' ? <Alert type="info" message={`${s.marker.replace('_', ' ')}${s.note ? `: ${s.note}` : ''}`} style={{ marginBottom: 12 }} /> : null}
               {s.alerts.map((a) => noticeText('en', a)).map((a) => <Alert key={a} type="warning" showIcon message={a} style={{ marginBottom: 8 }} />)}
               {s.missing.length && s.marker === 'work' ? <Alert type="error" showIcon message={`Not entered: ${s.missing.join(', ')}`} style={{ marginBottom: 8 }} /> : null}
