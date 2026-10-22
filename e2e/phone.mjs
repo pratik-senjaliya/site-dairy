@@ -100,7 +100,7 @@ try {
     const rupees = 1000 + (Date.now() % 900);
     await page.getByText('Jay Ambe Shuttering', { exact: true }).click();
     await page.locator('input').first().fill(String(rupees));
-    await page.getByText(/^સેવ કરો · ₹/).click();
+    await page.getByText('સેવ કરો', { exact: true }).click();
     await page.getByText(/ઓફલાઇન · 1|1 એન્ટ્રી મોકલવાની બાકી/).first().waitFor({ timeout: 10000 });
     await shot('09-offline');
     await page.context().setOffline(false);
