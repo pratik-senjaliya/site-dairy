@@ -48,7 +48,7 @@ try {
   });
   let total = 0;
   await step('attendance: prefilled from the last day, saved', async () => {
-    await page.getByText('હાજરી', { exact: true }).click();
+    await page.getByText('હાજરી', { exact: true }).last().click();
     await page.getByText(/^\d+ માણસ: /).waitFor(); // prefilled from the last day on a fresh day
     await page.getByRole('button', { name: 'કડિયા plus' }).first().click();
     await shot('04-attendance');
@@ -69,7 +69,7 @@ try {
     await page.getByText(/^\d+ એન્ટ્રી$/).first().waitFor();
   });
   await step('today’s work: column, floor, 60%', async () => {
-    await page.getByText('આજનું કામ', { exact: true }).click();
+    await page.getByText('આજનું કામ', { exact: true }).last().click();
     await page.getByText('કોલમ', { exact: true }).click();
     await page.getByRole('button', { name: 'Floor 7', exact: true }).click();
     await page.getByText('60%', { exact: true }).click();

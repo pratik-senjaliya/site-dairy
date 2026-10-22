@@ -29,7 +29,7 @@ try {
   });
   let total = 0;
   await step('supervisor: attendance from the last day, saved', async () => {
-    await page.getByText('હાજરી', { exact: true }).click();
+    await page.getByText('હાજરી', { exact: true }).last().click();
     await page.getByText(/^\d+ માણસ: /).waitFor();
     total = Number((await page.getByText(/^\d+ માણસ: /).textContent()).match(/^(\d+) માણસ/)[1]);
     await shot('demo-03-attendance');
