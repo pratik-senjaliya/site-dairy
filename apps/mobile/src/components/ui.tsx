@@ -98,9 +98,32 @@ export function Stepper({ value, onChange, step = 1, min = 0, max = 999, label, 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
     <View style={s.field}>
-      <Text style={s.label}>{label}</Text>
+      {label ? <Text style={s.label}>{label}</Text> : null}
       {children}
       {hint ? <Text style={s.hint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+/** One question of an entry screen, asked the way the diary would ("કયો માલ વપરાયો?"). */
+export function Ask({ q, hint, optional, children }: { q: string; hint?: string; optional?: boolean; children: ReactNode }) {
+  const t = useT();
+  return (
+    <View style={s.field}>
+      <Text style={s.ask} accessibilityRole="header">{q}{optional ? <Text style={s.hint}>  ({t('common.optional')})</Text> : null}</Text>
+      {hint ? <Text style={s.hint}>{hint}</Text> : null}
+      {children}
+    </View>
+  );
+}
+
+/** Above the save button: the entry as one diary sentence, so the person sees exactly what is being noted. */
+export function DiaryLine({ text }: { text: string }) {
+  const t = useT();
+  return (
+    <View style={s.diary}>
+      <Text style={s.hint}>{t('common.willSave')}</Text>
+      <Text style={s.diaryText}>{text}</Text>
     </View>
   );
 }
@@ -163,6 +186,9 @@ export const s = StyleSheet.create({
   stepValue: { width: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number, fontWeight: '700', color: colors.ink, borderRadius: radius.md, backgroundColor: colors.surface },
   field: { gap: spacing.sm },
   label: { fontSize: type.label, fontWeight: '700', color: colors.muted },
+  ask: { fontSize: 18, fontWeight: '700', color: colors.ink },
+  diary: { gap: 2 },
+  diaryText: { fontSize: type.body + 1, fontWeight: '700', color: colors.ink },
   hint: { fontSize: type.label, color: colors.muted },
   input: { minHeight: touch.stepperButton, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, fontSize: type.body, color: colors.ink, backgroundColor: colors.surface },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
