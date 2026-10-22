@@ -1,4 +1,4 @@
-import { isoDate } from '@site-diary/shared';
+import { formatNumber, isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { byUse, QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
-import { Button, Card, Row, Screen, T } from '../components/ui';
+import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -14,7 +14,8 @@ import { takePhoto } from '../lib/photos';
 
 type Line = { id: string; materialId: string; qty: number; rejectedQty: number };
 
-// M6: photo of the challan first, then supplier, material and quantity; shortage/rejection at the gate.
+// M6: material received, as the gate diary: who sent it, what and how much came, anything short or
+// sent back, and the challan photo as proof.
 export default function Grn() {
   const t = useT();
   const name = useName();
@@ -30,13 +31,20 @@ export default function Grn() {
   const [vehicleNo, setVehicle] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: '', qty: 0, rejectedQty: 0 });
-  const unit = (id: string) => String(materials.find((m) => m.id === id)?.unit ?? '');
+  const [short, setShort] = useState(false);
+  const unit = (id: string) => String(db.find('material', id)?.unit ?? '');
+
+  const itemText = (l: Record<string, unknown>) => {
+    const item = `${name(db.find('material', l.materialId as string))} ${formatNumber(Number(l.qty))} ${unit(String(l.materialId))}`;
+    return Number(l.rejectedQty) ? t('grn.itemBad', { item, bad: formatNumber(Number(l.rejectedQty)) }) : item;
+  };
+  const sentence = (supplier: string | undefined, items: string) => (supplier ? t('grn.line', { supplier, items }) : t('grn.lineNoSupplier', { items }));
   const today = useDb(() => {
     const day = isoDate();
     return db.rows('grn').filter((g) => g.projectId === siteId && g.date === day).map((g) => ({
       id: g.id, table: 'grn' as const,
-      label: db.rows('grnLine').filter((l) => l.grnId === g.id).map((l) => `${name(db.find('material', l.materialId as string))} ${String(l.qty)}`).join(', ') || '—',
-      sub: [String(db.find('supplier', g.supplierId as string)?.name ?? ''), String(g.challanNo ?? '')].filter(Boolean).join(' · '),
+      label: sentence(db.find('supplier', g.supplierId as string)?.name as string | undefined, db.rows('grnLine').filter((l) => l.grnId === g.id).map(itemText).join(', ') || '—'),
+      sub: [g.challanNo, g.vehicleNo].filter(Boolean).map(String).join(' · ') || undefined,
     }));
   });
 
@@ -49,10 +57,9 @@ export default function Grn() {
     if (last) setCurrent((c) => ({ ...c, materialId: String(last.materialId), qty: Number(last.qty) }));
   };
 
-  const addLine = () => {
-    if (!current.materialId || !current.qty) return;
-    setLines((l) => [...l, current]);
+  const fresh = () => {
     setCurrent({ id: randomUUID(), materialId: '', qty: 0, rejectedQty: 0 });
+    setShort(false);
   };
   const all = current.materialId && current.qty ? [...lines, current] : lines;
 
@@ -65,38 +72,61 @@ export default function Grn() {
   };
 
   return (
-    <Screen title={t('home.materialIn')} footer={<Button label={`${t('common.save')}${all.length ? ` · ${all.length}` : ''}`} disabled={!all.length} onPress={save} />}>
-      <Card>
-        <T.h2>{t('grn.challanPhoto')}</T.h2>
+    <Screen
+      title={t('home.materialIn')}
+      footer={
+        <>
+          {all.length ? <DiaryLine text={sentence(suppliers.find((x) => x.id === supplierId)?.name as string | undefined, all.map(itemText).join(', '))} /> : null}
+          <Button label={t('common.save')} disabled={!all.length} onPress={save} />
+        </>
+      }
+    >
+      <Ask q={t('grn.qFrom')}>
+        <RowChips label="" rows={suppliers} max={8} value={supplierId} onChange={pickSupplier} nameOf={(r) => String(r.name)} allowNone noneLabel={t('grn.noSupplier')} />
+      </Ask>
+      {pos.length ? <RowChips label={t('grn.po')} rows={pos.filter((p) => !supplierId || p.supplierId === supplierId)} value={poId} onChange={setPo} nameOf={(r) => String(r.poNo)} allowNone noneLabel={t('grn.noPo')} /> : null}
+
+      {lines.length ? (
+        <Card>
+          <T.small>{t('grn.added')}</T.small>
+          {lines.map((l) => (
+            <Row key={l.id} style={{ justifyContent: 'space-between' }}>
+              <T.body bold>{itemText(l)}</T.body>
+              <Button kind="ghost" small label="✕" onPress={() => setLines((x) => x.filter((y) => y.id !== l.id))} />
+            </Row>
+          ))}
+        </Card>
+      ) : null}
+
+      <Ask q={t('grn.qWhat')}>
+        <RowChips label="" rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
+      </Ask>
+      {current.materialId ? (
+        <>
+          <Ask q={t('grn.qHowMuch')}>
+            <QtyField label="" unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty, rejectedQty: Math.min(c.rejectedQty, qty) }))} />
+          </Ask>
+          <Ask q={t('grn.qBad')}>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Chip label={t('grn.allGood')} selected={!short} onPress={() => { setShort(false); setCurrent((c) => ({ ...c, rejectedQty: 0 })); }} />
+              <Chip label={t('grn.someBad')} selected={short} onPress={() => setShort(true)} />
+            </View>
+            {short ? <QtyField label="" unit={unit(current.materialId)} value={current.rejectedQty} onChange={(rejectedQty) => setCurrent((c) => ({ ...c, rejectedQty: Math.min(rejectedQty, c.qty) }))} /> : null}
+          </Ask>
+          <Button kind="secondary" small label={t('grn.addAnother')} disabled={!current.qty} onPress={() => { setLines((l) => [...l, current]); fresh(); }} />
+        </>
+      ) : null}
+
+      <Ask q={t('grn.qProof')} hint={t('grn.proofHint')} optional>
         <Row style={{ flexWrap: 'wrap' }}>
           {photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
-          <Button kind="secondary" small label={photos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'grn', grnId).then((p) => p && setPhotos((x) => [...x, p]))} />
+          <Button kind="secondary" small label={photos.length ? t('photo.another') : t('grn.challanPhoto')} onPress={() => void takePhoto(siteId!, 'grn', grnId).then((p) => p && setPhotos((x) => [...x, p]))} />
         </Row>
-      </Card>
-      <RowChips label={t('report.supplier')} rows={suppliers} max={8} value={supplierId} onChange={pickSupplier} nameOf={(r) => String(r.name)} allowNone noneLabel={t('grn.noSupplier')} />
-      {pos.length ? <RowChips label={t('grn.po')} rows={pos.filter((p) => !supplierId || p.supplierId === supplierId)} value={poId} onChange={setPo} nameOf={(r) => String(r.poNo)} allowNone noneLabel={t('grn.noPo')} /> : null}
-      <Row style={{ gap: spacing.md }}>
-        <View style={{ flex: 1 }}><TextField label={t('report.challan')} value={challanNo} onChange={setChallan} /></View>
-        <View style={{ flex: 1 }}><TextField label={t('grn.vehicle')} value={vehicleNo} onChange={(v) => setVehicle(v.toUpperCase())} placeholder="GJ01 AB 1234" /></View>
-      </Row>
-      {lines.map((l) => (
-        <Card key={l.id}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <T.body bold>{name(materials.find((m) => m.id === l.materialId))} · {l.qty} {unit(l.materialId)}{l.rejectedQty ? ` (−${l.rejectedQty})` : ''}</T.body>
-            <Button kind="ghost" small label="✕" onPress={() => setLines((x) => x.filter((y) => y.id !== l.id))} />
-          </Row>
-        </Card>
-      ))}
-      <Card>
-        <RowChips label={t('report.material')} rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
-        {current.materialId ? (
-          <>
-            <QtyField label={t('report.qty')} unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty }))} />
-            <QtyField label={t('grn.rejected')} unit={unit(current.materialId)} value={current.rejectedQty} onChange={(rejectedQty) => setCurrent((c) => ({ ...c, rejectedQty: Math.min(rejectedQty, c.qty) }))} />
-            <Button kind="secondary" small label={t('grn.addAnother')} disabled={!current.qty} onPress={addLine} />
-          </>
-        ) : null}
-      </Card>
+        <Row style={{ gap: spacing.md }}>
+          <View style={{ flex: 1 }}><TextField label={t('report.challan')} value={challanNo} onChange={setChallan} /></View>
+          <View style={{ flex: 1 }}><TextField label={t('grn.vehicle')} value={vehicleNo} onChange={(v) => setVehicle(v.toUpperCase())} placeholder="GJ01 AB 1234" /></View>
+        </Row>
+      </Ask>
       <TodayEntries entries={today} />
     </Screen>
   );
