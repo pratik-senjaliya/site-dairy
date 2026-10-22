@@ -1,4 +1,4 @@
-import { formatNumber, isoDate } from '@site-diary/shared';
+import { isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
@@ -11,6 +11,7 @@ import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { takePhoto } from '../lib/photos';
+import { useDiary } from '../lib/diary';
 
 type Line = { id: string; materialId: string; qty: number; rejectedQty: number };
 
@@ -34,16 +35,14 @@ export default function Grn() {
   const [short, setShort] = useState(false);
   const unit = (id: string) => String(db.find('material', id)?.unit ?? '');
 
-  const itemText = (l: Record<string, unknown>) => {
-    const item = `${name(db.find('material', l.materialId as string))} ${formatNumber(Number(l.qty))} ${unit(String(l.materialId))}`;
-    return Number(l.rejectedQty) ? t('grn.itemBad', { item, bad: formatNumber(Number(l.rejectedQty)) }) : item;
-  };
-  const sentence = (supplier: string | undefined, items: string) => (supplier ? t('grn.line', { supplier, items }) : t('grn.lineNoSupplier', { items }));
+  const diary = useDiary();
+  const itemText = diary.grnItem;
+  const sentence = diary.grn;
   const today = useDb(() => {
     const day = isoDate();
     return db.rows('grn').filter((g) => g.projectId === siteId && g.date === day).map((g) => ({
       id: g.id, table: 'grn' as const,
-      label: sentence(db.find('supplier', g.supplierId as string)?.name as string | undefined, db.rows('grnLine').filter((l) => l.grnId === g.id).map(itemText).join(', ') || '—'),
+      label: diary.grnRow(g),
       sub: [g.challanNo, g.vehicleNo].filter(Boolean).map(String).join(' · ') || undefined,
     }));
   });

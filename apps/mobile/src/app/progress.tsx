@@ -12,6 +12,7 @@ import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { takePhoto } from '../lib/photos';
 import { floorName } from '../lib/structure';
+import { useDiary } from '../lib/diary';
 
 type Marker = 'work' | 'weather' | 'holiday' | 'no_work';
 
@@ -42,11 +43,7 @@ export default function Progress() {
   // Last % for this work item and floor (not today's), so the supervisor only moves it forward.
   const last = useDb(() => db.rows('dailyProgress').filter((p) => p.workItemId === workItemId && (p.structureNodeId ?? null) === nodeId && p.date !== today && p.id !== entryId).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]);
 
-  const line = (r: Record<string, unknown>) => {
-    const item = name(db.find('workItem', r.workItemId as string));
-    const node = r.structureNodeId ? db.find('structureNode', r.structureNodeId as string) : undefined;
-    return node ? t('progress.lineFloor', { item, floor: floorName(node), percent: Number(r.percent) }) : t('progress.line', { item, percent: Number(r.percent) });
-  };
+  const line = useDiary().progress;
 
   // A work item usually continues on the floor it was on last time.
   const pickItem = (id: string | null) => {

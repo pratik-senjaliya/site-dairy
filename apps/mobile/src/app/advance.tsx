@@ -7,9 +7,9 @@ import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { useDiary } from '../lib/diary';
 
 type Mode = 'cash' | 'upi' | 'bank';
-const BY: Record<Mode, 'advance.byCash' | 'advance.byUpi' | 'advance.byBank'> = { cash: 'advance.byCash', upi: 'advance.byUpi', bank: 'advance.byBank' };
 
 // M5: upad (advance), as the cash diary: to whom, how much, how it was paid.
 export default function Advance() {
@@ -35,12 +35,7 @@ export default function Advance() {
     return { days, open };
   });
 
-  const who = (r: Record<string, unknown>) => {
-    const c = String(db.find('contractor', r.contractorId as string)?.name ?? '');
-    const w = r.workerId ? String(db.find('worker', r.workerId as string)?.name ?? '') : '';
-    return w ? `${w} (${c.split(' (')[0]})` : c;
-  };
-  const line = (r: Record<string, unknown>) => t('advance.line', { who: who(r), amount: formatPaise(Number(r.amountPaise)), mode: t(BY[(r.mode as Mode) ?? 'cash']) });
+  const line = useDiary().advance;
   const draft = { contractorId, workerId, amountPaise: rupeesToPaise(rupees), mode };
 
   return (

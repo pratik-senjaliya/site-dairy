@@ -1,4 +1,4 @@
-import { addDays, formatNumber, isoDate } from '@site-diary/shared';
+import { addDays, isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useLocalSearchParams } from 'expo-router';
@@ -9,6 +9,7 @@ import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../component
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
+import { useDiary } from '../lib/diary';
 
 type Line = { id: string; materialId: string; qty: number };
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted'> = { approved: 'ok', ordered: 'ok', rejected: 'warn', submitted: 'muted' };
@@ -30,15 +31,15 @@ export default function Indent() {
   const [note, setNote] = useState('');
   const all = current.materialId && current.qty ? [...items, current] : items;
   const unit = (id: string) => String(materials.find((m) => m.id === id)?.unit ?? '');
-  const item = (l: { materialId: unknown; qty: unknown }) => `${name(materials.find((m) => m.id === l.materialId))} ${formatNumber(Number(l.qty))} ${unit(String(l.materialId))}`;
-  const when = neededIn === 0 ? t('indent.whenToday') : neededIn === 1 ? t('indent.whenTomorrow') : t('indent.whenIn', { count: neededIn });
+  const diary = useDiary();
+  const item = (l: Line) => diary.material(l.materialId, l.qty);
 
   return (
     <Screen
       title={t('home.indent')}
       footer={
         <>
-          {all.length ? <DiaryLine text={t('indent.line', { items: all.map(item).join(', '), when })} /> : null}
+          {all.length ? <DiaryLine text={diary.indent(all.map(item).join(', '), neededIn)} /> : null}
           <Button label={t('indent.send')} disabled={!all.length} onPress={() => {
             db.save('indent', { id: indentId, projectId: siteId, status: 'submitted', neededBy: addDays(isoDate(), neededIn), note: note || null });
             for (const l of all) db.save('indentLine', { id: l.id, indentId, materialId: l.materialId, qty: l.qty });

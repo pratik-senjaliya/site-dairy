@@ -41,10 +41,10 @@ export function Button({ label, onPress, kind = 'primary', disabled, busy, style
   );
 }
 
-export function Tile({ label, hint, onPress, badge, tone }: { label: string; hint?: string; onPress: () => void; badge?: string | number; tone?: 'warn' | 'ok' }) {
+export function Tile({ label, hint, onPress, badge, tone, compact }: { label: string; hint?: string; onPress: () => void; badge?: string | number; tone?: 'warn' | 'ok'; compact?: boolean }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [s.tile, tone === 'warn' && { borderColor: colors.warning, borderWidth: 2 }, tone === 'ok' && { borderColor: colors.success }, pressed && { opacity: 0.85 }]}>
-      <Text style={s.tileLabel}>{label}</Text>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [s.tile, compact && s.tileCompact, tone === 'warn' && { borderColor: colors.warning, borderWidth: 2 }, tone === 'ok' && { borderColor: colors.success }, pressed && { opacity: 0.85 }]}>
+      <Text style={[s.tileLabel, compact && { fontSize: 17 }]}>{label}</Text>
       {hint ? <Text style={s.tileHint} numberOfLines={2}>{hint}</Text> : null}
       {badge !== undefined && badge !== 0 && badge !== '' ? <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View> : null}
     </Pressable>
@@ -173,6 +173,7 @@ export const s = StyleSheet.create({
   buttonSmall: { minHeight: touch.minTarget, paddingHorizontal: spacing.md },
   buttonText: { fontSize: 18, fontWeight: '700' },
   tile: { flexBasis: '47%', flexGrow: 1, minHeight: 104, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, justifyContent: 'center' },
+  tileCompact: { minHeight: 64, paddingVertical: spacing.md },
   tileLabel: { fontSize: type.title, fontWeight: '700', color: colors.ink },
   tileHint: { fontSize: type.label, color: colors.muted, marginTop: spacing.xs },
   badge: { position: 'absolute', top: spacing.sm, right: spacing.sm, backgroundColor: colors.primary, borderRadius: 12, minWidth: 24, height: 24, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },

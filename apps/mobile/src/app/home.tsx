@@ -5,13 +5,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SyncBadge } from '../components/SyncBadge';
-import { Banner, Button, Card, Row, Screen, T, Tile } from '../components/ui';
+import { Banner, Button, Card, Chip, Row, Screen, T, Tile } from '../components/ui';
 import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { notice, useCan, useOnline, useSite } from '../lib/hooks';
 import { useDayName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { shareDailyReport } from '../lib/share';
+import { useDayPage, type DiaryKind } from '../lib/diary';
 
 interface Dashboard {
   date: string;
@@ -37,6 +38,8 @@ export default function Home() {
   return <FieldHome />;
 }
 
+const ICON: Record<DiaryKind, string> = { day: '🌧', attendance: '👷', grn: '🚚', used: '🧱', progress: '🏗', advance: '₹', indent: '📝', issue: '⚠' };
+
 function FieldHome() {
   const t = useT();
   const dayName = useDayName();
@@ -46,6 +49,7 @@ function FieldHome() {
   const [sending, setSending] = useState(false);
   const approvals = useOnline<{ count: number }>(can('attendance', 'A') || can('indent', 'A') ? '/approvals/count' : null);
   const today = useDb(() => db.today);
+  const page = useDayPage(siteId, today);
   const stats = useDb(() => {
     const mine = (rows: DbRow[]) => rows.filter((r) => r.projectId === siteId);
     const att = mine(db.rows('attendanceEntry')).filter((r) => r.date === today);
@@ -68,6 +72,11 @@ function FieldHome() {
     router.replace('/sites');
     return null;
   }
+  const working = !stats.marker || stats.marker === 'work';
+  const pending = [
+    ...(working && can('attendance', 'C') && !stats.attendance ? [{ label: t('home.attendance'), go: '/attendance' as const }] : []),
+    ...(working && can('progress', 'C') && !stats.progress ? [{ label: t('home.progress'), go: '/progress' as const }] : []),
+  ];
   return (
     <Screen
       back={false}
@@ -87,12 +96,32 @@ function FieldHome() {
       }
     >
       <Row style={{ justifyContent: 'space-between' }}>
-        <T.body muted>{t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })} · {dayName(today)}</T.body>
+        <T.body muted>{t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })}</T.body>
         <Pressable onPress={() => router.push('/sites')} hitSlop={8}><Text style={{ color: colors.primary, fontWeight: '700' }}>{t('home.changeSite')}</Text></Pressable>
       </Row>
       {isDemo() ? <Banner tone="info" text={t('demo.banner')} onPress={() => router.push('/profile')} /> : null}
       {stats.firstSync ? <Banner tone="info" text={t('home.firstSync')} /> : null}
-      {stats.marker && stats.marker !== 'work' ? <Banner tone="info" text={t(`marker.${stats.marker}` as 'marker.work')} /> : null}
+
+      {/* The day's page of the diary: what has been written today, and what is still to do. */}
+      <Card>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <T.h2>{t('home.diaryTitle')}</T.h2>
+          <T.small>{dayName(today)}</T.small>
+        </Row>
+        {page.length ? page.map((l, i) => (
+          <Row key={i} style={{ alignItems: 'flex-start' }}>
+            <Text style={{ width: 24, fontSize: 16 }}>{ICON[l.kind]}</Text>
+            <View style={{ flex: 1 }}><T.body>{l.text}</T.body></View>
+          </Row>
+        )) : <T.body muted>{t('home.diaryEmpty')}</T.body>}
+        {pending.length ? (
+          <Row style={{ flexWrap: 'wrap' }}>
+            <T.body bold color={colors.warning}>{t('home.pending')}</T.body>
+            {pending.map((p) => <Chip key={p.go} label={p.label} tone="warn" onPress={() => router.push(p.go)} />)}
+          </Row>
+        ) : page.length ? <T.small color={colors.success}>✓ {t('home.allDone')}</T.small> : null}
+      </Card>
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
         {can('attendance', 'C') && (
           <Tile label={t('home.attendance')} hint={stats.attendance ? t('attendance.workers', { count: stats.workers }) : t('home.notEntered')} tone={stats.attendance ? 'ok' : 'warn'} onPress={() => router.push('/attendance')} />
@@ -101,17 +130,18 @@ function FieldHome() {
         {can('store', 'C') && <Tile label={t('home.materialUsed')} hint={stats.issues ? t('home.entries', { count: stats.issues }) : t('home.none')} onPress={() => router.push('/used')} />}
         {can('progress', 'C') && <Tile label={t('home.progress')} hint={stats.progress ? t('home.entries', { count: stats.progress }) : t('home.notEntered')} tone={stats.progress ? 'ok' : undefined} onPress={() => router.push('/progress')} />}
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
-        {can('wages', 'C') && <Tile label={t('home.advance')} onPress={() => router.push('/advance')} />}
-        {can('indent', 'C') && <Tile label={t('home.indent')} onPress={() => router.push('/indent')} />}
-        {can('progress', 'C') && <Tile label={t('home.issues')} badge={stats.openIssues} onPress={() => router.push('/issues')} />}
-        <Tile label={t('home.stock')} badge={stats.low || undefined} tone={stats.low ? 'warn' : undefined} hint={stats.low ? t('home.lowCount', { count: stats.low }) : undefined} onPress={() => router.push('/stock')} />
-        {can('store', 'C') && <Tile label={t('home.transfers')} badge={stats.incoming} onPress={() => router.push('/transfer')} />}
-        {approvals.data ? <Tile label={t('home.approvals')} badge={approvals.data.count} onPress={() => router.push('/approvals')} /> : null}
-        {can('wages', 'V') && <Tile label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
-        {can('reports', 'V') && <Tile label={t('home.siteToday')} onPress={() => router.push({ pathname: '/site', params: { id: siteId } })} />}
-        {can('reports', 'V') && <Tile label={t('home.reports')} onPress={() => router.push('/reports')} />}
-        <Tile label={t('home.profile')} onPress={() => router.push('/profile')} />
+      <T.small>{t('home.more')}</T.small>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {can('wages', 'C') && <Tile compact label={t('home.advance')} onPress={() => router.push('/advance')} />}
+        {can('indent', 'C') && <Tile compact label={t('home.indent')} onPress={() => router.push('/indent')} />}
+        {can('progress', 'C') && <Tile compact label={t('home.issues')} badge={stats.openIssues} onPress={() => router.push('/issues')} />}
+        <Tile compact label={t('home.stock')} badge={stats.low || undefined} tone={stats.low ? 'warn' : undefined} onPress={() => router.push('/stock')} />
+        {can('store', 'C') && <Tile compact label={t('home.transfers')} badge={stats.incoming} onPress={() => router.push('/transfer')} />}
+        {approvals.data ? <Tile compact label={t('home.approvals')} badge={approvals.data.count} onPress={() => router.push('/approvals')} /> : null}
+        {can('wages', 'V') && <Tile compact label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
+        {can('reports', 'V') && <Tile compact label={t('home.siteToday')} onPress={() => router.push({ pathname: '/site', params: { id: siteId } })} />}
+        {can('reports', 'V') && <Tile compact label={t('home.reports')} onPress={() => router.push('/reports')} />}
+        <Tile compact label={t('home.profile')} onPress={() => router.push('/profile')} />
       </View>
     </Screen>
   );

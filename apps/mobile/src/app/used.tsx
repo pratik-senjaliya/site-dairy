@@ -7,6 +7,7 @@ import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { floorName } from '../lib/structure';
+import { useDiary } from '../lib/diary';
 
 // M7: material used, asked as the diary would: which material, how much, and where it went (work and floor).
 export default function Used() {
@@ -30,14 +31,7 @@ export default function Used() {
   const unit = String(material?.unit ?? '');
   const onHand = stock.find((s) => s.projectId === siteId && s.materialId === materialId)?.qty;
 
-  const line = (r: Record<string, unknown>) => {
-    const m = db.find('material', r.materialId as string);
-    const item = r.workItemId ? name(db.find('workItem', r.workItemId as string)) : '';
-    const node = r.structureNodeId ? db.find('structureNode', r.structureNodeId as string) : undefined;
-    const floor = node ? floorName(node) : '';
-    const where = item && floor ? t('used.whereBoth', { item, floor }) : item ? t('used.whereItem', { item }) : floor ? t('used.whereFloor', { floor }) : '';
-    return t('used.line', { material: name(m), qty: formatNumber(Number(r.qty)), unit: String(m?.unit ?? ''), where });
-  };
+  const line = useDiary().used;
   const today = useDb(() => db.rows('materialIssue').filter((r) => r.projectId === siteId && r.date === isoDate()).map((r) => ({ id: r.id, table: 'materialIssue' as const, label: line(r) })));
 
   // The same material usually goes to the same work and floor as last time: start from that entry.

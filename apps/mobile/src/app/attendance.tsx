@@ -9,6 +9,7 @@ import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useDayName, useName, useT } from '../lib/i18n';
 import { takePhoto } from '../lib/photos';
+import { useDiary } from '../lib/diary';
 
 type Line = { key: string; id?: string; contractorId: string; skillId: string; count: number; halfDayCount: number; otHours: number; fromYesterday?: boolean };
 
@@ -64,8 +65,7 @@ function AttendanceForm() {
   const total = lines.reduce((s, l) => s + l.count + l.halfDayCount, 0);
   const byContractor = contractors.filter((c) => lines.some((l) => l.contractorId === c.id));
   const workersOf = (id: string) => lines.filter((l) => l.contractorId === id).reduce((x, l) => x + l.count + l.halfDayCount, 0);
-  const shortName = (c: DbRow) => String(c.name).split(' (')[0];
-  const diary = t('attendance.line', { total, list: byContractor.filter((c) => workersOf(c.id)).map((c) => `${shortName(c)} ${workersOf(c.id)}`).join(', ') });
+  const diary = useDiary().attendance(lines);
 
   const save = () => {
     if (!siteId) return;

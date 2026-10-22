@@ -1,4 +1,3 @@
-import { formatNumber } from '@site-diary/shared';
 import { useState } from 'react';
 import { QtyField, RowChips, useMaterials } from '../components/pickers';
 import { Ask, Button, Card, DiaryLine, Empty, Screen, T } from '../components/ui';
@@ -6,6 +5,7 @@ import { db, useDb } from '../lib/db';
 import { notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { useDiary } from '../lib/diary';
 
 // Site-to-site transfer: what is on the way here comes first (confirm it arrived), then sending to another site.
 export default function Transfer() {
@@ -21,10 +21,8 @@ export default function Transfer() {
   const [materialId, setMaterial] = useState<string | null>(null);
   const [qty, setQty] = useState(0);
   const siteName = (id: unknown) => me?.projects.find((p) => p.id === id)?.name ?? String(db.find('project', id as string)?.name ?? '');
-  const item = (r: Record<string, unknown>) => {
-    const m = db.find('material', r.materialId as string);
-    return `${name(m)} ${formatNumber(Number(r.qty))} ${String(m?.unit ?? '')}`;
-  };
+  const material = useDiary().material;
+  const item = (r: Record<string, unknown>) => material(r.materialId, r.qty);
   const line = to && materialId && qty ? t('transfer.line', { site: siteName(to), item: item({ materialId, qty }) }) : null;
 
   return (
