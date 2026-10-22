@@ -1,4 +1,4 @@
-import { isoDate } from '@site-diary/shared';
+import { isoDate, shortDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { byUse, RowChips, TextField } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
-import { Button, Card, Chip, Chips, Field, Row, Screen, T } from '../components/ui';
+import { Ask, Button, Chip, Chips, DiaryLine, Row, Screen } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -15,7 +15,8 @@ import { floorName } from '../lib/structure';
 
 type Marker = 'work' | 'weather' | 'holiday' | 'no_work';
 
-// M9: today's work — work item, floor, % done, photos, note (the keyboard's mic button types Gujarati speech).
+// M9: today's work, as the site diary: did work go on (or rain / holiday), which work on which floor,
+// how complete it is now, photos and a note (the keyboard's mic button types Gujarati speech).
 export default function Progress() {
   const t = useT();
   const name = useName();
@@ -38,8 +39,14 @@ export default function Progress() {
   const [marker, setMarker] = useState<Marker>((siteDay?.marker as Marker | undefined) ?? 'work');
   const [dayNote, setDayNote] = useState(String(siteDay?.note ?? ''));
 
-  // Last % for this work item and floor, so the supervisor only moves it forward.
-  const last = useDb(() => db.rows('dailyProgress').filter((p) => p.workItemId === workItemId && (p.structureNodeId ?? null) === nodeId).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]);
+  // Last % for this work item and floor (not today's), so the supervisor only moves it forward.
+  const last = useDb(() => db.rows('dailyProgress').filter((p) => p.workItemId === workItemId && (p.structureNodeId ?? null) === nodeId && p.date !== today && p.id !== entryId).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]);
+
+  const line = (r: Record<string, unknown>) => {
+    const item = name(db.find('workItem', r.workItemId as string));
+    const node = r.structureNodeId ? db.find('structureNode', r.structureNodeId as string) : undefined;
+    return node ? t('progress.lineFloor', { item, floor: floorName(node), percent: Number(r.percent) }) : t('progress.line', { item, percent: Number(r.percent) });
+  };
 
   // A work item usually continues on the floor it was on last time.
   const pickItem = (id: string | null) => {
@@ -50,53 +57,73 @@ export default function Progress() {
 
   const saveEntry = () => {
     if (!siteId || !workItemId || percent === null) return;
+    if (siteDay && siteDay.marker !== 'work') db.save('siteDay', { id: siteDay.id, projectId: siteId, date: today, marker: 'work', note: siteDay.note ?? null });
     db.save('dailyProgress', { id: entryId, projectId: siteId, date: today, workItemId, structureNodeId: nodeId, percent, note: note || null });
     setEntryId(randomUUID());
+    setItem(null);
     setPhotos([]);
     setNote('');
     setPercent(null);
-    notice(t('common.saved'));
+    notice(t('progress.savedNext'));
   };
   const saveDay = () => {
     db.save('siteDay', { ...(siteDay && { id: siteDay.id }), projectId: siteId, date: today, marker, note: dayNote || null });
-    if (marker !== 'work') {
-      notice(t('common.saved'));
-      done();
-    }
+    notice(t('common.saved'));
+    done();
   };
 
+  const dayText = `${t('progress.dayLine', { marker: t(`marker.${marker}`) })}${dayNote ? ` — ${dayNote}` : ''}`;
+  const entryText = workItemId && percent !== null
+    ? `${line({ workItemId, structureNodeId: nodeId, percent })}${last && Number(last.percent) !== percent ? t('progress.wasBefore', { percent: Number(last.percent) }) : ''}`
+    : null;
+
   return (
-    <Screen title={t('home.progress')}>
-      <Card>
-        <Field label={t('progress.dayType')}>
-          <Chips<Marker> options={(['work', 'weather', 'holiday', 'no_work'] as const).map((m) => ({ value: m, label: t(`marker.${m}`) }))} value={marker} onChange={(m) => setMarker(m)} />
-        </Field>
-        {marker !== 'work' ? <TextField label={t('report.note')} value={dayNote} onChange={setDayNote} multiline /> : null}
-        {marker !== 'work' || siteDay?.marker !== marker ? <Button kind="secondary" small label={t('common.save')} onPress={saveDay} /> : null}
-      </Card>
-      {marker === 'work' && (
+    <Screen
+      title={t('home.progress')}
+      footer={marker !== 'work' ? (
         <>
-          <TodayEntries entries={entries.map((e) => ({
-            id: e.id, table: 'dailyProgress' as const,
-            label: `${name(items.find((i) => i.id === e.workItemId))} · ${String(e.percent)}%`,
-            sub: e.structureNodeId ? floorName(floors.find((f) => f.id === e.structureNodeId) ?? { id: '', name: '' }) : undefined,
-          }))} />
-          <RowChips label={t('report.workItem')} rows={items} max={8} value={workItemId} onChange={pickItem} nameOf={name} />
-          <RowChips label={t('report.floor')} rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone />
-          <Field label={t('report.percent')} hint={last ? t('progress.last', { percent: Number(last.percent), date: String(last.date) }) : undefined}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-              {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => <Chip key={p} label={`${p}%`} selected={percent === p} tone={last && p < Number(last.percent) ? 'muted' : undefined} onPress={() => setPercent(p)} />)}
-            </View>
-          </Field>
-          <Card>
-            <T.h2>{t('report.photos')}</T.h2>
-            <Row style={{ flexWrap: 'wrap' }}>
-              {photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
-              <Button kind="secondary" small label={photos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'progress', entryId).then((p) => p && setPhotos((x) => [...x, p]))} />
-            </Row>
-          </Card>
-          <TextField label={t('report.note')} value={note} onChange={setNote} multiline placeholder={t('progress.voiceHint')} />
-          <Button label={t('common.save')} disabled={!workItemId || percent === null} onPress={saveEntry} />
+          <DiaryLine text={dayText} />
+          <Button label={t('common.save')} onPress={saveDay} />
+        </>
+      ) : (
+        <>
+          {entryText ? <DiaryLine text={entryText} /> : null}
+          <Button label={t('common.save')} disabled={!entryText} onPress={saveEntry} />
+        </>
+      )}
+    >
+      <Ask q={t('progress.qDay')}>
+        <Chips<Marker> options={(['work', 'weather', 'holiday', 'no_work'] as const).map((m) => ({ value: m, label: m === 'work' ? t('progress.yesWork') : t(`marker.${m}`) }))} value={marker} onChange={setMarker} />
+      </Ask>
+      {marker !== 'work' ? (
+        <TextField label={t('progress.qWhy')} value={dayNote} onChange={setDayNote} multiline placeholder={t('progress.voiceHint')} />
+      ) : (
+        <>
+          <TodayEntries entries={entries.map((e) => ({ id: e.id, table: 'dailyProgress' as const, label: line(e) }))} />
+          <Ask q={t('progress.qItem')}>
+            <RowChips label="" rows={items} max={8} value={workItemId} onChange={pickItem} nameOf={name} />
+          </Ask>
+          {workItemId ? (
+            <>
+              <Ask q={t('used.onFloor')}>
+                <RowChips label="" rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone noneLabel={t('common.notSure')} />
+              </Ask>
+              <Ask q={t('progress.qPercent')} hint={`${t('progress.percentHint')}${last ? ` ${t('progress.last', { percent: Number(last.percent), date: shortDate(String(last.date)) })}` : ''}`}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((p) => <Chip key={p} label={`${p}%`} selected={percent === p} tone={last && p < Number(last.percent) ? 'muted' : undefined} onPress={() => setPercent(p)} />)}
+                </View>
+              </Ask>
+              <Ask q={t('report.photos')} optional>
+                <Row style={{ flexWrap: 'wrap' }}>
+                  {photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
+                  <Button kind="secondary" small label={photos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'progress', entryId).then((p) => p && setPhotos((x) => [...x, p]))} />
+                </Row>
+              </Ask>
+              <Ask q={t('progress.qNote')} optional>
+                <TextField label="" value={note} onChange={setNote} multiline placeholder={t('progress.voiceHint')} />
+              </Ask>
+            </>
+          ) : null}
         </>
       )}
     </Screen>
