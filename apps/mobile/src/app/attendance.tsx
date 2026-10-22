@@ -4,10 +4,10 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { byUse } from '../components/pickers';
-import { Banner, Button, Card, Chip, Field, Row, Screen, Stepper, T } from '../components/ui';
+import { Banner, Button, Card, Chip, DiaryLine, Field, Row, Screen, Stepper, T } from '../components/ui';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
-import { useName, useT } from '../lib/i18n';
+import { useDayName, useName, useT } from '../lib/i18n';
 import { takePhoto } from '../lib/photos';
 
 type Line = { key: string; id?: string; contractorId: string; skillId: string; count: number; halfDayCount: number; otHours: number; fromYesterday?: boolean };
@@ -22,6 +22,7 @@ export default function Attendance() {
 
 function AttendanceForm() {
   const t = useT();
+  const dayName = useDayName();
   const name = useName();
   const { siteId } = useSite();
   const today = isoDate();
@@ -43,6 +44,16 @@ function AttendanceForm() {
   }, [siteId, today]);
   const [lines, setLines] = useState<Line[]>(initial);
   const [open, setOpen] = useState<string | null>(null);
+  // Half day and overtime are not daily: one switch shows them, rows that use them always do.
+  const [extra, setExtra] = useState(() => initial.some((l) => l.halfDayCount || l.otHours));
+  const fromDay = useMemo(() => {
+    if (!initial.some((l) => l.fromYesterday)) return null;
+    for (let back = 1; back <= 7; back++) {
+      const d = addDays(today, -back);
+      if (db.rows('attendanceEntry').some((r) => r.projectId === siteId && r.date === d)) return d;
+    }
+    return null;
+  }, [initial, siteId, today]);
   const [adding, setAdding] = useState<{ contractorId?: string } | null>(lines.length ? null : {});
   const [photo, setPhoto] = useState<DbRow | null>(() => {
     const id = db.rows('attendanceEntry').find((r) => r.projectId === siteId && r.date === today && r.photoId)?.photoId as string | undefined;
@@ -52,6 +63,9 @@ function AttendanceForm() {
   const set = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch, fromYesterday: false } : l)));
   const total = lines.reduce((s, l) => s + l.count + l.halfDayCount, 0);
   const byContractor = contractors.filter((c) => lines.some((l) => l.contractorId === c.id));
+  const workersOf = (id: string) => lines.filter((l) => l.contractorId === id).reduce((x, l) => x + l.count + l.halfDayCount, 0);
+  const shortName = (c: DbRow) => String(c.name).split(' (')[0];
+  const diary = t('attendance.line', { total, list: byContractor.filter((c) => workersOf(c.id)).map((c) => `${shortName(c)} ${workersOf(c.id)}`).join(', ') });
 
   const save = () => {
     if (!siteId) return;
@@ -76,19 +90,31 @@ function AttendanceForm() {
   return (
     <Screen
       title={t('home.attendance')}
-      footer={<Button label={`${t('common.save')} · ${t('attendance.workers', { count: total })}`} onPress={save} disabled={!lines.length} />}
+      footer={
+        <>
+          {lines.length ? <DiaryLine text={diary} /> : null}
+          <Button label={t('common.save')} onPress={save} disabled={!lines.length} />
+        </>
+      }
     >
-      {lines.some((l) => l.fromYesterday) ? <Banner tone="info" text={t('attendance.fromYesterday')} /> : null}
+      <T.h2>{t('attendance.q')}</T.h2>
+      {fromDay ? <Banner tone="info" text={t('attendance.fromDay', { day: dayName(fromDay) })} /> : null}
       {lines.some((l) => l.id && pending.has(l.id)) ? <Banner text={t('attendance.waitingApproval')} /> : null}
       {byContractor.map((c) => (
         <Card key={c.id}>
-          <T.h2>{String(c.name)}</T.h2>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
+              <T.h2>{String(c.name)}</T.h2>
+              <T.small>{t('attendance.workers', { count: workersOf(c.id) })}</T.small>
+            </View>
+            {workersOf(c.id) ? <Button kind="ghost" small label={t('attendance.absent')} onPress={() => setLines((ls) => ls.map((l) => (l.contractorId === c.id ? { ...l, count: 0, halfDayCount: 0, otHours: 0, fromYesterday: false } : l)))} /> : null}
+          </Row>
           {lines.filter((l) => l.contractorId === c.id).map((l) => (
             <View key={l.key} style={{ gap: spacing.sm, paddingVertical: spacing.xs }}>
               <Row style={{ justifyContent: 'space-between' }}>
-                <Pressable onPress={() => setOpen(open === l.key ? null : l.key)} hitSlop={6} style={{ flex: 1 }}>
+                <Pressable disabled={!extra} onPress={() => setOpen(open === l.key ? null : l.key)} hitSlop={6} style={{ flex: 1 }}>
                   <T.body bold color={l.fromYesterday ? colors.muted : undefined}>{name(skills.find((s) => s.id === l.skillId))}</T.body>
-                  <T.small>{l.halfDayCount || l.otHours ? `${t('attendance.halfDay')} ${l.halfDayCount} · OT ${l.otHours}` : t('attendance.more')}</T.small>
+                  {l.halfDayCount || l.otHours ? <T.small>{t('attendance.extra', { half: l.halfDayCount, ot: l.otHours })}</T.small> : extra ? <T.small color={colors.primary}>{t('attendance.more')}</T.small> : null}
                 </Pressable>
                 <Stepper label={name(skills.find((s) => s.id === l.skillId))} value={l.count} onChange={(v) => set(l.key, { count: v })} />
               </Row>
@@ -121,7 +147,10 @@ function AttendanceForm() {
           <Button kind="ghost" small label={t('common.cancel')} onPress={() => setAdding(null)} />
         </Card>
       ) : (
-        <Button kind="secondary" label={t('attendance.addRow')} onPress={() => setAdding({})} />
+        <Row style={{ flexWrap: 'wrap' }}>
+          <Button kind="secondary" small label={t('attendance.addRow')} onPress={() => setAdding({})} />
+          {lines.length ? <Chip label={t('attendance.more')} selected={extra} onPress={() => setExtra((x) => !x)} /> : null}
+        </Row>
       )}
 
       <Card>

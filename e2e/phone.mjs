@@ -49,19 +49,19 @@ try {
   let total = 0;
   await step('attendance: prefilled from the last day, saved', async () => {
     await page.getByText('હાજરી', { exact: true }).click();
-    await page.getByText(/^સેવ કરો · \d+ માણસ$/).waitFor(); // prefilled from the last day on a fresh day
+    await page.getByText(/^\d+ માણસ: /).waitFor(); // prefilled from the last day on a fresh day
     await page.getByRole('button', { name: 'કડિયા plus' }).first().click();
     await shot('04-attendance');
-    const label = await page.getByText(/^સેવ કરો · \d+ માણસ$/).textContent();
-    total = Number(label.match(/(\d+) માણસ/)[1]);
-    await page.getByText(/^સેવ કરો · /).click();
+    const label = await page.getByText(/^\d+ માણસ: /).textContent();
+    total = Number(label.match(/^(\d+) માણસ/)[1]);
+    await page.getByText('સેવ કરો', { exact: true }).click();
     await page.getByText(`${total} માણસ`).first().waitFor();
     await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
   });
   await step('material in: cement 50 bags from Umiya', async () => {
     await page.getByText('માલ આવ્યો', { exact: true }).click();
     await page.getByRole('button', { name: 'Umiya Cement Traders', exact: true }).click();
-    await page.locator('input').nth(0).fill('UC-9001');
+    await page.getByRole('textbox', { name: 'ચલણ' }).fill('UC-9001');
     await page.getByText('સિમેન્ટ', { exact: true }).click();
     await page.getByRole('textbox', { name: 'જથ્થો' }).first().fill('50');
     await shot('05-grn');

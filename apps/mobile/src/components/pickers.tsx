@@ -42,11 +42,12 @@ export function useMaterials(): Row[] {
 
 /** Quantities: whole units for bags/nos, decimals for brass/ton/cum. */
 export function QtyField({ label, unit, value, onChange }: { label: string; unit?: string; value: number; onChange: (v: number) => void }) {
+  const t = useT();
   const fine = ['brass', 'ton', 'cum', 'litre'].includes(unit ?? '');
   return (
     <Field label={label && unit ? `${label} (${unit})` : label}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <Stepper label={label || unit} value={value} onChange={onChange} step={fine ? 0.5 : unit === 'kg' ? 50 : 1} decimals={fine ? 3 : unit === 'kg' ? 1 : 0} max={9_999_999} />
+        <Stepper label={label || t('report.qty')} value={value} onChange={onChange} step={fine ? 0.5 : unit === 'kg' ? 50 : 1} decimals={fine ? 3 : unit === 'kg' ? 1 : 0} max={9_999_999} />
         {!label && unit ? <Text style={{ fontSize: 18, fontWeight: '700', color: colors.ink }}>{unit}</Text> : null}
       </View>
     </Field>
@@ -56,7 +57,7 @@ export function QtyField({ label, unit, value, onChange }: { label: string; unit
 export function TextField({ label, value, onChange, placeholder, multiline }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean }) {
   return (
     <Field label={label}>
-      <Input value={value} onChangeText={onChange} placeholder={placeholder} multiline={multiline} />
+      <Input value={value} onChangeText={onChange} placeholder={placeholder} multiline={multiline} accessibilityLabel={label || placeholder} />
     </Field>
   );
 }
