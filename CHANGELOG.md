@@ -2,6 +2,30 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-10-24 (night) — The phone app is the whole product: setup, new look, ordering, accounts
+
+Builders won't use a web panel, so everything is done from the app. Live database was cleared for a fresh start.
+
+- **Setup from the phone** (`app/setup/*`): sites with floors in one save, wings, the site's team; staff with role,
+  sites and a WhatsApp invite; contractors with daily rates per skill; suppliers; minimum stock per site; company
+  name, wage day and report times. A new owner sees a three-step getting-started checklist.
+- **New look** (`components/ui.tsx`): icons (`@expo/vector-icons`), soft raised cards, tinted icon badges, list
+  rows, sections, stats, banners with icons, the diary line as a highlighted note. Field home moved to
+  `components/FieldHome.tsx`; owner home has site cards with the day's diary, call buttons and "make entries"
+  (`/entries`), stats, "needs you", wage-day card and a one-tap WhatsApp summary of all sites.
+- **Nobody is blocked**: owner and engineer can make every site entry; supervisors add a contractor, supplier,
+  worker, kind of work, place or material by name where they need it (`QuickAdd`, `NewMaterial`); staff not yet
+  on a site can check again; login says when the server is waking up.
+- **Ordering** (`app/order.tsx`): an approved request becomes a PO and a Gujarati order message to the supplier's
+  WhatsApp; an owner's/engineer's own request is approved at once (server) and the owner goes straight to order.
+- **Supplier accounts** (`app/suppliers.tsx`, `app/supplier.tsx`): due per supplier, payments, rates for receipts
+  that came without one, statement on WhatsApp.
+- **Monthly**: this month's cost on each site page; the CA's monthly account as PDF/Excel from Reports.
+- Fixes: render loop from unstable `useT` (now memoised), nested buttons, no-site redirect during render, screens
+  that load from the server refresh on return, approve is green / reject plain, readable report dates.
+- Tests: `e2e/setup.mjs` (demo) and `e2e/firstday.mjs` (real API: sign-up → setup → entries → order →
+  supervisor login); API tests for owner entries, supervisor adds and self-approved requests.
+
 ## 2026-10-23 — Real pilot app, hosted backend, owner and store UX
 
 **Live**: API on Render (`https://site-diary-api.onrender.com`, free plan), Postgres + photo bucket on Supabase (Mumbai), pilot APK built by EAS (`pilot` profile, versionCode 2). Web panel not deployed yet.

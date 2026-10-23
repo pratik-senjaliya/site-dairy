@@ -58,3 +58,12 @@ Builders won't say what they want up front; we decide the UX and present it so t
 ## 2026-10-23 — Closed pilot login until SMS is approved
 
 MSG91 needs DLT approval, so the pilot runs with `OTP_PROVIDER=dev`, `ALLOW_DEV_OTP=true` and a secret `OTP_DEV_CODE`. In production the code works only after "send code" (tries counted, 5 codes an hour). `SIGNUP_OPEN` lists the numbers allowed to start a company. Switching to SMS later is server config only; the APK does not change.
+
+## 2026-10-24 — The phone app is the product; nobody waits on a missing list item
+
+- Builders will not use the web panel. Everything an owner sets up (sites, floors, staff, contractors and rates,
+  suppliers, minimum stock, wage day) is in the app; the web panel stays for offices that want it.
+- Owners and engineers may make every site entry (small builders are their own supervisors).
+- Supervisors may add, on their own sites, a contractor, supplier, worker, kind of work, place or material by
+  name (rates and money stay with owner/engineer/accountant). An entry should never stop for a missing list item.
+- A material request raised by someone who approves requests is approved at once (no approval row).
