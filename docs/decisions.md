@@ -44,3 +44,17 @@ Pinned to versions already proven together: Next 15, Ant Design 5, zod 3, React 
 - `reports` (nightly log) has no `server_rev` or soft delete: it is server-only.
 - Starting lists (skills, materials, work-item templates) live in `apps/api/src/catalog.ts` and are copied into each new company, so every company can edit its own.
 - Money columns are `BIGINT` paise (₹2 crore overflows a 32-bit integer). The API turns them into JSON numbers, exact up to ₹90 lakh crore.
+
+## 2026-10-22 — UX rule: the app replaces the site diary, notebook and WhatsApp messages
+
+Builders won't say what they want up front; we decide the UX and present it so they buy it. "Simple, but very useful."
+
+- Every entry screen asks plain questions (`Ask`) and shows the sentence that will be written (`DiaryLine`, "આ નોંધ થશે: …") above Save. Relationships are spelled out ("સિમેન્ટ 50 bag — Floor 6 ના સ્લેબમાં વપરાયો"), never a bare form of material / work / floor.
+- Sentence builders live in one place, `apps/mobile/src/lib/diary.ts`, and the same sentences appear on the entry screen, in "entered today", on the field home's day page and on the owner's site cards.
+- Entries start from last time; most-used choices first; chips and steppers, not typing.
+- The owner sees what needs a decision (approvals, old problems, stock running out, late material, wage day), not raw counts.
+- Wording: Gujarati first, plain site words (તકલીફ, ઉપાડ, માલ આવ્યો); units stay English (bag, kg, brass). The product owner checks new Gujarati wording.
+
+## 2026-10-23 — Closed pilot login until SMS is approved
+
+MSG91 needs DLT approval, so the pilot runs with `OTP_PROVIDER=dev`, `ALLOW_DEV_OTP=true` and a secret `OTP_DEV_CODE`. In production the code works only after "send code" (tries counted, 5 codes an hour). `SIGNUP_OPEN` lists the numbers allowed to start a company. Switching to SMS later is server config only; the APK does not change.

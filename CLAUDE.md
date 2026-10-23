@@ -74,7 +74,15 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - [x] 10. Pilot hardening: crash reports from all apps via the API to Sentry, `infra/backup.sh`, `eas.json`, push registration (needs `eas init`), app icon, plan limits, `render.yaml`, Vercel configs.
 - [x] 11. Demo mode: the phone app can answer itself (`apps/mobile/src/demo/`, `EXPO_PUBLIC_DEMO=1` or the demo buttons on the login screen); `demo` APK profile; one-file browser demo (`infra/demo-page.mjs`, `e2e/demo.mjs`).
 - [x] 12. EAS linked: project @pratik-senjaliya/site-diary (ID in `apps/mobile/app.json`), EAS Update channels `demo`/`pilot`. Building and installing on a phone: `docs/android.md`.
-- What is left needs the owner's accounts or real devices: `docs/release-checklist.md`.
+- [x] 11. Diary-style UX on every field screen, contractor hisab, owner home (site diaries, wage day, "needs you"), closed pilot login, real pilot APK. History: `CHANGELOG.md`; UX rule: `docs/decisions.md`.
+- What is left needs the owner's accounts or real devices: `docs/release-checklist.md`. Next up: web panel on Vercel, MSG91 SMS, Play Store.
+
+## Live pilot (since 2026-10-23)
+
+- API: Render service from `render.yaml`, `https://site-diary-api.onrender.com` (free plan: sleeps after 15 min idle, so the 8 pm job can be missed; Starter for real use). Region Singapore.
+- Database + photos: Supabase project `site-diary` (ref `rhyqvdwqhamwutwdlklh`, ap-south-1); private bucket `site-diary` over the S3 API.
+- Login: closed pilot (`SIGNUP_OPEN` list + shared `OTP_DEV_CODE`), see `docs/decisions.md`. Secrets live only in Render's environment, never in the repo.
+- Android: EAS project `@pratik-senjaliya/site-diary`; `npx eas-cli build -p android --profile pilot` (APK, API URL baked in) or `--profile demo` (no server). Web panel: not deployed yet (Vercel, root `apps/web`, env `API_URL`).
 
 Tests: `npm test` (46: calcs, i18n parity, API incl. RLS, tenant isolation, site scope, attendance lock, frozen settlements, stock, wages, PO threshold and PDF, plans, reports, nightly job), `npm run e2e` (supervisor incl. offline, every office page, store keeper/accountant/engineer). How to try it: `docs/testing.md`.
 
