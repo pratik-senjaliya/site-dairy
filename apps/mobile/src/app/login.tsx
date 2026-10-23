@@ -1,4 +1,4 @@
-import type { Locale } from '@site-diary/i18n';
+import type { Locale, MessageKey } from '@site-diary/i18n';
 import { colors, spacing, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -9,6 +9,16 @@ import { ApiError, DEMO_BUILD, getDeviceId, getServer, post, setDemo, setServer 
 import { notice } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+
+// Server error codes the builder can act on, in their language.
+const ERRORS: Record<string, MessageKey> = {
+  offline: 'login.noServer',
+  no_account: 'login.noAccount',
+  signup_closed: 'login.noAccount',
+  otp_wrong: 'login.wrongCode',
+  otp_expired: 'login.codeExpired',
+  otp_limit: 'login.tooMany',
+};
 
 type Verify = { accessToken?: string; refreshToken?: string; signup?: boolean; verifiedToken?: string; companies?: { id: string; name: string; role: string }[] };
 
@@ -35,7 +45,8 @@ export default function Login() {
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof ApiError && e.code === 'offline' ? t('login.noServer') : e instanceof Error ? e.message : String(e));
+      const key = e instanceof ApiError ? ERRORS[e.code] : undefined;
+      setError(key ? t(key) : e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }

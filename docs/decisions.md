@@ -13,7 +13,7 @@ WatermelonDB needs a custom native build (its SQLite adapter is not in Expo Go) 
 - **Purchase orders** above the owner's threshold (default ₹50,000) wait for the owner; the owner's own POs and smaller ones are approved at once. Engineers do not approve POs.
 - **Wage settlements**: created by engineer/accountant, approved by the owner, then marked paid. Advances given up to the period end and not yet settled are deducted once; cancelling a settlement frees them.
 - **Two phones, same contractor × skill × day**: one row; the later write wins (the second phone's row id is remapped).
-- **Signup**: an unknown phone number can create a company (pilot self-serve; `SIGNUP_OPEN=false` turns it off).
+- **Signup**: an unknown phone number can create a company. `SIGNUP_OPEN` is `true` (anyone), `false`, or a comma-separated list of numbers (closed pilot: only those builders; their staff are added by the owner).
 - **Web panel language**: English with Gujarati names beside materials/skills/work items (office staff and the CA read English); reports follow each user's language. The phone app is Gujarati-first with English and Hindi.
 - **RLS**: done (17 Oct). Every company table has a policy; the API sets `app.company_id` per query and runs as `site_app` (no BYPASSRLS). Jobs, sign-in and report links run as "system". Cost: each query runs in a small transaction (a few extra round trips), so the API and database must share a region.
 - **Wages and payments**: supervisors record advances; settlements and their payment are office work (owner, engineer, accountant); supplier payments are owner/accountant. Attendance and advances inside a settlement are frozen until it is cancelled.

@@ -6,7 +6,7 @@ import { audit } from '../../lib/audit';
 import {
   REFRESH_COOKIE, authenticate, clearCookies, isMobile, me, newOtp, refreshSession, sha256, startSession,
 } from '../../lib/auth';
-import { config } from '../../lib/config';
+import { canSignUp, config } from '../../lib/config';
 import { HttpError } from '../../lib/errors';
 import { sendOtp } from '../../lib/otp';
 import { companyPlan } from '../../lib/plan';
@@ -25,8 +25,8 @@ const device = { deviceId: z.string().min(8).max(100), deviceName: z.string().ma
 auth.post('/otp/request', async (req, res) => {
   const { phone } = body(z.object({ phone: phoneSchema }), req);
   const recent = await prisma.otpCode.count({ where: { phone, createdAt: { gt: new Date(Date.now() - 3600_000) } } });
-  // The hourly cap protects SMS cost and stops number-bombing; the dev provider sends no SMS.
-  if (recent >= MAX_REQUESTS_PER_HOUR && config.otpProvider !== 'dev') throw new HttpError(429, 'Too many codes requested. Try again in an hour.', 'otp_limit');
+  // The hourly cap protects SMS cost and stops number-bombing; with the fixed pilot code it limits guessing.
+  if (recent >= MAX_REQUESTS_PER_HOUR && (config.otpProvider !== 'dev' || config.isProd)) throw new HttpError(429, 'Too many codes requested. Try again in an hour.', 'otp_limit');
   const code = newOtp();
   await prisma.otpCode.create({ data: { phone, codeHash: sha256(`${phone}:${code}`), expiresAt: new Date(Date.now() + OTP_TTL_MS) } });
   await sendOtp(phone, code);
@@ -46,13 +46,15 @@ function readVerified(token: string): string {
 }
 
 async function checkCode(phone: string, code: string) {
-  if (config.otpProvider === 'dev' && config.otpDevCode && code === config.otpDevCode) return;
+  const fixed = config.otpProvider === 'dev' && !!config.otpDevCode && code === config.otpDevCode;
+  // Tests and local demos skip "send code"; in production even the fixed pilot code needs one, so wrong tries are counted.
+  if (fixed && !config.isProd) return;
   const otp = await prisma.otpCode.findFirst({
     where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: 'desc' },
   });
   if (!otp || otp.attempts >= MAX_ATTEMPTS) throw new HttpError(400, 'This code has expired. Please ask for a new one.', 'otp_expired');
-  if (otp.codeHash !== sha256(`${phone}:${code}`)) {
+  if (!fixed && otp.codeHash !== sha256(`${phone}:${code}`)) {
     await prisma.otpCode.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
     throw new HttpError(400, 'Wrong code. Please check the SMS and try again.', 'otp_wrong');
   }
@@ -81,7 +83,7 @@ auth.post('/otp/verify', async (req, res) => {
   }
   const verifiedToken = signVerified(input.phone);
   if (!users.length) {
-    if (!config.signupOpen) throw new HttpError(403, 'This number has no login. Ask your site owner to add you.', 'no_account');
+    if (!canSignUp(input.phone)) throw new HttpError(403, 'This number has no login. Ask your site owner to add you.', 'no_account');
     res.json({ signup: true, verifiedToken });
     return;
   }
@@ -97,7 +99,6 @@ auth.post('/login', async (req, res) => {
 });
 
 auth.post('/signup', async (req, res) => {
-  if (!config.signupOpen) throw new HttpError(403, 'Sign-up is closed', 'signup_closed');
   const input = body(
     z.object({
       verifiedToken: z.string(),
@@ -109,6 +110,7 @@ auth.post('/signup', async (req, res) => {
     req,
   );
   const phone = readVerified(input.verifiedToken);
+  if (!canSignUp(phone)) throw new HttpError(403, 'Sign-up is closed', 'signup_closed');
   const { owner } = await transaction((tx) => createCompany(tx, { name: input.companyName, ownerName: input.name, phone, language: input.language }));
   res.status(201).json(await login(req, res, owner.id, input.deviceId, input.deviceName));
 });

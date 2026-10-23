@@ -25,8 +25,8 @@ export const config = {
   otpProvider: (process.env.OTP_PROVIDER ?? 'dev') as 'dev' | 'msg91',
   otpDevCode: process.env.OTP_DEV_CODE,
   msg91: { authKey: process.env.MSG91_AUTH_KEY ?? '', templateId: process.env.MSG91_TEMPLATE_ID ?? '' },
-  /** Lets an unknown phone number create a new company (pilot self-signup). */
-  signupOpen: process.env.SIGNUP_OPEN !== 'false',
+  /** Who may create a new company: SIGNUP_OPEN=true (anyone, default), false (nobody), or a comma-separated list of numbers (closed pilot). */
+  signupOpen: process.env.SIGNUP_OPEN ?? 'true',
   storage: {
     driver: (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 's3',
     localDir: process.env.STORAGE_DIR ?? 'uploads',
@@ -48,4 +48,12 @@ export const config = {
 
 if (isProd && config.otpProvider === 'dev' && !process.env.ALLOW_DEV_OTP) {
   throw new Error('OTP_PROVIDER=dev in production: set OTP_PROVIDER=msg91, or ALLOW_DEV_OTP=true for a demo');
+}
+
+/** Whether this verified number (+91…) may start a new company. */
+export function canSignUp(phone: string) {
+  const v = config.signupOpen.trim();
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return v.split(',').some((n) => n.replace(/\D/g, '').slice(-10) === phone.slice(-10));
 }

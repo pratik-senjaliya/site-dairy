@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { config } from './lib/config';
 import { call, phone, signIn, start, stop, uuid, world } from './testUtils';
 
 before(start);
@@ -37,6 +38,21 @@ test('an unknown number can sign up a new company with the starting lists', asyn
   assert.equal(s.body.user.role, 'owner');
   const skills = await call<unknown[]>('GET', '/masters/skill', undefined, s.body.accessToken);
   assert.equal(skills.body.length, 7);
+});
+
+test('closed pilot: only listed numbers can start a company', async () => {
+  const listed = phone();
+  const saved = config.signupOpen;
+  config.signupOpen = `98000 11111,${listed}`;
+  try {
+    const other = await call<{ error: { code: string } }>('POST', '/auth/otp/verify', { phone: phone(), code: '123456', deviceId: 'device-123' });
+    assert.equal(other.status, 403);
+    assert.equal(other.body.error.code, 'no_account');
+    const v = await call<{ signup: boolean }>('POST', '/auth/otp/verify', { phone: listed, code: '123456', deviceId: 'device-123' });
+    assert.equal(v.body.signup, true);
+  } finally {
+    config.signupOpen = saved;
+  }
 });
 
 test('roles: supervisor cannot add users or edit masters; owner can', async () => {

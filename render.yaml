@@ -31,8 +31,16 @@ services:
         value: "true"
       - key: TRUST_PROXY # Vercel proxy function + Render's proxy
         value: "2"
-      - key: OTP_PROVIDER # msg91 for real SMS; dev + ALLOW_DEV_OTP=true + OTP_DEV_CODE for a closed demo only
-        value: msg91
+      # Closed pilot until MSG91 is approved: one secret 6-digit code (tries are counted, 5 codes an hour per number).
+      # Later: OTP_PROVIDER=msg91 and remove ALLOW_DEV_OTP / OTP_DEV_CODE; the APK does not change.
+      - key: OTP_PROVIDER
+        value: dev
+      - key: ALLOW_DEV_OTP
+        value: "true"
+      - key: OTP_DEV_CODE # your secret code; not 123456
+        sync: false
+      - key: SIGNUP_OPEN # numbers allowed to start a company, comma-separated (the pilot builders); staff are added by the owner
+        sync: false
       - key: MSG91_AUTH_KEY
         sync: false
       - key: MSG91_TEMPLATE_ID

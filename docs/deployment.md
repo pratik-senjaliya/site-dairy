@@ -16,7 +16,8 @@ Pilot setup (low cost, India region):
 1. **Database**: create the project; copy the pooled (6543, `?pgbouncer=true`) and direct (5432) connection strings.
 2. **Bucket**: create a private bucket `site-diary` and an S3 access key. Nothing is public: photos are served through the API with sign-in (local) or 10-minute signed URLs (S3).
 3. **API on Render**: New → Blueprint → this repo. Fill the `sync: false` values. Set `SEED_ON_START=true` for the first start only if you want the demo company.
-   - `OTP_PROVIDER=msg91` with `MSG91_AUTH_KEY` and an approved DLT `MSG91_TEMPLATE_ID` (body must contain `##OTP##`). For a closed demo only: `OTP_PROVIDER=dev`, `ALLOW_DEV_OTP=true`, `OTP_DEV_CODE=<code>`.
+   - Login, closed pilot (the blueprint default): `OTP_PROVIDER=dev`, `ALLOW_DEV_OTP=true`, `OTP_DEV_CODE=<your secret 6 digits>`, `SIGNUP_OPEN=<pilot builders' numbers, comma-separated>`. Everyone taps "send code" and enters the secret code; wrong tries are counted and a number gets 5 codes an hour. Tell the code only to people the owner has added.
+   - Real SMS later: `OTP_PROVIDER=msg91` with `MSG91_AUTH_KEY` and an approved DLT `MSG91_TEMPLATE_ID` (body must contain `##OTP##`); remove `ALLOW_DEV_OTP` and `OTP_DEV_CODE`. The APK stays the same.
    - Use a paid instance for the pilot: a sleeping free instance misses the 8 pm report and the 7 pm reminder.
 4. **Office panel on Vercel**: import the repo, root directory `apps/web`, env `API_URL=https://<api>`.
 5. **Phone web build on Vercel** (optional): root `apps/mobile`, env `EXPO_PUBLIC_API_URL=https://<api>`. Add both Vercel URLs to the API's `WEB_ORIGIN` (comma-separated) and set `PUBLIC_WEB_URL` to the office panel URL.
