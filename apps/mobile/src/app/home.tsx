@@ -97,14 +97,13 @@ function OfficeHome() {
   const sites = me?.projects.filter((p) => p.status === 'active') ?? [];
   const wages = useWageDay(sites.map((p) => p.id), can('wages', 'V'));
   const today = useDb(() => db.today);
-  // Back on the home (after an approval, a settlement, a new site): fresh numbers. The first focus is the first load.
+  // Back on the home (after a settlement): the wage-day total again. (useOnline refreshes itself.)
   const seen = useRef(false);
-  const reloadPeople = people.reload;
   const reloadWages = wages.reload;
   useFocusEffect(useCallback(() => {
-    if (seen.current) void Promise.all([reload(), reloadWages(), reloadPeople()]);
+    if (seen.current) void reloadWages();
     seen.current = true;
-  }, [reload, reloadWages, reloadPeople]));
+  }, [reloadWages]));
 
   // Things only the owner can sort out, from the sites' own entries (works offline).
   const attention = useDb(() => sites.flatMap((p) => [

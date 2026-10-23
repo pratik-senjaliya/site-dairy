@@ -1,6 +1,6 @@
 import { can, type Action, type Module } from '@site-diary/shared';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { askConfirm, showToast } from '../components/Dialogs';
 import { ApiError, get } from './api';
@@ -37,6 +37,12 @@ export function useOnline<T>(path: string | null) {
   useEffect(() => {
     void load();
   }, [load]);
+  // Coming back to the screen (after adding a person, deciding an approval…) shows the fresh state.
+  const seen = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (seen.current) void load();
+    seen.current = true;
+  }, [load]));
   return { data, error, loading, reload: load };
 }
 

@@ -12,7 +12,8 @@ import { useT } from '../lib/i18n';
 export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export function Icon({ name, size = 22, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
-  return <MaterialCommunityIcons name={name} size={size} color={color} />;
+  // Decoration only: the text beside it says what it is, so screen readers skip the glyph.
+  return <MaterialCommunityIcons name={name} size={size} color={color} aria-hidden accessibilityElementsHidden importantForAccessibility="no" />;
 }
 
 /** An icon in a tinted circle: the mark of a section, tile or list row. */
