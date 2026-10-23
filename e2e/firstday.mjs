@@ -98,14 +98,11 @@ try {
     await page.getByText(/^2 માણસ: Ramdev Construction 2/).filter({ visible: true }).first().waitFor({ timeout: 15000 });
     await shot('04-entries');
   });
-  await step('asks for cement, approves it, orders from a new supplier', async () => {
+  await step('asks for cement and orders it straight away from a new supplier (no self-approval)', async () => {
     await text('માલની માંગણી').click();
     await text('સિમેન્ટ').click();
     await page.getByRole('button', { name: '+100' }).filter({ visible: true }).first().click();
-    await tap('મંજૂરી માટે મોકલો');
-    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 30000 });
-    await page.goto(`${APP}/approvals`);
-    await text('મંજૂર').click({ timeout: 30000 });
+    await tap('સેવ કરો અને ઓર્ડર કરો');
     await text('કોને ઓર્ડર આપવો?').waitFor({ timeout: 30000 });
     await text('નવો સપ્લાયર').click();
     await field('નવો સપ્લાયર').fill('Jalaram Cement');
@@ -114,6 +111,15 @@ try {
     await shot('05-order');
     await tap('ઓર્ડર કરો અને WhatsApp પર મોકલો');
     await text('કોને ઓર્ડર આપવો?').waitFor({ state: 'hidden', timeout: 30000 });
+  });
+  await step('on the server: the request is ordered and nothing waits for approval', async () => {
+    const API = process.env.API_URL ?? 'http://localhost:4000/api/v1';
+    const login = await fetch(`${API}/auth/otp/verify`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-client': 'mobile' }, body: JSON.stringify({ phone: ownerPhone, code: '123456', deviceId: 'firstday-check' }) }).then((r) => r.json());
+    const get = (path) => fetch(API + path, { headers: { authorization: `Bearer ${login.accessToken}`, 'x-client': 'mobile' } }).then((r) => r.json());
+    const indents = (await get('/sync/pull')).changes.indent ?? [];
+    if (indents.length !== 1 || indents[0].status !== 'ordered') throw new Error(`indent status: ${JSON.stringify(indents.map((i) => i.status))}`);
+    const pending = await get('/approvals?status=pending');
+    if (pending.length) throw new Error(`${pending.length} approvals pending`);
   });
   await step('the supervisor signs in and lands on the site with today’s attendance', async () => {
     page = await newPhone();

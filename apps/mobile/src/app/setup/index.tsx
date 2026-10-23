@@ -13,7 +13,8 @@ export default function Setup() {
   const t = useT();
   const can = useCan();
   const { me } = useSession();
-  const owner = me?.user.role === 'owner';
+  const role = me?.user.role;
+  const owner = role === 'owner';
   const people = useOnline<{ id: string }[]>(owner ? '/users' : null);
   const counts = useDb(() => ({
     contractors: db.rows('contractor').length,
@@ -40,9 +41,10 @@ export default function Setup() {
       <Section title={t('home.more')} />
       <Card style={flush}>
         {owner ? <ListRow icon="account-group-outline" title={t('setup.people')} detail={people.data ? t('setup.peopleCount', { count: people.data.length }) : undefined} onPress={() => router.push('/setup/people')} /> : null}
-        {can('attendance', 'A') || owner ? <ListRow icon="account-hard-hat-outline" title={t('setup.contractors')} detail={t('setup.contractorsCount', { count: counts.contractors })} onPress={() => router.push('/setup/contractors')} /> : null}
-        {can('store', 'C') || owner ? <ListRow icon="truck-outline" title={t('setup.suppliers')} detail={t('setup.suppliersCount', { count: counts.suppliers })} onPress={() => router.push('/setup/suppliers')} /> : null}
-        {can('store', 'C') || owner ? <ListRow icon="warehouse" title={t('setup.minStock')} detail={t('setup.minStockHint')} onPress={() => router.push('/setup/stock')} /> : null}
+        {/* Who may change each list follows the server's rules (masters WRITERS). */}
+        {owner || role === 'engineer' ? <ListRow icon="account-hard-hat-outline" title={t('setup.contractors')} detail={t('setup.contractorsCount', { count: counts.contractors })} onPress={() => router.push('/setup/contractors')} /> : null}
+        {owner || role === 'engineer' || role === 'store' ? <ListRow icon="truck-outline" title={t('setup.suppliers')} detail={t('setup.suppliersCount', { count: counts.suppliers })} onPress={() => router.push('/setup/suppliers')} /> : null}
+        {owner || role === 'store' ? <ListRow icon="warehouse" title={t('setup.minStock')} detail={t('setup.minStockHint')} onPress={() => router.push('/setup/stock')} /> : null}
         {owner && settings ? (
           <ListRow icon="calendar-week" title={t('setup.company')} detail={`${t(DAY_KEYS[settings.wageDay]!)} · ${settings.reportTime}`} onPress={() => router.push('/setup/company')} last />
         ) : null}

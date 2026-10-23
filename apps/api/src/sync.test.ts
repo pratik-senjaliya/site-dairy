@@ -119,6 +119,18 @@ test('pull is incremental: the second pull returns only what changed', async () 
   assert.deepEqual(Object.keys(next.body.changes), ['attendanceEntry']);
 });
 
+test('indent: one raised by an approver (owner) is approved at once, lines and all', async () => {
+  const w = await world();
+  const owner = await signIn(w.people.owner);
+  const indentId = uuid();
+  const r = await owner.call<PushResult>('POST', '/sync/push', {
+    changes: { indent: [{ id: indentId, projectId: w.siteA.id, status: 'submitted' }], indentLine: [{ id: uuid(), indentId, materialId: w.cement.id, qty: 50 }] },
+  });
+  assert.equal(r.body.applied, 2, JSON.stringify(r.body.rejected));
+  assert.equal((await prisma.indent.findUniqueOrThrow({ where: { id: indentId } })).status, 'approved');
+  assert.equal(await prisma.approval.count({ where: { entityId: indentId } }), 0);
+});
+
 test('indent: submitted from site, approved by engineer', async () => {
   const w = await world();
   const sup = await signIn(w.people.supervisor);

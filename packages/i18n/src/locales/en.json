@@ -149,6 +149,7 @@
   "indent.whenToday": "today",
   "indent.whenTomorrow": "tomorrow",
   "indent.whenIn": "in {count} days",
+  "indent.saveOrder": "Save and order",
   "issues.assign": "Who will fix it?",
   "issues.new": "New problem",
   "issues.none": "No open problems",

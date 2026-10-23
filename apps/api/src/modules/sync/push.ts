@@ -161,7 +161,15 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
   if (table === 'materialIssue') ctx.touched.issue.add(targetId);
   if (table === 'stockTransfer') ctx.touched.transfer.add(targetId);
   if (table === 'indent' && row.status === 'submitted' && existing?.status !== 'submitted' && !data.deletedAt) {
-    await requestApproval(tx, me, projectId, 'indent', targetId, null);
+    if (can(me.role, 'indent', 'A')) {
+      // Someone who approves requests does not wait on himself: approved once all its lines are in.
+      ctx.after.push(async (t) => {
+        await t.indent.update({ where: { id: targetId }, data: { status: 'approved', approvedById: me.id } });
+        await audit(t, { me, ip: ctx.ip }, { action: 'approve', entityType: 'indent', entityId: targetId });
+      });
+    } else {
+      await requestApproval(tx, me, projectId, 'indent', targetId, null);
+    }
   }
   if (table === 'issue' && row.assignedToId && row.assignedToId !== existing?.assignedToId) {
     ctx.after.push((t) => notify(t, me.companyId, [String(row.assignedToId)], { kind: 'issue_assigned', title: { key: 'notify.issueAssigned', vars: { title: String(row.title) } }, entityType: 'issue', entityId: targetId }));

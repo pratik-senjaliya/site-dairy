@@ -173,11 +173,15 @@ export function FieldHome({ back = false }: { back?: boolean }) {
         <Card>
           <Row><IconBadge name="truck-delivery-outline" tone="ok" size={34} /><T.h2>{t('store.awaited')}</T.h2></Row>
           {awaited.slice(0, 6).map((a) => (
-            <Pressable key={`${a.indentId}:${a.materialId}`} accessibilityRole="button" onPress={() => router.push({ pathname: '/grn', params: { material: a.materialId, qty: String(a.qty) } })} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{ flex: 1 }}><T.body>{t('store.awaitedLine', { item: diary.material(a.materialId, a.qty), date: shortDate(a.neededBy) })}</T.body></View>
-              {!a.ordered && can('po', 'C') ? <Chip icon="cart-arrow-right" label={t('order.orderIt')} onPress={() => router.push({ pathname: '/order', params: { indent: a.indentId } })} /> : a.late ? <Chip label={t('store.late')} tone="warn" /> : a.ordered ? <T.small color={colors.success}>{t('store.ordered')}</T.small> : null}
-              <Icon name="chevron-right" size={22} color={colors.faint} />
-            </Pressable>
+            <View key={`${a.indentId}:${a.materialId}`} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {/* Two separate buttons side by side (a button inside a button is not allowed). */}
+              <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/grn', params: { material: a.materialId, qty: String(a.qty) } })} style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <View style={{ flex: 1 }}><T.body>{t('store.awaitedLine', { item: diary.material(a.materialId, a.qty), date: shortDate(a.neededBy) })}</T.body></View>
+                {a.ordered ? <T.small color={a.late ? colors.danger : colors.success}>{a.late ? t('store.late') : t('store.ordered')}</T.small> : null}
+                <Icon name="chevron-right" size={22} color={colors.faint} />
+              </Pressable>
+              {!a.ordered && can('po', 'C') ? <Chip icon="cart-arrow-right" label={t('order.orderIt')} onPress={() => router.push({ pathname: '/order', params: { indent: a.indentId } })} /> : null}
+            </View>
           ))}
         </Card>
       ) : null}

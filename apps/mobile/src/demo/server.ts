@@ -190,7 +190,9 @@ function push(s: State, changes: Record<string, DemoRow[]>): PushResult {
       if (i >= 0) list[i] = saved;
       else list.push(saved);
       result.applied++;
-      if (table === 'indent' && row.status === 'submitted' && !s.approvals.some((a) => a.entityId === row.id)) {
+      if (table === 'indent' && row.status === 'submitted' && can(u.role as Role, 'indent', 'A')) {
+        saved.status = 'approved'; // an approver's own request needs no one else
+      } else if (table === 'indent' && row.status === 'submitted' && !s.approvals.some((a) => a.entityId === row.id)) {
         s.approvals.unshift({ id: randomUUID(), projectId: row.projectId, entityType: 'indent', entityId: row.id, requestedById: u.id, status: 'pending', proposal: null, createdAt: now });
         for (const id of idsOf(s, ['owner', 'engineer'])) notify(s, [id], 'approval_needed', tr(userLang(s, id), 'notify.approvalNeeded', { what: tr(userLang(s, id), 'approval.indent') }), tr(userLang(s, id), 'notify.from', { name: String(u.name) }));
       }

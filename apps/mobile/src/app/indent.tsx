@@ -1,13 +1,13 @@
 import { addDays, formatNumber, isoDate, shortDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
 import { Ask, Banner, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
-import { done, notice, useSite } from '../lib/hooks';
+import { done, notice, useCan, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useDiary } from '../lib/diary';
 import { awaitedMaterial } from '../lib/stock';
@@ -35,6 +35,10 @@ export default function Indent() {
   const all = current.materialId && current.qty ? [...items, current] : items;
   const unit = (id: string) => String(materials.find((m) => m.id === id)?.unit ?? '');
   const diary = useDiary();
+  const can = useCan();
+  const approver = can('indent', 'A');
+  const canOrder = approver && can('po', 'C');
+  const [busy, setBusy] = useState(false);
   const item = (l: Line) => diary.material(l.materialId, l.qty);
 
   return (
@@ -43,10 +47,16 @@ export default function Indent() {
       footer={
         <>
           {all.length ? <DiaryLine text={diary.indent(all.map(item).join(', '), neededIn)} /> : null}
-          <Button label={t('indent.send')} disabled={!all.length} onPress={() => {
+          <Button label={approver ? (canOrder ? t('indent.saveOrder') : t('common.save')) : t('indent.send')} icon={canOrder ? 'cart-arrow-right' : undefined} busy={busy} disabled={!all.length} onPress={() => {
             db.save('indent', { id: indentId, projectId: siteId, status: 'submitted', neededBy: addDays(isoDate(), neededIn), note: note || null });
             for (const l of all) db.save('indentLine', { id: l.id, indentId, materialId: l.materialId, qty: l.qty });
-            notice(t('common.saved'), t('indent.sentHint'));
+            // Approvers' own requests are approved on the server; the owner goes on to order it.
+            if (canOrder) {
+              setBusy(true);
+              void db.sync().finally(() => router.replace({ pathname: '/order', params: { indent: indentId } }));
+              return;
+            }
+            notice(t('common.saved'), approver ? undefined : t('indent.sentHint'));
             done();
           }} />
         </>
