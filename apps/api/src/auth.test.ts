@@ -55,16 +55,19 @@ test('closed pilot: only listed numbers can start a company', async () => {
   }
 });
 
-test('roles: supervisor cannot add users or edit masters; owner can', async () => {
+test('roles: supervisor cannot add users or set rates; adds what turns up on site; owner can', async () => {
   const w = await world();
   const sup = await signIn(w.people.supervisor);
   assert.equal((await sup.call('POST', '/users', { name: 'X Y', phone: phone(), role: 'store' })).status, 403);
-  assert.equal((await sup.call('POST', '/masters/material', { nameGu: 'x', nameEn: 'x', unit: 'nos' })).status, 403);
-  // A new contractor or supplier at the gate can be added by name; their rates stay with the office.
+  // What turns up on site can be added by name; rates stay with the office.
+  assert.equal((await sup.call('POST', '/masters/material', { nameGu: 'કેમિકલ', nameEn: 'Chemical', unit: 'litre' })).status, 201);
   const c = await sup.call<{ id: string }>('POST', '/masters/contractor', { name: 'New Contractor', rateType: 'daily' });
   assert.equal(c.status, 201);
   assert.equal((await sup.call('POST', '/masters/supplier', { name: 'New Supplier' })).status, 201);
   assert.equal((await sup.call('POST', '/masters/worker', { contractorId: c.body.id, name: 'Ramesh' })).status, 201);
+  assert.equal((await sup.call('POST', '/masters/workItem', { projectId: w.siteA.id, nameGu: 'વોટરપ્રૂફિંગ', nameEn: 'Waterproofing' })).status, 201);
+  assert.equal((await sup.call('POST', '/masters/structureNode', { projectId: w.siteA.id, kind: 'floor', name: 'Terrace' })).status, 201);
+  assert.equal((await sup.call('POST', '/masters/workItem', { projectId: w.siteB.id, nameGu: 'x', nameEn: 'x' })).status, 403, 'not on another site');
   assert.equal((await sup.call('POST', '/masters/contractorRate', { contractorId: c.body.id, skillId: w.kadiya.id, dailyRatePaise: 90000, effectiveFrom: '2026-01-01' })).status, 403);
   const owner = await signIn(w.people.owner);
   const u = await owner.call<{ id: string }>('POST', '/users', { name: 'New Store', phone: phone(), role: 'store', siteIds: [w.siteB.id] });

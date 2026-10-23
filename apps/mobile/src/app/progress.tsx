@@ -4,9 +4,10 @@ import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { byUse, RowChips, TextField } from '../components/pickers';
+import { byUse, QuickAdd, RowChips, TextField } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Ask, Button, Chip, Chips, DiaryLine, Row, Screen } from '../components/ui';
+import { post } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -99,11 +100,22 @@ export default function Progress() {
           <TodayEntries entries={entries.map((e) => ({ id: e.id, table: 'dailyProgress' as const, label: line(e) }))} />
           <Ask q={t('progress.qItem')}>
             <RowChips label="" rows={items} max={8} value={workItemId} onChange={pickItem} nameOf={name} />
+            <QuickAdd label={t('progress.newItem')} placeholder="Waterproofing" onAdd={async (n) => {
+              const w = await post<{ id: string }>('/masters/workItem', { projectId: siteId, nameGu: n, nameEn: n, sort: items.length });
+              await db.sync();
+              pickItem(w.id);
+            }} />
           </Ask>
           {workItemId ? (
             <>
               <Ask q={t('used.onFloor')}>
                 <RowChips label="" rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone noneLabel={t('common.notSure')} />
+                <QuickAdd label={t('progress.newPlace')} placeholder="Terrace" onAdd={async (n) => {
+                  const tower = db.rows('structureNode').find((x) => x.projectId === siteId && x.kind === 'tower');
+                  const f = await post<{ id: string }>('/masters/structureNode', { projectId: siteId, parentId: tower?.id ?? null, kind: 'floor', name: n, sort: floors.length + 100 });
+                  await db.sync();
+                  setNode(f.id);
+                }} />
               </Ask>
               <Ask q={t('progress.qPercent')} hint={`${t('progress.percentHint')}${last ? ` ${t('progress.last', { percent: Number(last.percent), date: shortDate(String(last.date)) })}` : ''}`}>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

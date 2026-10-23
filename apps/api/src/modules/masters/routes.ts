@@ -17,17 +17,18 @@ interface Delegate {
 }
 
 // Who may change each master list (everyone signed in may read). W3: owner, engineer; W6: store, owner.
-// Supervisors may add a contractor or supplier by name when a new one turns up at the gate (rates stay with the office).
+// Supervisors may add by name what turns up on site — a contractor, supplier, worker, a kind of work, a floor —
+// so an entry never stops for a missing list item (rates stay with the office).
 const WRITERS: Record<MasterKind, Role[]> = {
   contractor: ['owner', 'engineer', 'supervisor'],
   skill: ['owner', 'engineer'],
   contractorRate: ['owner', 'engineer'],
   worker: ['owner', 'engineer', 'supervisor'],
-  material: ['owner', 'store'],
+  material: ['owner', 'store', 'engineer', 'supervisor'],
   supplier: ['owner', 'store', 'engineer', 'supervisor'],
   siteMaterialSetting: ['owner', 'store'],
-  workItem: ['owner', 'engineer'],
-  structureNode: ['owner', 'engineer'],
+  workItem: ['owner', 'engineer', 'supervisor'],
+  structureNode: ['owner', 'engineer', 'supervisor'],
   workItemTemplate: ['owner'],
 };
 const ORDER: Partial<Record<MasterKind, Row | Row[]>> = {

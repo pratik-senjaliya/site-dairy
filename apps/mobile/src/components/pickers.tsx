@@ -4,7 +4,9 @@ import { Text, View } from 'react-native';
 import { db, useDb, type Row } from '../lib/db';
 import { useT } from '../lib/i18n';
 import { useSave } from '../lib/setup';
-import { Button, Chip, Field, Input, Stepper } from './ui';
+import { UNITS, type Unit } from '@site-diary/shared';
+import { post } from '../lib/api';
+import { Button, Chip, Chips, Field, Input, Stepper } from './ui';
 
 /**
  * Chips for a list (contractors, materials, floors…) in the caller's order — "most used first" via `byUse`.
@@ -85,6 +87,29 @@ export function QuickAdd({ label, placeholder, onAdd }: { label: string; placeho
       <Input style={{ flex: 1 }} autoFocus value={value} onChangeText={setValue} placeholder={placeholder} accessibilityLabel={label} />
       <Button small label={t('common.add')} busy={busy} disabled={value.trim().length < 2} onPress={() => void run(async () => {
         await onAdd(value.trim());
+        setOpen(false);
+        setValue('');
+      })} />
+    </View>
+  );
+}
+
+/** "+ New material": a name and its unit (bag, kg, brass…), added on the server so the entry can go on. */
+export function NewMaterial({ onAdded }: { onAdded: (id: string) => void }) {
+  const t = useT();
+  const { busy, run } = useSave();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [unit, setUnit] = useState<Unit>('nos');
+  if (!open) return <Chip icon="plus" label={t('grn.newMaterial')} onPress={() => setOpen(true)} />;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Input autoFocus value={value} onChangeText={setValue} placeholder="Waterproofing chemical" accessibilityLabel={t('grn.newMaterial')} />
+      <Chips options={UNITS.map((u) => ({ value: u, label: u }))} value={unit} onChange={setUnit} />
+      <Button small label={t('common.add')} busy={busy} disabled={value.trim().length < 2} onPress={() => void run(async () => {
+        const m = await post<{ id: string }>('/masters/material', { nameGu: value.trim(), nameEn: value.trim(), unit });
+        await db.sync();
+        onAdded(m.id);
         setOpen(false);
         setValue('');
       })} />

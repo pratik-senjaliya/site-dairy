@@ -5,7 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { byUse, QtyField, QuickAdd, RowChips, TextField, useMaterials } from '../components/pickers';
+import { byUse, NewMaterial, QtyField, QuickAdd, RowChips, TextField, useMaterials } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { post } from '../lib/api';
@@ -108,6 +108,7 @@ export default function Grn() {
 
       <Ask q={t('grn.qWhat')}>
         <RowChips label="" rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
+        <NewMaterial onAdded={(id) => setCurrent((c) => ({ ...c, materialId: id }))} />
       </Ask>
       {current.materialId ? (
         <>

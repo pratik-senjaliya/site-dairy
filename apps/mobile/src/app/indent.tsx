@@ -4,7 +4,7 @@ import { randomUUID } from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
+import { NewMaterial, QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
 import { Ask, Banner, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useCan, useSite } from '../lib/hooks';
@@ -75,6 +75,7 @@ export default function Indent() {
       ) : null}
       <Ask q={t('indent.qWhat')}>
         <RowChips label="" rows={materials} max={8} value={current.materialId || null} onChange={(id) => setCurrent((c) => ({ ...c, materialId: id ?? '' }))} nameOf={name} />
+        <NewMaterial onAdded={(id) => setCurrent((c) => ({ ...c, materialId: id }))} />
       </Ask>
       {current.materialId ? (
         <>
