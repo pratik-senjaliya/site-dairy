@@ -125,7 +125,7 @@ export default function Hisab() {
                 </Row>
                 <Row style={{ justifyContent: 'space-between' }}>
                   <T.body>{t('hisab.earned')} {formatPaise(a.gross)}</T.body>
-                  <T.body color={a.advances ? colors.warning : colors.muted}>{t('hisab.advance')} −{formatPaise(a.advances)}</T.body>
+                  {a.advances ? <T.body color={colors.warning}>{t('hisab.advance')} −{formatPaise(a.advances)}</T.body> : null}
                 </Row>
               </Pressable>
               {unpaid(a.contractor.id).map((x) => (

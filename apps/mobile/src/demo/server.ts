@@ -1,6 +1,6 @@
 import { noticeText, t as tr, type Locale, type Notice } from '@site-diary/i18n';
 import {
-  acceptedQty, addDays, can, companySettingsSchema, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
+  acceptedQty, addDays, can, companySettingsSchema, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
 import { randomUUID } from 'expo-crypto';
 import { kv } from '../lib/kv';
@@ -350,7 +350,7 @@ export async function demoApi(method: string, path: string, body: unknown, token
   if (p === '/notifications' && method === 'GET') {
     const items = s.notices.filter((n) => n.userId === u.id).slice(0, 50);
     if (!items.length && (u.role === 'owner' || u.role === 'engineer')) {
-      notify(s, [u.id], 'nightly_report', tr(lang(s), 'notify.nightly', { date: addDays(today, -1) }), 'Shivam Heights');
+      notify(s, [u.id], 'nightly_report', tr(lang(s), 'notify.nightly', { date: shortDate(addDays(today, -1)) }), 'Shivam Heights');
       save();
     }
     const mine = s.notices.filter((n) => n.userId === u.id).slice(0, 50);

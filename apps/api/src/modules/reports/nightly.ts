@@ -1,4 +1,4 @@
-import { can, isoDate } from '@site-diary/shared';
+import { can, isoDate, shortDate } from '@site-diary/shared';
 import jwt from 'jsonwebtoken';
 import { config } from '../../lib/config';
 import { notify } from '../../lib/notify';
@@ -45,7 +45,7 @@ export async function runNightlyFor(userId: string, date = isoDate()) {
   const workers = report.highlights[0]?.value ?? '';
   await transaction((tx) =>
     notify(tx, user.companyId, [user.id], {
-      kind: 'nightly_report', title: { key: 'notify.nightly', vars: { date } }, body: `${report.subtitle} · ${workers}`, entityType: 'report', entityId: row.id, dedupeKey: `nightly:${date}`,
+      kind: 'nightly_report', title: { key: 'notify.nightly', vars: { date: shortDate(date) } }, body: `${report.subtitle} · ${workers}`, entityType: 'report', entityId: row.id, dedupeKey: `nightly:${date}`,
     }),
   );
   await sendWhatsApp(user.companyId, user.id, user.phone, user.name, date, link).catch((e: unknown) => console.warn('whatsapp failed', e instanceof Error ? e.message : e));

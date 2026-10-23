@@ -6,8 +6,9 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { Banner, Card, Row, s, Screen, T } from '../components/ui';
-import { useOnline } from '../lib/hooks';
+import { Banner, Button, Card, Row, s, Screen, T } from '../components/ui';
+import { notice, useOnline } from '../lib/hooks';
+import { shareDailyReport } from '../lib/share';
 import { useDayName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 
@@ -29,6 +30,7 @@ export default function Site() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const today = isoDate();
   const [date, setDate] = useState(today);
+  const [sending, setSending] = useState(false);
   const { data, error, reload } = useOnline<SiteDetail>(id ? `/dashboard/site/${id}?date=${date}` : null);
   const d = data?.date === date ? data : null;
   const photos = useOnline<{ id: string; uploaded: boolean; sourceType: string }[]>(id && d ? `/registers/photos?projectId=${id}&from=${d.date}&to=${d.date}` : null);
@@ -36,7 +38,17 @@ export default function Site() {
   const max = Math.max(1, ...(d?.trend.map((x) => x.workers) ?? [1]));
 
   return (
-    <Screen title={data?.project.name ?? ''}>
+    <Screen
+      title={data?.project.name ?? ''}
+      footer={id ? (
+        <Button kind="secondary" label={t('home.pdf')} busy={sending} onPress={() => {
+          setSending(true);
+          shareDailyReport(id, t('home.reportShareTitle'), date)
+            .catch((e: unknown) => notice(t('home.reportFailed'), e instanceof Error ? e.message : String(e)))
+            .finally(() => setSending(false));
+        }} />
+      ) : undefined}
+    >
       <Row style={{ justifyContent: 'space-between' }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('common.prevDay')} onPress={() => setDate(addDays(date, -1))} style={s.stepBtn}><Text style={s.stepSign}>‹</Text></Pressable>
         <T.h2>{date === today ? t('common.today') : dayName(date)}</T.h2>
@@ -70,28 +82,42 @@ export default function Site() {
               </Row>
             </Card>
           ) : null}
-          <Card>
-            <T.h2>{t('report.labour')}</T.h2>
-            {d.labour.byContractor.length ? d.labour.byContractor.map((c) => <Row key={c.contractor} style={{ justifyContent: 'space-between' }}><T.body>{c.contractor}</T.body><T.body bold>{c.workers}</T.body></Row>) : <T.small>{t('report.nothing')}</T.small>}
-          </Card>
-          <Card>
-            <T.h2>{t('report.materialIn')}</T.h2>
-            {d.materialIn.length ? d.materialIn.map((m, i) => <T.body key={i}>{nm(m.material, m.materialGu)} · {m.qty} {m.unit}{m.supplier ? ` · ${m.supplier}` : ''}</T.body>) : <T.small>{t('report.nothing')}</T.small>}
-          </Card>
-          <Card>
-            <T.h2>{t('report.materialUsed')}</T.h2>
-            {d.materialUsed.length ? d.materialUsed.map((m, i) => <T.body key={i}>{nm(m.material, m.materialGu)} · {m.qty} {m.unit}{m.floor ? ` · ${m.floor}` : ''}</T.body>) : <T.small>{t('report.nothing')}</T.small>}
-          </Card>
-          <Card>
-            <T.h2>{t('report.progress')}</T.h2>
-            {d.progress.length ? d.progress.map((p, i) => <T.body key={i}>{nm(p.workItem, p.workItemGu)}{p.floor ? ` · ${p.floor}` : ''} · {p.percent}%{p.note ? `\n${p.note}` : ''}</T.body>) : <T.small>{t('report.nothing')}</T.small>}
-          </Card>
-          <Card>
-            <T.h2>{t('site.photos')} ({d.photos.length})</T.h2>
-            <Row style={{ flexWrap: 'wrap' }}>
-              {photos.data?.filter((p) => p.uploaded).map((p) => <PhotoThumb key={p.id} photo={p} size={100} />)}
-            </Row>
-          </Card>
+          {/* Only what was written that day; one line when nothing was. */}
+          {!d.labour.byContractor.length && !d.materialIn.length && !d.materialUsed.length && !d.progress.length ? (
+            <Card><T.body muted>{date === today ? t('owner.notWritten') : t('home.dayEmpty')}</T.body></Card>
+          ) : null}
+          {d.labour.byContractor.length ? (
+            <Card>
+              <T.h2>{t('report.labour')}</T.h2>
+              {d.labour.byContractor.map((c) => <Row key={c.contractor} style={{ justifyContent: 'space-between' }}><T.body>{c.contractor}</T.body><T.body bold>{c.workers}</T.body></Row>)}
+            </Card>
+          ) : null}
+          {d.materialIn.length ? (
+            <Card>
+              <T.h2>{t('report.materialIn')}</T.h2>
+              {d.materialIn.map((m, i) => <T.body key={i}>{nm(m.material, m.materialGu)} · {m.qty} {m.unit}{m.supplier ? ` · ${m.supplier}` : ''}</T.body>)}
+            </Card>
+          ) : null}
+          {d.materialUsed.length ? (
+            <Card>
+              <T.h2>{t('report.materialUsed')}</T.h2>
+              {d.materialUsed.map((m, i) => <T.body key={i}>{nm(m.material, m.materialGu)} · {m.qty} {m.unit}{m.floor ? ` · ${m.floor}` : ''}</T.body>)}
+            </Card>
+          ) : null}
+          {d.progress.length ? (
+            <Card>
+              <T.h2>{t('report.progress')}</T.h2>
+              {d.progress.map((p, i) => <T.body key={i}>{nm(p.workItem, p.workItemGu)}{p.floor ? ` · ${p.floor}` : ''} · {p.percent}%{p.note ? `\n${p.note}` : ''}</T.body>)}
+            </Card>
+          ) : null}
+          {d.photos.length ? (
+            <Card>
+              <T.h2>{t('site.photos')} ({d.photos.length})</T.h2>
+              <Row style={{ flexWrap: 'wrap' }}>
+                {photos.data?.filter((p) => p.uploaded).map((p) => <PhotoThumb key={p.id} photo={p} size={100} />)}
+              </Row>
+            </Card>
+          ) : null}
           <T.small>{t('report.openIssues')}: {d.openIssues}</T.small>
         </>
       ) : null}
