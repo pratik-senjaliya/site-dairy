@@ -25,6 +25,8 @@ export default function Login() {
   const [company, setCompany] = useState('');
   const [name, setName] = useState('');
   const [server, setServerText] = useState<string | null>(null);
+  // The server address is for us, not the builder: shown in development, else after a long press on the name.
+  const [showServer, setShowServer] = useState(__DEV__);
   const device = { deviceId: getDeviceId(), deviceName: Platform.OS };
 
   const run = async (fn: () => Promise<void>) => {
@@ -48,13 +50,13 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.xl, flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={{ gap: spacing.sm }}>
-            <Text style={{ fontSize: 34, fontWeight: '800', color: colors.primary }}>{t('app.name')}</Text>
+            <Text onLongPress={() => setShowServer(true)} style={{ fontSize: 34, fontWeight: '800', color: colors.primary }}>{t('app.name')}</Text>
             <T.body muted>{t('login.tagline')}</T.body>
           </View>
           <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
           {error ? <Banner tone="error" text={error} /> : null}
 
-          {DEMO_BUILD || step === 'phone' ? (
+          {DEMO_BUILD || (__DEV__ && step === 'phone') ? (
             <Card style={DEMO_BUILD ? { borderColor: colors.primary, borderWidth: 2 } : undefined}>
               <T.h2>{t('demo.title')}</T.h2>
               <T.small>{t('demo.hint')}</T.small>
@@ -119,7 +121,7 @@ export default function Login() {
           )}
 
           <View style={{ gap: spacing.sm }}>
-            {DEMO_BUILD ? null : server === null ? (
+            {DEMO_BUILD || !showServer ? null : server === null ? (
               <Pressable onPress={() => setServerText(getServer())} hitSlop={8}>
                 <Text style={{ color: colors.muted, fontSize: type.label, textAlign: 'center' }}>{t('login.server')}: {getServer()}</Text>
               </Pressable>
