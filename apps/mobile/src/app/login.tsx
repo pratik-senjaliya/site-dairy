@@ -92,7 +92,7 @@ export default function Login() {
           {step === 'phone' && (
             <Card>
               <Field label={t('auth.phone')}>
-                <Input value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="98250 12345" autoFocus maxLength={14} style={{ fontSize: 22, letterSpacing: 1 }} />
+                <Input value={phone} onChangeText={setPhone} accessibilityLabel={t('auth.phone')} keyboardType="phone-pad" placeholder="98250 12345" autoFocus maxLength={14} style={{ fontSize: 22, letterSpacing: 1 }} />
               </Field>
               <Button label={t('auth.sendOtp')} busy={busy} disabled={phone.replace(/\D/g, '').length < 10} onPress={() => run(async () => {
                 await post('/auth/otp/request', { phone });
@@ -105,7 +105,7 @@ export default function Login() {
             <Card>
               <T.body muted>{t('login.codeSent', { phone })}</T.body>
               <Field label={t('auth.enterOtp')}>
-                <Input value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoFocus maxLength={6} style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} textContentType="oneTimeCode" autoComplete="sms-otp" />
+                <Input accessibilityLabel={t('auth.enterOtp')} value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoFocus maxLength={6} style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} textContentType="oneTimeCode" autoComplete="sms-otp" />
               </Field>
               <Button label={t('login.verify')} busy={busy} disabled={code.length !== 6} onPress={() => run(async () => {
                 const r = await post<Verify>('/auth/otp/verify', { phone, code, ...device });
@@ -132,8 +132,8 @@ export default function Login() {
             <Card>
               <T.h2>{t('login.newCompany')}</T.h2>
               <T.body muted>{t('login.newCompanyHint')}</T.body>
-              <Field label={t('login.companyName')}><Input value={company} onChangeText={setCompany} placeholder="Shree Ganesh Builders" /></Field>
-              <Field label={t('login.yourName')}><Input value={name} onChangeText={setName} /></Field>
+              <Field label={t('login.companyName')}><Input value={company} onChangeText={setCompany} placeholder="Shree Ganesh Builders" accessibilityLabel={t('login.companyName')} /></Field>
+              <Field label={t('login.yourName')}><Input value={name} onChangeText={setName} accessibilityLabel={t('login.yourName')} /></Field>
               <Button label={t('login.start')} busy={busy} disabled={company.trim().length < 2 || name.trim().length < 2} onPress={() => run(async () => {
                 await finish(await post<Verify>('/auth/signup', { verifiedToken: verified?.verifiedToken, companyName: company, name, language: lang, ...device }));
               })} />

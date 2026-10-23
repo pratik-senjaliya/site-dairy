@@ -471,5 +471,17 @@
   "start.site": "पहली साइट जोड़ें",
   "start.contractors": "ठेकेदार और भाव जोड़ें",
   "start.people": "सुपरवाइज़र जोड़ें",
-  "start.selfEntry": "या खुद एंट्री करें"
+  "start.selfEntry": "या खुद एंट्री करें",
+  "order.title": "ऑर्डर करें",
+  "order.qSupplier": "किसे ऑर्डर देना है?",
+  "order.qItems": "क्या और कितना?",
+  "order.rate": "भाव ₹/{unit}",
+  "order.rateHint": "भाव पता न हो तो खाली छोड़ें; बिल आने पर भरेगा।",
+  "order.line": "ऑर्डर: {supplier} — {items}, {date} तक",
+  "order.send": "ऑर्डर करें और WhatsApp पर भेजें",
+  "order.message": "नमस्ते {supplier},\n{company} की ओर से ऑर्डर {poNo}:\n{items}\nसाइट: {site}\n{date} तक चाहिए।\n{link}",
+  "order.toOrder": "{site}: ऑर्डर करना बाकी — {items}",
+  "order.waitsOwner": "बड़ा ऑर्डर: मालिक की मंज़ूरी के बाद जाएगा।",
+  "order.noPhone": "इस सप्लायर का नंबर नहीं; WhatsApp में संपर्क चुनें।",
+  "order.orderIt": "ऑर्डर"
 }

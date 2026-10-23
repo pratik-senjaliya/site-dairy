@@ -1,7 +1,7 @@
 import { addDays, isLowStock, shortDate, type StockRow } from '@site-diary/shared';
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
@@ -84,10 +84,11 @@ export function FieldHome({ back = false }: { back?: boolean }) {
       firstSync: db.rev === '0',
     };
   });
-  if (!siteId) {
-    router.replace('/sites');
-    return null;
-  }
+  // No site chosen (or the person was just switched): pick one — after drawing, never during it.
+  useEffect(() => {
+    if (!siteId) router.replace('/sites');
+  }, [siteId]);
+  if (!siteId) return null;
   const isToday = day === today;
   const working = !stats.marker || stats.marker === 'work';
   const pending = [
@@ -174,7 +175,7 @@ export function FieldHome({ back = false }: { back?: boolean }) {
           {awaited.slice(0, 6).map((a) => (
             <Pressable key={`${a.indentId}:${a.materialId}`} accessibilityRole="button" onPress={() => router.push({ pathname: '/grn', params: { material: a.materialId, qty: String(a.qty) } })} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <View style={{ flex: 1 }}><T.body>{t('store.awaitedLine', { item: diary.material(a.materialId, a.qty), date: shortDate(a.neededBy) })}</T.body></View>
-              {a.late ? <Chip label={t('store.late')} tone="warn" /> : a.ordered ? <T.small color={colors.success}>{t('store.ordered')}</T.small> : null}
+              {!a.ordered && can('po', 'C') ? <Chip icon="cart-arrow-right" label={t('order.orderIt')} onPress={() => router.push({ pathname: '/order', params: { indent: a.indentId } })} /> : a.late ? <Chip label={t('store.late')} tone="warn" /> : a.ordered ? <T.small color={colors.success}>{t('store.ordered')}</T.small> : null}
               <Icon name="chevron-right" size={22} color={colors.faint} />
             </Pressable>
           ))}

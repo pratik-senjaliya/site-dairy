@@ -419,6 +419,20 @@ export async function demoApi(method: string, path: string, body: unknown, token
     const data = masterSchemas[kind].parse(b) as Record<string, unknown>;
     return out(bump(kind, { id: masterMatch[2] ?? randomUUID(), ...data }));
   }
+  if (p === '/purchase/pos' && method === 'POST') {
+    const lines = (b.lines ?? []) as { materialId: string; qty: number; ratePaise: number }[];
+    const po = bump('purchaseOrder', {
+      id: randomUUID(), projectId: b.projectId, supplierId: b.supplierId, indentId: b.indentId ?? null, poNo: `PO-DEMO-${String(live(s, 'purchaseOrder').length + 1).padStart(3, '0')}`,
+      status: 'approved', totalPaise: lines.reduce((x, l) => x + Math.round(l.qty * l.ratePaise), 0),
+    });
+    for (const l of lines) bump('poLine', { id: randomUUID(), poId: po.id, materialId: l.materialId, qty: l.qty, ratePaise: l.ratePaise });
+    const indent = find(s, 'indent', b.indentId);
+    if (indent && indent.status === 'approved') bump('indent', { ...indent, status: 'ordered' });
+    return out(po);
+  }
+  const poMatch = p.match(/^\/purchase\/pos\/([^/]+)\/(share|status)$/);
+  if (poMatch?.[2] === 'share') return { link: '', whatsapp: '' };
+  if (poMatch?.[2] === 'status') return out(bump('purchaseOrder', { ...find(s, 'purchaseOrder', poMatch[1]), id: poMatch[1]!, status: b.status }));
   if (p === '/registers/photos') {
     return live(s, 'photo').filter((x) => x.projectId === q('projectId') && String(x.takenAt).slice(0, 10) >= String(q('from')) && String(x.takenAt).slice(0, 10) <= String(q('to'))).map((x) => ({ ...x, uploaded: true }));
   }

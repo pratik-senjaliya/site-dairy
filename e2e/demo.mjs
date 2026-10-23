@@ -10,6 +10,7 @@ const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceSc
 const page = await ctx.newPage();
 const errors = [];
 const apiCalls = [];
+await ctx.route(/wa\.me/, (r) => r.abort());
 await ctx.route(/:4000\//, (r) => { apiCalls.push(`${r.request().url()} ${r.request().postData() ?? ''}`); return r.abort(); });
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('dialog', (d) => void d.accept());
@@ -51,13 +52,19 @@ try {
     await page.getByText(`${total} માણસ`).filter({ visible: true }).first().waitFor({ timeout: 15000 });
     await shot('demo-04-owner-dashboard');
   });
-  await step('owner: approves both requests', async () => {
+  await step('owner: approves both requests and orders each from a supplier', async () => {
     await page.getByText('મંજૂરી', { exact: true }).filter({ visible: true }).last().click();
     await page.getByText('મંજૂર', { exact: true }).first().waitFor();
     await shot('demo-05-owner-approvals');
     for (let i = 0; i < 2; i++) {
       await page.getByText('મંજૂર', { exact: true }).filter({ visible: true }).first().click();
-      await page.waitForTimeout(800);
+      // An approved request goes straight on to the order: pick the supplier, send on WhatsApp.
+      await page.getByText('કોને ઓર્ડર આપવો?').filter({ visible: true }).waitFor({ timeout: 15000 });
+      await page.getByText('Shakti Steel', { exact: true }).filter({ visible: true }).first().click();
+      await page.getByText(/^ઓર્ડર: Shakti Steel — /).filter({ visible: true }).waitFor();
+      if (i === 0) await shot('demo-05b-order');
+      await page.getByRole('button', { name: 'ઓર્ડર કરો અને WhatsApp પર મોકલો' }).filter({ visible: true }).click();
+      await page.getByText('કોને ઓર્ડર આપવો?').filter({ visible: true }).waitFor({ state: 'hidden', timeout: 15000 });
     }
     await page.getByText('તમારી મંજૂરી માટે કંઈ બાકી નથી').waitFor();
   });

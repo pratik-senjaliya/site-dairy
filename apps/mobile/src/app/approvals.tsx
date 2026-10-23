@@ -3,11 +3,13 @@ import { colors } from '@site-diary/ui-tokens';
 import { useState } from 'react';
 import { Banner, Button, Card, Chip, Empty, Input, Row, Screen, T } from '../components/ui';
 import { post } from '../lib/api';
-import { notice, useOnline } from '../lib/hooks';
+import { router } from 'expo-router';
+import { db } from '../lib/db';
+import { notice, useCan, useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 
 interface Approval {
-  id: string; entityType: string; status: string; project: string | null; requestedBy: string | null; createdAt: string;
+  id: string; entityType: string; entityId: string; status: string; project: string | null; requestedBy: string | null; createdAt: string;
   details?: {
     lines?: { material?: { nameGu: string; nameEn: string; unit: string }; qty: number }[]; neededBy?: string; note?: string;
     poNo?: string; totalPaise?: number; supplier?: string; contractor?: string; periodFrom?: string; periodTo?: string; grossPaise?: number; advancesPaise?: number; netPaise?: number;
@@ -21,6 +23,7 @@ const REASONS = ['approvals.r1', 'approvals.r2', 'approvals.r3', 'approvals.r4',
 export default function Approvals() {
   const t = useT();
   const name = useName();
+  const can = useCan();
   const { data, error, reload } = useOnline<Approval[]>('/approvals?status=pending');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -34,6 +37,11 @@ export default function Approvals() {
     try {
       await post(`/approvals/${a.id}/decide`, { decision, reason: notes[a.id]?.trim() || undefined });
       await reload();
+      // An approved material request goes straight on to ordering it from a supplier.
+      if (decision === 'approve' && a.entityType === 'indent' && can('po', 'C')) {
+        await db.sync();
+        router.push({ pathname: '/order', params: { indent: a.entityId } });
+      }
     } catch (e) {
       notice(t('common.error'), e instanceof Error ? e.message : String(e));
     } finally {

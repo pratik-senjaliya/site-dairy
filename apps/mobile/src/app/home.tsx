@@ -124,7 +124,12 @@ function OfficeHome() {
       key: `${p.id}:${r.materialId}`, site: p.id, icon: 'warehouse' as const,
       text: r.left?.days ? t('owner.stockSoon', { site: p.name, material: name(r.material), days: r.left.days }) : t('owner.stockLow', { site: p.name, material: name(r.material), qty: formatNumber(r.qty), unit: String(r.material?.unit ?? '') }),
     })),
-    ...awaitedMaterial(p.id).filter((a) => a.late)
+    // Approved but not ordered yet: one tap to order it.
+    ...db.rows('indent').filter((i) => i.projectId === p.id && i.status === 'approved').map((i) => ({
+      key: `order:${i.id}`, site: p.id, icon: 'cart-arrow-right' as const, indent: i.id,
+      text: t('order.toOrder', { site: p.name, items: db.rows('indentLine').filter((l) => l.indentId === i.id).map((l) => diary.material(l.materialId, l.qty)).join(', ') }),
+    })),
+    ...awaitedMaterial(p.id).filter((a) => a.late && a.ordered)
       .map((a) => ({ key: `${a.indentId}:${a.materialId}`, site: p.id, icon: 'truck-alert-outline' as const, text: t('owner.materialLate', { site: p.name, item: diary.material(a.materialId, a.qty), date: shortDate(a.neededBy) }) })),
   ]));
 
@@ -150,7 +155,7 @@ function OfficeHome() {
           </View>
           {data?.totals.pendingApprovals ? <ListRow icon="check-decagram-outline" title={t('owner.approvalsWaiting', { count: data.totals.pendingApprovals })} onPress={() => router.push('/approvals')} last={!attention.length} /> : null}
           {attention.slice(0, 8).map((a, i, all) => (
-            <ListRow key={a.key} icon={a.icon} tone="warn" title={a.text} onPress={() => router.push({ pathname: '/site', params: { id: a.site } })} last={i === all.length - 1} />
+            <ListRow key={a.key} icon={a.icon} tone="warn" title={a.text} onPress={() => ('indent' in a && a.indent ? router.push({ pathname: '/order', params: { indent: a.indent } }) : router.push({ pathname: '/site', params: { id: a.site } }))} last={i === all.length - 1} />
           ))}
         </Card>
       ) : null}

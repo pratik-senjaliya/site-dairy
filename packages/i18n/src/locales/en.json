@@ -471,5 +471,17 @@
   "start.site": "Add your first site",
   "start.contractors": "Add contractors and rates",
   "start.people": "Add your supervisor",
-  "start.selfEntry": "Or make entries yourself"
+  "start.selfEntry": "Or make entries yourself",
+  "order.title": "Place the order",
+  "order.qSupplier": "Order from whom?",
+  "order.qItems": "What and how much?",
+  "order.rate": "Rate ₹/{unit}",
+  "order.rateHint": "Leave the rate empty if not known; it is filled when the bill comes.",
+  "order.line": "Order: {supplier} — {items}, by {date}",
+  "order.send": "Order and send on WhatsApp",
+  "order.message": "Hello {supplier},\nOrder {poNo} from {company}:\n{items}\nSite: {site}\nNeeded by {date}.\n{link}",
+  "order.toOrder": "{site}: still to order — {items}",
+  "order.waitsOwner": "A large order: it goes out after the owner approves.",
+  "order.noPhone": "No number for this supplier; pick the contact in WhatsApp.",
+  "order.orderIt": "Order"
 }
