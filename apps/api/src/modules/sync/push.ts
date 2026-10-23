@@ -1,7 +1,7 @@
 import type { MessageKey } from '@site-diary/i18n';
 import { Prisma } from '@prisma/client';
 import {
-  addDays, can, isoDate, pushRowSchemas, PUSH_ORDER, type Module, type PushResult, type PushTable,
+  addDays, can, isoDate, pushRowSchemas, shortDate, PUSH_ORDER, type Module, type PushResult, type PushTable,
 } from '@site-diary/shared';
 import { ZodError } from 'zod';
 import { audit, type AuditEntry } from '../../lib/audit';
@@ -134,7 +134,7 @@ export async function applyRow(tx: Tx, ctx: Ctx, table: PushTable, raw: Row): Pr
         if (me.role !== 'owner') {
           ctx.after.push(async (t) =>
             notify(t, me.companyId, await recipients(t, me.companyId, ['owner']), {
-              kind: 'late_edit', title: { key: 'notify.lateEdit', vars: { name: me.name } }, body: date, entityType: 'attendanceEntry', entityId: targetId,
+              kind: 'late_edit', title: { key: 'notify.lateEdit', vars: { name: me.name } }, body: shortDate(date), entityType: 'attendanceEntry', entityId: targetId,
             }),
           );
         }
