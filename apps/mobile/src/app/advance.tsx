@@ -1,8 +1,9 @@
 import { formatPaise, isoDate, rupeesToPaise, wageWeek } from '@site-diary/shared';
 import { useState } from 'react';
-import { byUse, RowChips } from '../components/pickers';
+import { byUse, QuickAdd, RowChips } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Ask, Banner, Button, Chips, DiaryLine, Input, Screen } from '../components/ui';
+import { post } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -56,9 +57,14 @@ export default function Advance() {
         <RowChips label="" rows={contractors} max={8} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={(r) => String(r.name)} />
       </Ask>
       {sofar ? <Banner tone="info" text={t('advance.sofar', { days: sofar.days, amount: formatPaise(sofar.open) })} /> : null}
-      {workers.length ? (
+      {contractorId ? (
         <Ask q={t('advance.qWorker')} optional>
           <RowChips label="" rows={workers} value={workerId} onChange={setWorker} nameOf={(r) => String(r.name)} allowNone noneLabel={t('advance.wholeContractor')} />
+          <QuickAdd label={t('advance.newWorker')} placeholder="Ramesh" onAdd={async (n) => {
+            const w = await post<{ id: string }>('/masters/worker', { contractorId, name: n });
+            await db.sync();
+            setWorker(w.id);
+          }} />
         </Ask>
       ) : null}
       <Ask q={t('advance.qAmount')}>

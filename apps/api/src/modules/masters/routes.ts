@@ -22,7 +22,7 @@ const WRITERS: Record<MasterKind, Role[]> = {
   contractor: ['owner', 'engineer', 'supervisor'],
   skill: ['owner', 'engineer'],
   contractorRate: ['owner', 'engineer'],
-  worker: ['owner', 'engineer'],
+  worker: ['owner', 'engineer', 'supervisor'],
   material: ['owner', 'store'],
   supplier: ['owner', 'store', 'engineer', 'supervisor'],
   siteMaterialSetting: ['owner', 'store'],

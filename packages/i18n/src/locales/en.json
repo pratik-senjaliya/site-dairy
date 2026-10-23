@@ -332,6 +332,7 @@
   "advance.byCash": "in cash",
   "advance.byUpi": "by UPI",
   "advance.byBank": "by bank",
+  "advance.newWorker": "New worker",
   "error.title": "Something went wrong",
   "error.body": "Your entries are safe on this phone. Tap to go back to the home screen.",
   "error.home": "Go to home",
