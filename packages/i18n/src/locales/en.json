@@ -198,6 +198,7 @@
   "owner.call": "📞 {name}",
   "owner.callHint": "Call {name}",
   "owner.makeEntry": "Make entries",
+  "owner.shareDay": "Send today's summary on WhatsApp",
   "pay.bank": "Bank",
   "pay.cash": "Cash",
   "photo.another": "+ Another photo",

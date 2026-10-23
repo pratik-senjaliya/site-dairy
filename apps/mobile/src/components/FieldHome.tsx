@@ -2,14 +2,14 @@ import { addDays, isLowStock, shortDate, type StockRow } from '@site-diary/share
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, Share, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { useDayPage, useDiary, type DiaryKind } from '../lib/diary';
 import { notice, useCan, useOnline, useSite } from '../lib/hooks';
 import { useDayName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
-import { shareDailyReport } from '../lib/share';
+import { shareDailyReport, shareMessage } from '../lib/share';
 import { awaitedMaterial } from '../lib/stock';
 import { SyncBadge } from './SyncBadge';
 import { Banner, Button, Card, Chip, Icon, IconBadge, Row, s, Screen, Section, T, Tile, type IconName, type Tone } from './ui';
@@ -48,15 +48,6 @@ export function Bell() {
       ) : null}
     </Pressable>
   );
-}
-
-/** The day as a message, the way supervisors already send it on WhatsApp. */
-async function shareText(text: string) {
-  if (Platform.OS === 'web') {
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-    return;
-  }
-  await Share.share({ message: text });
 }
 
 // M3: the site's diary for the day, what is still to do, and the entry screens. Home for supervisors,
@@ -126,7 +117,7 @@ export function FieldHome({ back = false }: { back?: boolean }) {
       }
       footer={
         <Row>
-          <Button style={{ flex: 2 }} kind="success" icon="whatsapp" label={t('home.whatsapp')} disabled={!page.length} onPress={() => void shareText(message)} />
+          <Button style={{ flex: 2 }} kind="success" icon="whatsapp" label={t('home.whatsapp')} disabled={!page.length} onPress={() => void shareMessage(message)} />
           <Button
             style={{ flex: 1 }}
             kind="secondary"

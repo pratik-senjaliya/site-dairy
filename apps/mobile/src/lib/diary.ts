@@ -69,6 +69,13 @@ export function useDayPage(siteId: string | null, date = isoDate()): { kind: Dia
   return useDb(() => dayPage(t, d, siteId, date));
 }
 
+/** The same lines for any site, read when asked (sharing all sites at once). */
+export function useDayPages() {
+  const t = useT();
+  const d = useDiary();
+  return (siteId: string, date = isoDate()) => dayPage(t, d, siteId, date);
+}
+
 function dayPage(t: ReturnType<typeof useT>, d: ReturnType<typeof useDiary>, siteId: string | null, date: string) {
   const mine = (rows: Row[]) => rows.filter((r) => r.projectId === siteId);
   const out: { kind: DiaryKind; text: string }[] = [];

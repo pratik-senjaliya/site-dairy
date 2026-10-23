@@ -9,10 +9,11 @@ import { SyncBadge } from '../components/SyncBadge';
 import { Banner, Button, Card, flush, Icon, IconBadge, ListRow, Row, s, Screen, Section, Stat, T, Tile } from '../components/ui';
 import { get, isDemo } from '../lib/api';
 import { db, useDb } from '../lib/db';
-import { daysSince, useDayPage, useDiary } from '../lib/diary';
+import { daysSince, useDayPage, useDayPages, useDiary } from '../lib/diary';
 import { useCan, useOnline } from '../lib/hooks';
 import { useDayName, useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { shareMessage } from '../lib/share';
 import { awaitedMaterial, siteStock } from '../lib/stock';
 
 interface Person { id: string; name: string; role: string; phone: string }
@@ -105,6 +106,16 @@ function OfficeHome() {
     seen.current = true;
   }, [reloadWages]));
 
+  // Today across the sites as one message, for a partner or family on WhatsApp.
+  const pages = useDayPages();
+  const summary = () => [
+    `*${me?.company.name ?? ''}* — ${dayName(today)}`,
+    ...sites.map((p) => {
+      const lines = pages(p.id, today);
+      return [``, `*${p.name}*`, ...(lines.length ? lines.map((l) => `• ${l.text}`) : [t('owner.notWritten')])].join('\n');
+    }),
+  ].join('\n');
+
   // Things only the owner can sort out, from the sites' own entries (works offline).
   const attention = useDb(() => sites.flatMap((p) => [
     ...db.rows('issue').filter((i) => i.projectId === p.id && i.status === 'open' && daysSince(i.createdAt) >= 3)
@@ -160,6 +171,8 @@ function OfficeHome() {
 
       {sites.length ? <Section title={t('setup.sites')} action={owner ? `+ ${t('common.add')}` : undefined} onAction={() => router.push('/setup/site')} /> : null}
       {sites.map((p) => <SiteCard key={p.id} id={p.id} name={p.name} today={data?.sites.find((x) => x.project.id === p.id)} lang={lang} />)}
+
+      {sites.length ? <Button kind="success" icon="whatsapp" label={t('owner.shareDay')} onPress={() => void shareMessage(summary())} /> : null}
 
       <Section title={t('home.more')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

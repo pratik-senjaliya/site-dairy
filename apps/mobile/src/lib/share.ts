@@ -44,3 +44,12 @@ export async function shareLink(link: string) {
   }
   await Share.share({ message: link });
 }
+
+/** A text message through WhatsApp (the share sheet on the phone; WhatsApp Web in a browser). */
+export async function shareMessage(text: string) {
+  if (Platform.OS === 'web') {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    return;
+  }
+  await Share.share({ message: text });
+}
