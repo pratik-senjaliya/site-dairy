@@ -38,3 +38,9 @@ export interface Rate { id: string; contractorId: string; skillId: string; daily
 export const TRADES = ['Civil', 'Shuttering', 'Steel', 'Plumbing', 'Electric', 'Painting', 'Tiles', 'Labour'] as const;
 
 export interface Person { id: string; name: string; phone: string; role: string; language: string; isActive: boolean; siteIds: string[]; lastSeenAt: string | null }
+
+/** A supplier's account: receipts (valued at their rate) and payments, with the running balance. */
+export interface Ledger {
+  rows: { date: string; kind: 'grn' | 'payment'; id: string; ref: string | null; projectId: string | null; debitPaise: number; creditPaise: number; unpricedLines: number; balancePaise: number }[];
+  duePaise: number;
+}

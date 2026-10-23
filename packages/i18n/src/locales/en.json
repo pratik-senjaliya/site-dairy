@@ -483,5 +483,21 @@
   "order.toOrder": "{site}: still to order — {items}",
   "order.waitsOwner": "A large order: it goes out after the owner approves.",
   "order.noPhone": "No number for this supplier; pick the contact in WhatsApp.",
-  "order.orderIt": "Order"
+  "order.orderIt": "Order",
+  "supplier.title": "Supplier accounts",
+  "supplier.due": "Due {amount}",
+  "supplier.allPaid": "Nothing due",
+  "supplier.unpriced": "{count} receipts need a rate",
+  "supplier.totalDue": "Total due to suppliers",
+  "supplier.pay": "Record a payment",
+  "supplier.qAmount": "How much was paid?",
+  "supplier.payLine": "Paid {supplier} {amount} {mode}",
+  "supplier.received": "Material received",
+  "supplier.paid": "Paid",
+  "supplier.setRate": "Enter the rate",
+  "supplier.rateNeeded": "rate needed",
+  "supplier.share": "Send the account on WhatsApp",
+  "supplier.statement": "{company} — account of {supplier}",
+  "supplier.none": "No material received from suppliers yet",
+  "supplier.balance": "balance"
 }

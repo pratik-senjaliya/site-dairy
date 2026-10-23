@@ -433,6 +433,28 @@ export async function demoApi(method: string, path: string, body: unknown, token
   const poMatch = p.match(/^\/purchase\/pos\/([^/]+)\/(share|status)$/);
   if (poMatch?.[2] === 'share') return { link: '', whatsapp: '' };
   if (poMatch?.[2] === 'status') return out(bump('purchaseOrder', { ...find(s, 'purchaseOrder', poMatch[1]), id: poMatch[1]!, status: b.status }));
+  const ledgerMatch = p.match(/^\/purchase\/supplier-ledger\/([^/]+)$/);
+  if (ledgerMatch) {
+    const supplierId = ledgerMatch[1];
+    const entries = [
+      ...live(s, 'grn').filter((g) => g.supplierId === supplierId).map((g) => {
+        let unpricedLines = 0;
+        const debitPaise = live(s, 'grnLine').filter((l) => l.grnId === g.id).reduce((x, l) => {
+          const rate = l.ratePaise ?? live(s, 'poLine').find((pl) => pl.poId === g.poId && pl.materialId === l.materialId)?.ratePaise ?? null;
+          if (rate == null) unpricedLines++;
+          return x + Math.round((Number(l.qty) - Number(l.rejectedQty ?? 0)) * Number(rate ?? 0));
+        }, 0);
+        return { date: `${String(g.date)}T00:00:00.000Z`, kind: 'grn' as const, id: g.id, ref: (g.challanNo as string | null) ?? null, projectId: g.projectId, debitPaise, creditPaise: 0, unpricedLines };
+      }),
+      ...live(s, 'supplierPayment').filter((x) => x.supplierId === supplierId).map((x) => ({ date: `${String(x.date)}T00:00:00.000Z`, kind: 'payment' as const, id: x.id, ref: null, projectId: null, debitPaise: 0, creditPaise: Number(x.amountPaise), unpricedLines: 0 })),
+    ].sort((x, y) => x.date.localeCompare(y.date));
+    let balance = 0;
+    const list = entries.map((e) => ({ ...e, balancePaise: (balance += e.debitPaise - e.creditPaise) }));
+    return { rows: list, duePaise: balance };
+  }
+  if (p === '/purchase/supplier-payments') return out(bump('supplierPayment', { id: randomUUID(), supplierId: b.supplierId, amountPaise: b.amountPaise, date: b.date, mode: b.mode }));
+  const rateMatch = p.match(/^\/registers\/grn-lines\/([^/]+)\/rate$/);
+  if (rateMatch) return out(bump('grnLine', { ...find(s, 'grnLine', rateMatch[1]), id: rateMatch[1]!, ratePaise: b.ratePaise }));
   if (p === '/registers/photos') {
     return live(s, 'photo').filter((x) => x.projectId === q('projectId') && String(x.takenAt).slice(0, 10) >= String(q('from')) && String(x.takenAt).slice(0, 10) <= String(q('to'))).map((x) => ({ ...x, uploaded: true }));
   }

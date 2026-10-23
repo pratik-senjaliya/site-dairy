@@ -483,5 +483,21 @@
   "order.toOrder": "{site}: ઓર્ડર કરવાનું બાકી — {items}",
   "order.waitsOwner": "ઓર્ડર મોટો છે, માલિકની મંજૂરી પછી મોકલાશે.",
   "order.noPhone": "આ સપ્લાયરનો નંબર નથી; WhatsAppમાં સંપર્ક પસંદ કરો.",
-  "order.orderIt": "ઓર્ડર કરો"
+  "order.orderIt": "ઓર્ડર કરો",
+  "supplier.title": "સપ્લાયર હિસાબ",
+  "supplier.due": "બાકી {amount}",
+  "supplier.allPaid": "કંઈ બાકી નથી",
+  "supplier.unpriced": "{count} માલનો ભાવ બાકી",
+  "supplier.totalDue": "બધા સપ્લાયરને કુલ બાકી",
+  "supplier.pay": "ચૂકવણી નોંધો",
+  "supplier.qAmount": "કેટલા ચૂકવ્યા?",
+  "supplier.payLine": "{supplier} ને {amount} {mode} ચૂકવ્યા",
+  "supplier.received": "માલ આવ્યો",
+  "supplier.paid": "ચૂકવ્યા",
+  "supplier.setRate": "ભાવ નાખો",
+  "supplier.rateNeeded": "ભાવ બાકી",
+  "supplier.share": "હિસાબ WhatsApp પર મોકલો",
+  "supplier.statement": "{company} — {supplier} નો હિસાબ",
+  "supplier.none": "હજી કોઈ સપ્લાયરનો માલ આવ્યો નથી",
+  "supplier.balance": "બાકી"
 }

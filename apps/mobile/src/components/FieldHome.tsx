@@ -202,6 +202,7 @@ export function FieldHome({ back = false }: { back?: boolean }) {
         {can('wages', 'V') && !back && <Tile compact icon="calculator-variant-outline" label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         {can('reports', 'V') && <Tile compact icon="chart-box-outline" label={t('home.siteToday')} onPress={() => router.push({ pathname: '/site', params: { id: siteId } })} />}
         {can('reports', 'V') && !back && <Tile compact icon="file-chart-outline" label={t('home.reports')} onPress={() => router.push('/reports')} />}
+        {can('po', 'V') && !back ? <Tile compact icon="truck-outline" label={t('supplier.title')} onPress={() => router.push('/suppliers')} /> : null}
         {setupRights && !back ? <Tile compact icon="cog-outline" label={t('setup.title')} onPress={() => router.push('/setup')} /> : null}
         {back ? null : <Tile compact icon="account-circle-outline" label={t('home.profile')} onPress={() => router.push('/profile')} />}
       </View>

@@ -183,6 +183,7 @@ function OfficeHome() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {can('wages', 'V') && <Tile compact icon="calculator-variant-outline" label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         <Tile compact icon="check-decagram-outline" label={t('home.approvals')} badge={data?.totals.pendingApprovals} onPress={() => router.push('/approvals')} />
+        {can('po', 'V') ? <Tile compact icon="truck-outline" label={t('supplier.title')} onPress={() => router.push('/suppliers')} /> : null}
         <Tile compact icon="file-chart-outline" label={t('home.reports')} onPress={() => router.push('/reports')} />
         {owner ? <Tile compact icon="cog-outline" label={t('setup.title')} onPress={() => router.push('/setup')} /> : null}
         <Tile compact icon="account-circle-outline" label={t('home.profile')} onPress={() => router.push('/profile')} />

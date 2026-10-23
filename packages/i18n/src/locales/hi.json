@@ -483,5 +483,21 @@
   "order.toOrder": "{site}: ऑर्डर करना बाकी — {items}",
   "order.waitsOwner": "बड़ा ऑर्डर: मालिक की मंज़ूरी के बाद जाएगा।",
   "order.noPhone": "इस सप्लायर का नंबर नहीं; WhatsApp में संपर्क चुनें।",
-  "order.orderIt": "ऑर्डर"
+  "order.orderIt": "ऑर्डर",
+  "supplier.title": "सप्लायर हिसाब",
+  "supplier.due": "बाकी {amount}",
+  "supplier.allPaid": "कुछ बाकी नहीं",
+  "supplier.unpriced": "{count} माल का भाव बाकी",
+  "supplier.totalDue": "सभी सप्लायर को कुल बाकी",
+  "supplier.pay": "भुगतान लिखें",
+  "supplier.qAmount": "कितना दिया?",
+  "supplier.payLine": "{supplier} को {amount} {mode} दिए",
+  "supplier.received": "माल आया",
+  "supplier.paid": "दिए",
+  "supplier.setRate": "भाव डालें",
+  "supplier.rateNeeded": "भाव बाकी",
+  "supplier.share": "हिसाब WhatsApp पर भेजें",
+  "supplier.statement": "{company} — {supplier} का हिसाब",
+  "supplier.none": "अभी किसी सप्लायर का माल नहीं आया",
+  "supplier.balance": "बाकी"
 }
