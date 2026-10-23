@@ -80,14 +80,16 @@ function dayPage(t: ReturnType<typeof useT>, d: ReturnType<typeof useDiary>, sit
   for (const r of mine(db.rows('materialIssue')).filter((x) => x.date === date)) out.push({ kind: 'used', text: d.used(r) });
   for (const r of mine(db.rows('dailyProgress')).filter((x) => x.date === date)) out.push({ kind: 'progress', text: d.progress(r) });
   for (const r of mine(db.rows('advance')).filter((x) => x.date === date)) out.push({ kind: 'advance', text: d.advance(r) });
-  for (const i of mine(db.rows('indent')).filter((x) => isoDate(new Date(String(x.createdAt ?? new Date().toISOString()))) === date)) {
+  for (const i of mine(db.rows('indent')).filter((x) => madeOn(x.createdAt) === date)) {
     const items = db.rows('indentLine').filter((l) => l.indentId === i.id).map((l) => d.material(l.materialId, l.qty)).join(', ');
     if (items) out.push({ kind: 'indent', text: t('indent.line', { items, when: shortDate(String(i.neededBy ?? date)) }) });
   }
-  for (const i of mine(db.rows('issue')).filter((x) => isoDate(new Date(String(x.createdAt ?? new Date().toISOString()))) === date)) out.push({ kind: 'issue', text: t('issues.line', { title: String(i.title) }) });
+  for (const i of mine(db.rows('issue')).filter((x) => madeOn(x.createdAt) === date)) out.push({ kind: 'issue', text: t('issues.line', { title: String(i.title) }) });
   return out;
 }
 
+/** The business date a row was made on; a row not yet synced has no createdAt and was made today. */
+export const madeOn = (createdAt: unknown) => (createdAt ? isoDate(new Date(String(createdAt))) : isoDate());
+
 /** Whole days since a row was made (problems: how long open). */
-export const daysSince = (createdAt: unknown) =>
-  Math.max(0, Math.round((Date.parse(isoDate()) - Date.parse(isoDate(new Date(String(createdAt ?? Date.now()))))) / 86_400_000));
+export const daysSince = (createdAt: unknown) => Math.max(0, Math.round((Date.parse(isoDate()) - Date.parse(madeOn(createdAt))) / 86_400_000));

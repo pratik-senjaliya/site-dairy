@@ -1,5 +1,6 @@
 import { acceptedQty, addDays, isLowStock, isoDate, roundQty, stockDaysLeft, stockDelta } from '@site-diary/shared';
 import { db } from './db';
+import { madeOn } from './diary';
 
 /** Days of stock left at which a material counts as running out. */
 export const SOON = 3;
@@ -52,9 +53,9 @@ export function awaitedMaterial(siteId: string | null, asked = false) {
       return g && g.projectId === siteId && String(g.date) >= from ? sum + acceptedQty(Number(l.qty), Number(l.rejectedQty ?? 0)) : sum;
     }, 0);
   return db.rows('indent')
-    .filter((i) => i.projectId === siteId && (i.status === 'approved' || i.status === 'ordered' || (asked && i.status === 'submitted')) && isoDate(new Date(String(i.createdAt ?? Date.now()))) >= since)
+    .filter((i) => i.projectId === siteId && (i.status === 'approved' || i.status === 'ordered' || (asked && i.status === 'submitted')) && madeOn(i.createdAt) >= since)
     .flatMap((i) => {
-      const from = isoDate(new Date(String(i.createdAt ?? Date.now())));
+      const from = madeOn(i.createdAt);
       const neededBy = String(i.neededBy ?? from);
       return db.rows('indentLine').filter((l) => l.indentId === i.id).map((l) => ({
         indentId: i.id, materialId: String(l.materialId), qty: roundQty(Number(l.qty) - received(l.materialId, from)), neededBy, late: neededBy < isoDate(), ordered: i.status === 'ordered',
