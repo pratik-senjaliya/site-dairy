@@ -1,4 +1,4 @@
-import { formatNumber } from '@site-diary/shared';
+import { formatNumber, shortDate } from '@site-diary/shared';
 import { colors } from '@site-diary/ui-tokens';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -7,7 +7,7 @@ import { Banner, Button, Card, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { useCan, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
-import { siteStock } from '../lib/stock';
+import { awaitedMaterial, siteStock } from '../lib/stock';
 
 // M11: stock at this site (lib/stock.ts), what runs out soonest first.
 export default function Stock() {
@@ -17,6 +17,8 @@ export default function Stock() {
   const { siteId } = useSite();
   const rows = useDb(() => siteStock(siteId).sort((a, b) => Number(b.soon || b.low) - Number(a.soon || a.low) || (a.left?.days ?? 1e9) - (b.left?.days ?? 1e9) || name(a.material).localeCompare(name(b.material))));
   const lastSync = useDb(() => db.lastSync);
+  // Already asked for and not come yet: no second request for the same material.
+  const asked = useDb(() => awaitedMaterial(siteId, true));
 
   return (
     <Screen title={t('home.stock')} scroll={false}>
@@ -33,6 +35,9 @@ export default function Stock() {
               <T.body bold>{name(r.material)}</T.body>
               <T.h2>{formatNumber(r.qty)} {String(r.material?.unit ?? '')}</T.h2>
             </Row>
+            {asked.filter((x) => x.materialId === r.materialId).map((x) => (
+              <T.small key={x.indentId} color={colors.primary}>📝 {t('stock.asked', { qty: formatNumber(x.qty), unit: String(r.material?.unit ?? ''), date: shortDate(x.neededBy) })}</T.small>
+            ))}
             {r.left ? (
               <T.small color={r.soon ? colors.warning : undefined}>
                 {t(r.left.days ? 'stock.daysLeft' : 'stock.outToday', { days: r.left.days, perDay: formatNumber(r.left.perDay), unit: String(r.material?.unit ?? '') })}
@@ -44,7 +49,7 @@ export default function Stock() {
                   {r.min !== null ? t('stock.min', { qty: formatNumber(r.min) }) : ''}{r.pending ? ` · ${t('stock.unsent', { qty: formatNumber(r.pending) })}` : ''}
                 </T.small>
               </View>
-              {(r.soon || r.low) && can('indent', 'C') ? (
+              {asked.some((x) => x.materialId === r.materialId) ? null : (r.soon || r.low) && can('indent', 'C') ? (
                 <Button kind="secondary" small label={t('stock.request')} onPress={() => router.push({ pathname: '/indent', params: { material: r.materialId, qty: String(Math.ceil((r.left?.perDay ?? 0) * 7) || '') } })} />
               ) : null}
             </Row>

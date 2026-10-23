@@ -241,6 +241,7 @@
   "stock.outToday": "આજે ખૂટી શકે · રોજ {perDay} {unit}",
   "stock.request": "મંગાવો",
   "stock.runningOut": "{count} માલ 3 દિવસમાં ખૂટશે",
+  "stock.asked": "માંગ્યું છે: {qty} {unit} — {date} સુધી",
   "sync.allSent": "બધું મોકલાઈ ગયું",
   "sync.clear": "લિસ્ટ સાફ કરો",
   "sync.last": "છેલ્લે મોકલ્યું",

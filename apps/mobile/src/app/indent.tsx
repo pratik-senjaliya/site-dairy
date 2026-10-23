@@ -1,15 +1,16 @@
-import { addDays, isoDate } from '@site-diary/shared';
+import { addDays, formatNumber, isoDate, shortDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
-import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
+import { Ask, Banner, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useDiary } from '../lib/diary';
+import { awaitedMaterial } from '../lib/stock';
 
 type Line = { id: string; materialId: string; qty: number };
 const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted'> = { approved: 'ok', ordered: 'ok', rejected: 'warn', submitted: 'muted' };
@@ -23,6 +24,8 @@ export default function Indent() {
   const materials = useMaterials();
   const mine = useDb(() => db.rows('indent').filter((i) => i.projectId === siteId).sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, 8));
   const lines = useDb(() => db.rows('indentLine'));
+  // Asked for earlier and not come yet: shown when the same material is picked again, so it is not ordered twice.
+  const asked = useDb(() => awaitedMaterial(siteId, true));
   const [items, setItems] = useState<Line[]>([]);
   // From the stock screen: the material that is running out, and about a week's use.
   const from = useLocalSearchParams<{ material?: string; qty?: string }>();
@@ -65,6 +68,9 @@ export default function Indent() {
       </Ask>
       {current.materialId ? (
         <>
+          {asked.filter((x) => x.materialId === current.materialId).map((x) => (
+            <Banner key={x.indentId} tone="info" text={t('stock.asked', { qty: formatNumber(x.qty), unit: unit(x.materialId), date: shortDate(x.neededBy) })} />
+          ))}
           <Ask q={t('indent.qHowMuch')}>
             <QtyField label="" unit={unit(current.materialId)} value={current.qty} onChange={(qty) => setCurrent((c) => ({ ...c, qty }))} />
           </Ask>
@@ -84,7 +90,7 @@ export default function Indent() {
           <T.h2>{t('indent.recent')}</T.h2>
           {mine.map((i) => (
             <Row key={i.id} style={{ justifyContent: 'space-between' }}>
-              <T.small>{lines.filter((l) => l.indentId === i.id).map((l) => `${name(materials.find((m) => m.id === l.materialId))} ${String(l.qty)}`).join(', ')}</T.small>
+              <T.small>{lines.filter((l) => l.indentId === i.id).map((l) => diary.material(l.materialId, l.qty)).join(', ')}</T.small>
               <Chip label={t(`status.${String(i.status)}` as 'status.submitted')} tone={STATUS_TONE[String(i.status)] ?? 'muted'} />
             </Row>
           ))}

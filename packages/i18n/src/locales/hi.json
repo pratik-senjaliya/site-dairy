@@ -241,6 +241,7 @@
   "stock.outToday": "आज खत्म हो सकता है · रोज़ {perDay} {unit}",
   "stock.request": "मंगवाएँ",
   "stock.runningOut": "{count} माल 3 दिन में खत्म होगा",
+  "stock.asked": "मांगा है: {qty} {unit} — {date} तक",
   "sync.allSent": "सब भेज दिया",
   "sync.clear": "लिस्ट साफ करें",
   "sync.last": "आखिरी बार भेजा",

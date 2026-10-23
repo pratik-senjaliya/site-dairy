@@ -241,6 +241,7 @@
   "stock.outToday": "May run out today · {perDay} {unit} a day",
   "stock.request": "Request",
   "stock.runningOut": "{count} running out within 3 days",
+  "stock.asked": "Asked for: {qty} {unit} — by {date}",
   "sync.allSent": "All sent",
   "sync.clear": "Clear this list",
   "sync.last": "Last sync",

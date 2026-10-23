@@ -41,10 +41,10 @@ export function siteStock(siteId: string | null) {
 }
 
 /**
- * Material asked for (approved or ordered) that has not all come yet: each request line less what this site
- * received of that material since the request. Oldest need first. Call inside useDb.
+ * Material asked for (approved or ordered; with `asked`, also still waiting for approval) that has not all come yet:
+ * each request line less what this site received of that material since the request. Oldest need first. Call inside useDb.
  */
-export function awaitedMaterial(siteId: string | null) {
+export function awaitedMaterial(siteId: string | null, asked = false) {
   const since = addDays(isoDate(), -30);
   const received = (materialId: unknown, from: string) =>
     db.rows('grnLine').filter((l) => l.materialId === materialId).reduce((sum, l) => {
@@ -52,7 +52,7 @@ export function awaitedMaterial(siteId: string | null) {
       return g && g.projectId === siteId && String(g.date) >= from ? sum + acceptedQty(Number(l.qty), Number(l.rejectedQty ?? 0)) : sum;
     }, 0);
   return db.rows('indent')
-    .filter((i) => i.projectId === siteId && (i.status === 'approved' || i.status === 'ordered') && isoDate(new Date(String(i.createdAt ?? Date.now()))) >= since)
+    .filter((i) => i.projectId === siteId && (i.status === 'approved' || i.status === 'ordered' || (asked && i.status === 'submitted')) && isoDate(new Date(String(i.createdAt ?? Date.now()))) >= since)
     .flatMap((i) => {
       const from = isoDate(new Date(String(i.createdAt ?? Date.now())));
       const neededBy = String(i.neededBy ?? from);
