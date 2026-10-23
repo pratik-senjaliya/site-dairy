@@ -31,6 +31,14 @@ test('tenant isolation: another company cannot write to this company’s site', 
   assert.equal(await prisma.attendanceEntry.count({ where: { projectId: w.siteA.id } }), 0);
 });
 
+test('a builder without a supervisor makes the site entries himself', async () => {
+  const w = await world();
+  const owner = await signIn(w.people.owner);
+  const issue = { id: uuid(), projectId: w.siteB.id, date: today, materialId: w.cement.id, qty: 10 };
+  const r = await owner.call<PushResult>('POST', '/sync/push', { changes: { attendanceEntry: [att(w, { projectId: w.siteB.id })], materialIssue: [issue] } });
+  assert.equal(r.body.applied, 2, JSON.stringify(r.body.rejected));
+});
+
 test('attendance: today applies; a late supervisor edit waits for engineer approval; offline catch-up allowed', async () => {
   const w = await world();
   const sup = await signIn(w.people.supervisor);

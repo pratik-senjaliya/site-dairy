@@ -1,23 +1,54 @@
-import { colors, radius, spacing, touch, type } from '@site-diary/ui-tokens';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { colors, radius, shadow, spacing, touch, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../lib/i18n';
 
 // Field UI: big targets (≥ 48 px), 16 px+ text, steppers and chips instead of typing.
+// One look everywhere: soft raised cards on a warm background, icons in tinted circles, brick-orange actions.
 
-export function Screen({ title, children, footer, back = true, right, scroll = true }: { title: string; children: ReactNode; footer?: ReactNode; back?: boolean; right?: ReactNode; scroll?: boolean }) {
+export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+export function Icon({ name, size = 22, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
+  return <MaterialCommunityIcons name={name} size={size} color={color} />;
+}
+
+/** An icon in a tinted circle: the mark of a section, tile or list row. */
+export function IconBadge({ name, tone = 'primary', size = 40 }: { name: IconName; tone?: Tone; size?: number }) {
+  const t = TONES[tone];
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.soft, alignItems: 'center', justifyContent: 'center' }}>
+      <Icon name={name} size={Math.round(size * 0.55)} color={t.fg} />
+    </View>
+  );
+}
+
+export type Tone = 'primary' | 'ok' | 'warn' | 'danger' | 'info' | 'muted';
+const TONES: Record<Tone, { fg: string; soft: string }> = {
+  primary: { fg: colors.primary, soft: colors.primarySoft },
+  ok: { fg: colors.success, soft: colors.successSoft },
+  warn: { fg: colors.warning, soft: colors.warningSoft },
+  danger: { fg: colors.danger, soft: colors.dangerSoft },
+  info: { fg: colors.info, soft: colors.infoSoft },
+  muted: { fg: colors.muted, soft: colors.surfaceAlt },
+};
+
+export function Screen({ title, subtitle, children, footer, back = true, right, scroll = true }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode; back?: boolean; right?: ReactNode; scroll?: boolean }) {
   const t = useT();
   return (
     <SafeAreaView style={s.screen} edges={['top', 'bottom']}>
       <View style={s.header}>
         {back ? (
           <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={s.back} hitSlop={8}>
-            <Text style={s.backText}>‹</Text>
+            <Icon name="arrow-left" size={26} />
           </Pressable>
         ) : null}
-        <Text style={s.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+          {subtitle ? <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
         {right}
       </View>
       {scroll ? <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">{children}</ScrollView> : <View style={[s.body, { flex: 1 }]}>{children}</View>}
@@ -26,42 +57,68 @@ export function Screen({ title, children, footer, back = true, right, scroll = t
   );
 }
 
-export function Button({ label, onPress, kind = 'primary', disabled, busy, style, small }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger' | 'ghost'; disabled?: boolean; busy?: boolean; style?: ViewStyle; small?: boolean }) {
-  const bg = { primary: colors.primary, secondary: colors.surface, danger: colors.danger, ghost: 'transparent' }[kind];
-  const fg = kind === 'primary' || kind === 'danger' ? colors.primaryText : kind === 'ghost' ? colors.primary : colors.ink;
+export function Button({ label, onPress, kind = 'primary', disabled, busy, style, small, icon }: { label: string; onPress: () => void; kind?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success'; disabled?: boolean; busy?: boolean; style?: ViewStyle; small?: boolean; icon?: IconName }) {
+  const bg = { primary: colors.primary, secondary: colors.surface, danger: colors.danger, ghost: 'transparent', success: colors.success }[kind];
+  const fg = kind === 'secondary' ? colors.ink : kind === 'ghost' ? colors.primary : colors.primaryText;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!(disabled || busy) }}
       disabled={disabled || busy}
       onPress={onPress}
-      style={({ pressed }) => [s.button, small && s.buttonSmall, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, borderWidth: kind === 'secondary' ? 1 : 0 }, style]}
+      style={({ pressed }) => [s.button, small && s.buttonSmall, { backgroundColor: bg, opacity: disabled ? 0.4 : pressed ? 0.85 : 1 }, kind === 'secondary' && s.buttonSecondary, style]}
     >
-      {busy ? <ActivityIndicator color={fg} /> : <Text style={[s.buttonText, small && { fontSize: type.label }, { color: fg }]}>{label}</Text>}
+      {busy ? <ActivityIndicator color={fg} /> : (
+        <View style={s.buttonInner}>
+          {icon ? <Icon name={icon} size={small ? 18 : 22} color={fg} /> : null}
+          <Text style={[s.buttonText, small && { fontSize: type.body }, { color: fg }]} numberOfLines={1}>{label}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
 
-export function Tile({ label, hint, onPress, badge, tone, compact }: { label: string; hint?: string; onPress: () => void; badge?: string | number; tone?: 'warn' | 'ok'; compact?: boolean }) {
+/** A home action. Big: icon above a two-line label (main daily jobs). Compact: one row (everything else). */
+export function Tile({ label, hint, onPress, badge, tone, compact, icon }: { label: string; hint?: string; onPress: () => void; badge?: string | number; tone?: 'warn' | 'ok'; compact?: boolean; icon?: IconName }) {
+  const iconTone: Tone = tone === 'warn' ? 'warn' : tone === 'ok' ? 'ok' : 'primary';
+  const showBadge = badge !== undefined && badge !== 0 && badge !== '';
+  if (compact) {
+    return (
+      <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [s.tileCompact, pressed && s.pressed]}>
+        {icon ? <IconBadge name={icon} tone={iconTone} size={36} /> : null}
+        <Text style={s.tileCompactLabel} numberOfLines={2}>{label}</Text>
+        {showBadge ? <View style={s.badgeInline}><Text style={s.badgeText}>{badge}</Text></View> : null}
+      </Pressable>
+    );
+  }
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [s.tile, compact && s.tileCompact, tone === 'warn' && { borderColor: colors.warning, borderWidth: 2 }, tone === 'ok' && { borderColor: colors.success }, pressed && { opacity: 0.85 }]}>
-      <Text style={[s.tileLabel, compact && { fontSize: 17 }]}>{label}</Text>
-      {hint ? <Text style={s.tileHint} numberOfLines={2}>{hint}</Text> : null}
-      {badge !== undefined && badge !== 0 && badge !== '' ? <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View> : null}
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [s.tile, tone === 'warn' && { borderColor: colors.warning }, tone === 'ok' && { borderColor: colors.success }, pressed && s.pressed]}>
+      {icon ? <IconBadge name={icon} tone={iconTone} size={44} /> : null}
+      <Text style={s.tileLabel} numberOfLines={2}>{label}</Text>
+      {hint ? (
+        <View style={s.tileHintRow}>
+          {tone ? <Icon name={tone === 'ok' ? 'check-circle' : 'clock-outline'} size={15} color={tone === 'ok' ? colors.success : colors.warning} /> : null}
+          <Text style={[s.tileHint, tone === 'ok' && { color: colors.success }, tone === 'warn' && { color: colors.warning }]} numberOfLines={1}>{hint}</Text>
+        </View>
+      ) : null}
+      {showBadge ? <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View> : null}
     </Pressable>
   );
 }
 
-export function Chip({ label, selected, onPress, tone }: { label: string; selected?: boolean; onPress?: () => void; tone?: 'warn' | 'ok' | 'muted' }) {
-  const toneColor = tone === 'warn' ? colors.warning : tone === 'ok' ? colors.success : tone === 'muted' ? colors.muted : null;
+export function Chip({ label, selected, onPress, tone, icon }: { label: string; selected?: boolean; onPress?: () => void; tone?: 'warn' | 'ok' | 'muted'; icon?: IconName }) {
+  const toneColor = tone === 'warn' ? colors.warning : tone === 'ok' ? colors.success : tone === 'muted' ? colors.faint : null;
+  const fg = selected ? colors.primaryText : toneColor ?? colors.ink;
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityState={{ selected: !!selected }}
       disabled={!onPress}
       onPress={onPress}
-      style={[s.chip, selected && { backgroundColor: colors.primary, borderColor: colors.primary }, toneColor && !selected && { borderColor: toneColor }]}
+      style={({ pressed }) => [s.chip, selected && s.chipSelected, toneColor && !selected && { borderColor: toneColor, backgroundColor: colors.surface }, pressed && s.pressed]}
     >
-      <Text style={[s.chipText, selected && { color: colors.primaryText }, toneColor && !selected && { color: toneColor }]}>{label}</Text>
+      {selected ? <Icon name="check" size={16} color={fg} /> : icon ? <Icon name={icon} size={16} color={fg} /> : null}
+      <Text style={[s.chipText, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -78,7 +135,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, max = 999, label, 
   const set = (v: number) => onChange(Math.min(max, Math.max(min, Math.round(v * 10 ** decimals) / 10 ** decimals)));
   return (
     <View style={s.stepper}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? ''} minus`} onPress={() => set(value - step)} style={s.stepBtn}><Text style={s.stepSign}>−</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? ''} minus`} onPress={() => set(value - step)} style={({ pressed }) => [s.stepBtn, pressed && s.pressed]}><Icon name="minus" size={26} /></Pressable>
       <TextInput
         accessibilityLabel={label}
         style={s.stepValue}
@@ -90,7 +147,7 @@ export function Stepper({ value, onChange, step = 1, min = 0, max = 999, label, 
         }}
         selectTextOnFocus
       />
-      <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? ''} plus`} onPress={() => set(value + step)} style={s.stepBtn}><Text style={s.stepSign}>+</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? ''} plus`} onPress={() => set(value + step)} style={({ pressed }) => [s.stepBtn, s.stepBtnPlus, pressed && s.pressed]}><Icon name="plus" size={26} color={colors.primary} /></Pressable>
     </View>
   );
 }
@@ -109,8 +166,8 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 export function Ask({ q, hint, optional, children }: { q: string; hint?: string; optional?: boolean; children: ReactNode }) {
   const t = useT();
   return (
-    <View style={s.field}>
-      <Text style={s.ask} accessibilityRole="header">{q}{optional ? <Text style={s.hint}>  ({t('common.optional')})</Text> : null}</Text>
+    <View style={s.askBlock}>
+      <Text style={s.ask} accessibilityRole="header">{q}{optional ? <Text style={s.optional}>  {t('common.optional')}</Text> : null}</Text>
       {hint ? <Text style={s.hint}>{hint}</Text> : null}
       {children}
     </View>
@@ -122,18 +179,21 @@ export function DiaryLine({ text }: { text: string }) {
   const t = useT();
   return (
     <View style={s.diary}>
-      <Text style={s.hint}>{t('common.willSave')}</Text>
-      <Text style={s.diaryText}>{text}</Text>
+      <Icon name="notebook-edit-outline" size={22} color={colors.primary} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={s.diaryLabel}>{t('common.willSave')}</Text>
+        <Text style={s.diaryText}>{text}</Text>
+      </View>
     </View>
   );
 }
 
 export function Input(props: TextInputProps) {
-  return <TextInput placeholderTextColor={colors.muted} {...props} style={[s.input, props.multiline && { minHeight: 96, textAlignVertical: 'top' }, props.style]} />;
+  return <TextInput placeholderTextColor={colors.faint} {...props} style={[s.input, props.multiline && { minHeight: 96, textAlignVertical: 'top', paddingTop: spacing.md }, props.style]} />;
 }
 
 export function Card({ children, style, onPress }: { children: ReactNode; style?: ViewStyle; onPress?: () => void }) {
-  if (onPress) return <Pressable onPress={onPress} style={({ pressed }) => [s.card, style, pressed && { opacity: 0.85 }]}>{children}</Pressable>;
+  if (onPress) return <Pressable onPress={onPress} style={({ pressed }) => [s.card, style, pressed && s.pressed]}>{children}</Pressable>;
   return <View style={[s.card, style]}>{children}</View>;
 }
 
@@ -141,65 +201,136 @@ export function Row({ children, style }: { children: ReactNode; style?: ViewStyl
   return <View style={[{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, style]}>{children}</View>;
 }
 
+/** A small heading over a group of cards or tiles, with an optional action on the right. */
+export function Section({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
+      {action && onAction ? <Pressable onPress={onAction} hitSlop={10}><Text style={s.sectionAction}>{action}</Text></Pressable> : null}
+    </View>
+  );
+}
+
+/** A settings-style row: icon, title and detail, a value or a chevron. Stack them inside a Card with `flush`. */
+export function ListRow({ icon, tone = 'primary', title, detail, value, onPress, last }: { icon?: IconName; tone?: Tone; title: string; detail?: string; value?: string; onPress?: () => void; last?: boolean }) {
+  return (
+    <Pressable accessibilityRole={onPress ? 'button' : undefined} disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.listRow, !last && s.listRowLine, pressed && { backgroundColor: colors.surfaceAlt }]}>
+      {icon ? <IconBadge name={icon} tone={tone} size={38} /> : null}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={s.listTitle} numberOfLines={2}>{title}</Text>
+        {detail ? <Text style={s.small} numberOfLines={2}>{detail}</Text> : null}
+      </View>
+      {value ? <Text style={s.listValue}>{value}</Text> : null}
+      {onPress ? <Icon name="chevron-right" size={24} color={colors.faint} /> : null}
+    </Pressable>
+  );
+}
+
+/** A number with what it counts, for the top of a dashboard. */
+export function Stat({ value, label, tone, onPress }: { value: string | number; label: string; tone?: Tone; onPress?: () => void }) {
+  return (
+    <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.stat, pressed && s.pressed]}>
+      <Text style={[s.statValue, tone ? { color: TONES[tone].fg } : null]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text style={s.statLabel} numberOfLines={2}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export const T = {
-  h2: (props: { children: ReactNode }) => <Text style={s.h2} accessibilityRole="header">{props.children}</Text>,
+  h1: (props: { children: ReactNode; color?: string }) => <Text style={[s.h1, props.color ? { color: props.color } : null]} accessibilityRole="header">{props.children}</Text>,
+  h2: (props: { children: ReactNode; color?: string }) => <Text style={[s.h2, props.color ? { color: props.color } : null]} accessibilityRole="header">{props.children}</Text>,
   body: (props: { children: ReactNode; muted?: boolean; bold?: boolean; color?: string }) => <Text style={[s.text, props.muted && { color: colors.muted }, props.bold && { fontWeight: '700' }, props.color ? { color: props.color } : null]}>{props.children}</Text>,
-  small: (props: { children: ReactNode; color?: string }) => <Text style={[s.small, props.color ? { color: props.color } : null]}>{props.children}</Text>,
+  small: (props: { children: ReactNode; color?: string; bold?: boolean }) => <Text style={[s.small, props.bold && { fontWeight: '700' }, props.color ? { color: props.color } : null]}>{props.children}</Text>,
   big: (props: { children: ReactNode; color?: string }) => <Text style={[s.big, props.color ? { color: props.color } : null]}>{props.children}</Text>,
 };
 
-export function Empty({ text }: { text: string }) {
-  return <View style={s.empty}><Text style={[s.text, { color: colors.muted, textAlign: 'center' }]}>{text}</Text></View>;
+export function Empty({ text, icon = 'notebook-outline', action, onAction }: { text: string; icon?: IconName; action?: string; onAction?: () => void }) {
+  return (
+    <View style={s.empty}>
+      <IconBadge name={icon} tone="muted" size={56} />
+      <Text style={[s.text, { color: colors.muted, textAlign: 'center' }]}>{text}</Text>
+      {action && onAction ? <Button small kind="secondary" label={action} onPress={onAction} /> : null}
+    </View>
+  );
 }
 
 export function Banner({ text, tone = 'warn', onPress }: { text: string; tone?: 'warn' | 'error' | 'ok' | 'info'; onPress?: () => void }) {
-  const c = { warn: colors.warning, error: colors.danger, ok: colors.success, info: colors.info }[tone];
+  const tn: Tone = tone === 'error' ? 'danger' : tone;
+  const icon: IconName = { warn: 'alert-circle-outline', error: 'alert-octagon-outline', ok: 'check-circle-outline', info: 'information-outline' }[tone] as IconName;
   return (
-    <Pressable disabled={!onPress} onPress={onPress} style={[s.banner, { borderLeftColor: c }]}>
-      <Text style={[s.text, { color: c, fontWeight: '600' }]}>{text}</Text>
+    <Pressable disabled={!onPress} onPress={onPress} style={[s.banner, { backgroundColor: TONES[tn].soft }]}>
+      <Icon name={icon} size={22} color={TONES[tn].fg} />
+      <Text style={[s.bannerText, { color: TONES[tn].fg }]}>{text}</Text>
+      {onPress ? <Icon name="chevron-right" size={20} color={TONES[tn].fg} /> : null}
     </Pressable>
   );
 }
 
 export const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface },
-  back: { width: touch.minTarget, height: touch.minTarget, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.md },
-  backText: { fontSize: 36, color: colors.ink, lineHeight: 40 },
-  title: { flex: 1, fontSize: type.title, fontWeight: '700', color: colors.ink },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, minHeight: 60, gap: spacing.sm, backgroundColor: colors.surface, ...shadow, zIndex: 1 },
+  back: { width: touch.minTarget, height: touch.minTarget, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.md, borderRadius: radius.pill },
+  title: { fontSize: type.title, fontWeight: '800', color: colors.ink },
+  subtitle: { fontSize: type.label, color: colors.muted, marginTop: 1 },
   body: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
-  footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, gap: spacing.sm },
-  button: { minHeight: touch.stepperButton, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg, borderColor: colors.border },
+  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, backgroundColor: colors.surface, gap: spacing.sm, ...shadow, shadowOffset: { width: 0, height: -3 } },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
+  button: { minHeight: touch.stepperButton, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
+  buttonSecondary: { borderWidth: 1.5, borderColor: colors.border },
+  buttonInner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   buttonSmall: { minHeight: touch.minTarget, paddingHorizontal: spacing.md },
   buttonText: { fontSize: 18, fontWeight: '700' },
-  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 104, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, justifyContent: 'center' },
-  tileCompact: { minHeight: 64, paddingVertical: spacing.md },
-  tileLabel: { fontSize: type.title, fontWeight: '700', color: colors.ink },
-  tileHint: { fontSize: type.label, color: colors.muted, marginTop: spacing.xs },
-  badge: { position: 'absolute', top: spacing.sm, right: spacing.sm, backgroundColor: colors.primary, borderRadius: 12, minWidth: 24, height: 24, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: colors.primaryText, fontWeight: '700', fontSize: 13 },
+  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 132, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1.5, borderColor: 'transparent', padding: spacing.lg, gap: spacing.sm, justifyContent: 'flex-start', ...shadow },
+  tileLabel: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  tileHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tileHint: { fontSize: type.label, color: colors.muted, fontWeight: '600' },
+  tileCompact: { flexBasis: '47%', flexGrow: 1, minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...shadow },
+  tileCompactLabel: { flex: 1, fontSize: type.body, fontWeight: '700', color: colors.ink },
+  badge: { position: 'absolute', top: spacing.md, right: spacing.md, backgroundColor: colors.primary, borderRadius: radius.pill, minWidth: 24, height: 24, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
+  badgeInline: { backgroundColor: colors.primary, borderRadius: radius.pill, minWidth: 24, height: 24, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: colors.primaryText, fontWeight: '800', fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { minHeight: touch.minTarget, paddingHorizontal: spacing.lg, borderRadius: 24, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: touch.minTarget, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: type.body, color: colors.ink, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stepBtn: { width: touch.stepperButton, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: touch.stepperButton, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  stepBtnPlus: { backgroundColor: colors.primarySoft },
   stepSign: { fontSize: 28, fontWeight: '700', color: colors.ink },
-  dayBtn: { width: touch.minTarget, height: touch.minTarget, borderRadius: radius.md, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  callBtn: { minHeight: touch.minTarget, paddingHorizontal: spacing.lg, borderRadius: 24, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
+  dayBtn: { width: touch.minTarget, height: touch.minTarget, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  callBtn: { minHeight: touch.minTarget, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
   callText: { fontSize: type.body, color: colors.primaryText, fontWeight: '700' },
-  stepValue: { width: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number, fontWeight: '700', color: colors.ink, borderRadius: radius.md, backgroundColor: colors.surface },
+  stepValue: { minWidth: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   field: { gap: spacing.sm },
+  askBlock: { gap: spacing.sm },
   label: { fontSize: type.label, fontWeight: '700', color: colors.muted },
-  ask: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  diary: { gap: 2 },
+  ask: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  optional: { fontSize: type.label, fontWeight: '600', color: colors.faint },
+  diary: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.md },
+  diaryLabel: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
   diaryText: { fontSize: type.body + 1, fontWeight: '700', color: colors.ink },
   hint: { fontSize: type.label, color: colors.muted },
-  input: { minHeight: touch.stepperButton, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, fontSize: type.body, color: colors.ink, backgroundColor: colors.surface },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
-  h2: { fontSize: type.title, fontWeight: '700', color: colors.ink },
-  text: { fontSize: type.body, color: colors.ink },
-  small: { fontSize: type.label, color: colors.muted },
-  big: { fontSize: type.heading + 4, fontWeight: '800', color: colors.ink },
-  empty: { padding: spacing.xl },
-  banner: { backgroundColor: colors.surface, borderLeftWidth: 4, borderRadius: radius.sm, padding: spacing.md },
+  input: { minHeight: touch.stepperButton, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, fontSize: type.body, color: colors.ink, backgroundColor: colors.surface },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, ...shadow },
+  section: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -spacing.xs, marginTop: spacing.xs },
+  sectionTitle: { fontSize: type.label, fontWeight: '800', color: colors.muted, letterSpacing: 0.3 },
+  sectionAction: { fontSize: type.label, fontWeight: '800', color: colors.primary },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 64, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  listRowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  listTitle: { fontSize: type.body, fontWeight: '700', color: colors.ink },
+  listValue: { fontSize: type.body, fontWeight: '700', color: colors.ink },
+  stat: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, gap: 2, ...shadow },
+  statValue: { fontSize: 26, fontWeight: '800', color: colors.ink },
+  statLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },
+  h1: { fontSize: type.heading, fontWeight: '800', color: colors.ink },
+  h2: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  text: { fontSize: type.body, color: colors.ink, lineHeight: 23 },
+  small: { fontSize: type.label, color: colors.muted, lineHeight: 20 },
+  big: { fontSize: 30, fontWeight: '800', color: colors.ink },
+  empty: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md },
+  bannerText: { flex: 1, fontSize: type.body, fontWeight: '600', lineHeight: 22 },
 });
+
+/** Cards that hold ListRows edge to edge. */
+export const flush: ViewStyle = { padding: 0, gap: 0, overflow: 'hidden' };

@@ -16,13 +16,14 @@ export type Action = 'C' | 'A' | 'V';
 const M: Record<Module, Partial<Record<Role, string>>> = {
   projects: { owner: 'CAV', engineer: 'V', supervisor: 'V', store: 'V', accountant: 'V' },
   // Engineers approve late attendance edits (scope: "later edits need engineer approval").
-  attendance: { owner: 'VA', engineer: 'CVA', supervisor: 'CV', accountant: 'V' },
+  // Owners and engineers can make every site entry themselves: a small builder is often his own supervisor.
+  attendance: { owner: 'CVA', engineer: 'CVA', supervisor: 'CV', accountant: 'V' },
   wages: { owner: 'CAV', engineer: 'CV', supervisor: 'C', accountant: 'CV' },
   // Indents go "owner/engineer approval" in the scope text.
-  indent: { owner: 'AV', engineer: 'CVA', supervisor: 'C', store: 'CV', accountant: 'V' },
+  indent: { owner: 'CAV', engineer: 'CVA', supervisor: 'C', store: 'CV', accountant: 'V' },
   po: { owner: 'CAV', engineer: 'V', store: 'CV', accountant: 'V' },
-  store: { owner: 'V', engineer: 'V', supervisor: 'C', store: 'CV', accountant: 'V' },
-  progress: { owner: 'V', engineer: 'CV', supervisor: 'CV' },
+  store: { owner: 'CV', engineer: 'CV', supervisor: 'C', store: 'CV', accountant: 'V' },
+  progress: { owner: 'CV', engineer: 'CV', supervisor: 'CV' },
   reports: { owner: 'V', engineer: 'V', accountant: 'V' },
   users: { owner: 'CAV' },
 };

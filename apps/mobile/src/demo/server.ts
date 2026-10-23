@@ -1,6 +1,6 @@
 import { noticeText, t as tr, type Locale, type Notice } from '@site-diary/i18n';
 import {
-  acceptedQty, addDays, can, companySettingsSchema, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
+  acceptedQty, addDays, can, companySettingsSchema, masterSchemas, WORK_ITEM_TEMPLATES, type CompanySettings, type MasterKind, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
 import { randomUUID } from 'expo-crypto';
 import { kv } from '../lib/kv';
@@ -10,7 +10,7 @@ import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
 // It answers the same paths with the same shapes; data lives on this phone. Each role keeps its own
 // phone copy (as on real phones) and they meet here, so the owner sees what the supervisor entered.
 
-interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string }
+interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string; company?: { name: string; settings: CompanySettings } }
 
 const KEY = 'demo:server:v3'; // v3: an approved, overdue material request
 let state: State | null = null;
@@ -48,6 +48,7 @@ const live = (s: State, table: string) => rows(s, table).filter((r) => !r.delete
 const find = (s: State, table: string, id: unknown) => rows(s, table).find((r) => r.id === id);
 // As on the real server, the person comes from the sign-in token ("demo:<user id>").
 let current: string | null = null;
+const company = (s: State) => s.company ?? { name: 'Shree Ganesh Builders (demo)', settings: companySettingsSchema.parse({}) };
 const me = (s: State) => {
   const u = find(s, 'user', current?.startsWith('demo:') ? current.slice(5) : null);
   if (!u) throw new DemoError(401, 'Please sign in', 'unauthenticated');
@@ -234,7 +235,7 @@ export async function demoApi(method: string, path: string, body: unknown, token
   if (p === '/auth/me') {
     return {
       user: { id: u.id, name: u.name, phone: u.phone, role: u.role, language: u.language },
-      company: { id: s.companyId, name: 'Shree Ganesh Builders (demo)', plan: 'pilot', settings: companySettingsSchema.parse({}), planStatus: { label: 'Pilot', endsOn: addDays(today, 45), daysLeft: 45 } },
+      company: { id: s.companyId, name: company(s).name, plan: 'pilot', settings: company(s).settings, planStatus: { label: 'Pilot', endsOn: addDays(today, 45), daysLeft: 45 } },
       projects: live(s, 'project').map((x) => ({ id: x.id, name: x.name, status: x.status })),
     };
   }
@@ -362,6 +363,62 @@ export async function demoApi(method: string, path: string, body: unknown, token
   }
   if (p === '/reports/nightly/history') return [];
   if (p === '/reports/nightly/run') return { id: null, link: null };
+  if (p === '/company' && method === 'GET') return { ...company(s), gstin: null, planStatus: { label: 'Pilot', daysLeft: 45 } };
+  if (p === '/company' && method === 'PATCH') {
+    s.company = { name: String(b.name), settings: companySettingsSchema.parse(b.settings ?? {}) };
+    return out(company(s));
+  }
+  // Setup from the phone: sites, floors, people and the master lists, the same shapes as the API.
+  const bump = (table: string, row: DemoRow) => {
+    const list = rows(s, table);
+    const i = list.findIndex((r) => r.id === row.id);
+    const saved = { companyId: s.companyId, createdAt: new Date().toISOString(), ...(i >= 0 ? list[i] : {}), ...row, updatedAt: new Date().toISOString(), serverRev: ++s.rev } as DemoRow;
+    if (i >= 0) list[i] = saved;
+    else list.push(saved);
+    return saved;
+  };
+  const siteIdsOf = (x: DemoRow) => (Array.isArray(x.siteIds) ? (x.siteIds as string[]) : live(s, 'project').map((y) => y.id));
+  if (p === '/users' && method === 'GET') return live(s, 'user').map((x) => ({ ...x, siteIds: siteIdsOf(x), lastSeenAt: null }));
+  const userMatch = p.match(/^\/users(?:\/([^/]+))?$/);
+  if (userMatch && (method === 'POST' || method === 'PATCH')) {
+    const phone = `+91${String(b.phone).replace(/\D/g, '').slice(-10)}`;
+    if (method === 'POST' && live(s, 'user').some((x) => x.phone === phone)) throw new DemoError(409, 'This phone number already has a login', 'duplicate');
+    return out(bump('user', { id: userMatch[1] ?? randomUUID(), name: b.name, phone, role: b.role, language: b.language ?? 'gu', isActive: b.isActive ?? true, siteIds: b.siteIds ?? [] }));
+  }
+  if (p === '/projects' && method === 'POST') {
+    const project = bump('project', { id: randomUUID(), name: b.name, address: b.address ?? null, type: b.type, status: b.status ?? 'active' });
+    WORK_ITEM_TEMPLATES[b.type as keyof typeof WORK_ITEM_TEMPLATES].forEach(([gu, en], sort) => bump('workItem', { id: randomUUID(), projectId: project.id, nameGu: gu, nameEn: en, sort }));
+    return out(project);
+  }
+  const bulkMatch = p.match(/^\/projects\/([^/]+)\/structure\/bulk$/);
+  if (bulkMatch) {
+    const projectId = bulkMatch[1];
+    const tower = bump('structureNode', { id: randomUUID(), projectId, parentId: null, kind: 'tower', name: b.towerName, sort: live(s, 'structureNode').filter((n) => n.projectId === projectId && n.kind === 'tower').length });
+    const names = [...Array.from({ length: Number(b.basements ?? 0) }, (_, i) => `Basement ${Number(b.basements) - i}`), ...(b.ground === false ? [] : ['Ground']), ...Array.from({ length: Number(b.floors) }, (_, i) => `Floor ${i + 1}`)];
+    names.forEach((name, sort) => bump('structureNode', { id: randomUUID(), projectId, parentId: tower.id, kind: 'floor', name, sort }));
+    return out({ tower, floors: names.length });
+  }
+  const projectMatch = p.match(/^\/projects\/([^/]+)$/);
+  if (projectMatch && method === 'PATCH') return out(bump('project', { id: projectMatch[1]!, name: b.name, address: b.address ?? null, type: b.type, status: b.status }));
+  if (projectMatch) {
+    const id = projectMatch[1];
+    return {
+      ...find(s, 'project', id),
+      structure: live(s, 'structureNode').filter((n) => n.projectId === id).sort((x, y) => Number(x.sort) - Number(y.sort)),
+      workItems: live(s, 'workItem').filter((w) => w.projectId === id),
+      team: live(s, 'user').filter((x) => ['engineer', 'supervisor', 'store'].includes(String(x.role)) && siteIdsOf(x).includes(String(id))).map((x) => ({ id: x.id, name: x.name, role: x.role, phone: x.phone })),
+    };
+  }
+  const masterMatch = p.match(/^\/masters\/([^/]+)(?:\/([^/]+))?$/);
+  if (masterMatch && masterMatch[1]! in masterSchemas) {
+    const kind = masterMatch[1] as MasterKind;
+    if (method === 'GET') {
+      return live(s, kind).filter((r) => !q('contractorId') || r.contractorId === q('contractorId')).sort((x, y) => String(y.effectiveFrom ?? '').localeCompare(String(x.effectiveFrom ?? '')));
+    }
+    if (method === 'DELETE') return out(bump(kind, { id: masterMatch[2]!, deletedAt: new Date().toISOString() }));
+    const data = masterSchemas[kind].parse(b) as Record<string, unknown>;
+    return out(bump(kind, { id: masterMatch[2] ?? randomUUID(), ...data }));
+  }
   if (p === '/registers/photos') {
     return live(s, 'photo').filter((x) => x.projectId === q('projectId') && String(x.takenAt).slice(0, 10) >= String(q('from')) && String(x.takenAt).slice(0, 10) <= String(q('to'))).map((x) => ({ ...x, uploaded: true }));
   }
