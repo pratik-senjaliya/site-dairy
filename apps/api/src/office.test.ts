@@ -100,9 +100,14 @@ test('nightly report: owner gets one per day with a public link; tick finds it d
 test('dashboard: missing entries and labour shown per site', async () => {
   const w = await world();
   const owner = await signIn(w.people.owner);
-  const d = await owner.call<{ sites: { project: { id: string }; missing: string[] }[] }>('GET', '/dashboard');
+  const d = await owner.call<{ sites: { project: { id: string }; missing: string[]; team: { role: string; phone: string }[] }[] }>('GET', '/dashboard');
   assert.equal(d.body.sites.length, 2);
   assert.ok(d.body.sites.every((s) => s.missing.includes('attendance')));
+  // Who to call: site A's people, supervisor first; site B has nobody assigned.
+  const a = d.body.sites.find((s) => s.project.id === w.siteA.id)!;
+  assert.deepEqual(a.team.map((m) => m.role), ['supervisor', 'engineer', 'store']);
+  assert.equal(a.team[0]!.phone, w.people.supervisor);
+  assert.equal(d.body.sites.find((s) => s.project.id === w.siteB.id)!.team.length, 0);
   const sup = await signIn(w.people.supervisor);
   const mine = await sup.call<{ sites: unknown[] }>('GET', '/dashboard');
   assert.equal(mine.body.sites.length, 1, 'scoped to assigned site');
