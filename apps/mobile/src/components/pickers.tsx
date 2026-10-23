@@ -10,19 +10,22 @@ import { Chip, Field, Input, Stepper } from './ui';
  * With `max`, a long list shows the first few and a "More" chip, so the usual ones are one tap away
  * (only for lists ordered by use: floors keep their building order and always show in full).
  */
-export function RowChips({ label, rows, value, onChange, nameOf, allowNone, noneLabel, max = Infinity }: {
+export function RowChips({ label, rows, value, onChange, nameOf, allowNone, noneLabel, max = Infinity, blank }: {
   label: string; rows: Row[]; value: string | null; onChange: (id: string | null) => void; nameOf: (r: Row) => string; allowNone?: boolean; noneLabel?: string; max?: number;
+  /** Nothing looks chosen until the person taps (for a question that must be answered, like "from whom?"). */
+  blank?: boolean;
 }) {
   const t = useT();
   const [all, setAll] = useState(false);
+  const [pickedNone, setPickedNone] = useState(false);
   const short = !all && rows.length > max + 2;
   const shown = short ? rows.filter((r, i) => i < max || r.id === value) : rows;
   return (
     <Field label={label}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        {allowNone ? <Chip label={noneLabel ?? '—'} selected={value === null} onPress={() => onChange(null)} /> : null}
-        {shown.map((r) => <Chip key={r.id} label={nameOf(r)} selected={r.id === value} onPress={() => onChange(r.id)} />)}
+        {shown.map((r) => <Chip key={r.id} label={nameOf(r)} selected={r.id === value} onPress={() => { setPickedNone(false); onChange(r.id); }} />)}
         {short ? <Chip label={t('common.more', { count: rows.length - shown.length })} tone="muted" onPress={() => setAll(true)} /> : null}
+        {allowNone ? <Chip label={noneLabel ?? '—'} selected={value === null && (!blank || pickedNone)} onPress={() => { setPickedNone(true); onChange(null); }} /> : null}
       </View>
     </Field>
   );

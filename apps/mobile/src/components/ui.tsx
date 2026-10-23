@@ -217,7 +217,7 @@ export function ListRow({ icon, tone = 'primary', title, detail, value, onPress,
     <Pressable accessibilityRole={onPress ? 'button' : undefined} disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.listRow, !last && s.listRowLine, pressed && { backgroundColor: colors.surfaceAlt }]}>
       {icon ? <IconBadge name={icon} tone={tone} size={38} /> : null}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={s.listTitle} numberOfLines={2}>{title}</Text>
+        <Text style={s.listTitle} numberOfLines={4}>{title}</Text>
         {detail ? <Text style={s.small} numberOfLines={2}>{detail}</Text> : null}
       </View>
       {value ? <Text style={s.listValue}>{value}</Text> : null}
@@ -300,7 +300,7 @@ export const s = StyleSheet.create({
   dayBtn: { width: touch.minTarget, height: touch.minTarget, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   callBtn: { minHeight: touch.minTarget, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
   callText: { fontSize: type.body, color: colors.primaryText, fontWeight: '700' },
-  stepValue: { minWidth: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  stepValue: { width: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   field: { gap: spacing.sm },
   askBlock: { gap: spacing.sm },
   label: { fontSize: type.label, fontWeight: '700', color: colors.muted },

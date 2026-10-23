@@ -84,9 +84,9 @@ export default function Grn() {
       }
     >
       <Ask q={t('grn.qFrom')}>
-        <RowChips label="" rows={suppliers} max={8} value={supplierId} onChange={pickSupplier} nameOf={(r) => String(r.name)} allowNone noneLabel={t('grn.noSupplier')} />
+        <RowChips label="" rows={suppliers} max={8} value={supplierId} onChange={pickSupplier} nameOf={(r) => String(r.name)} allowNone blank noneLabel={t('grn.noSupplier')} />
       </Ask>
-      {pos.length ? <RowChips label={t('grn.po')} rows={pos.filter((p) => !supplierId || p.supplierId === supplierId)} value={poId} onChange={setPo} nameOf={(r) => String(r.poNo)} allowNone noneLabel={t('grn.noPo')} /> : null}
+      {pos.length ? <RowChips label={t('grn.po')} rows={pos.filter((p) => !supplierId || p.supplierId === supplierId)} value={poId} onChange={setPo} nameOf={(r) => String(r.poNo)} allowNone blank noneLabel={t('grn.noPo')} /> : null}
 
       {lines.length ? (
         <Card>

@@ -33,7 +33,7 @@ try {
     await phone.getByText('ખાતરી કરો').waitFor(); // the code screen has replaced the phone screen
     await phone.locator('input').first().fill('123456');
     await phone.getByText('ખાતરી કરો').click();
-    await phone.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await phone.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
     await phone.getByText('માલ આવ્યો', { exact: true }).waitFor();
     if (await phone.getByText('હાજરી', { exact: true }).count()) throw new Error('store keeper sees attendance');
     await phone.screenshot({ path: `${out}/roles-store-home.png` });
@@ -47,7 +47,7 @@ try {
     await phone.getByText('રેતી', { exact: true }).click();
     await phone.getByRole('textbox', { name: 'જથ્થો' }).first().fill('2');
     await phone.getByText(/^સેવ કરો/).last().click();
-    await phone.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await phone.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
     await phone.getByText('માલ આવ્યો', { exact: true }).click();
     const row = phone.getByText(challan, { exact: false });
     await row.first().waitFor();
@@ -61,7 +61,7 @@ try {
       await phone.waitForTimeout(200);
     }
     await phone.getByRole('button', { name: 'પાછા' }).click();
-    await phone.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await phone.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
     const owner = await apiAs('+919800000001');
     const site = (await owner('/projects'))[0];
     const d = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);

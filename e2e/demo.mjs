@@ -24,7 +24,7 @@ try {
   await step('supervisor: home with the demo site', async () => {
     await page.getByRole('button', { name: 'સુપરવાઇઝર', exact: true }).click();
     await page.getByText('Shivam Heights').first().waitFor({ timeout: 15000 });
-    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 15000 });
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 15000 });
     await shot('demo-02-supervisor-home');
   });
   let total = 0;
@@ -42,7 +42,7 @@ try {
     await page.getByRole('button', { name: 'રેતી', exact: true }).click();
     await page.getByRole('textbox', { name: 'જથ્થો' }).first().fill('6');
     await page.getByText('મંજૂરી માટે મોકલો').click();
-    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 15000 });
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 15000 });
   });
   await step('switch to the owner', async () => {
     await page.getByText('પ્રોફાઇલ', { exact: true }).filter({ visible: true }).click();

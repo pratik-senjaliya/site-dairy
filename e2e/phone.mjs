@@ -43,7 +43,7 @@ try {
     await page.getByText('Shivam Heights').first().waitFor({ timeout: 15000 });
   });
   await step('first sync finishes', async () => {
-    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
     await shot('03-home');
   });
   let total = 0;
@@ -56,7 +56,7 @@ try {
     total = Number(label.match(/^(\d+) માણસ/)[1]);
     await page.getByText('સેવ કરો', { exact: true }).click();
     await page.getByText(`${total} માણસ`).first().waitFor();
-    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
   });
   await step('material in: cement 50 bags from Umiya', async () => {
     await page.getByText('માલ આવ્યો', { exact: true }).click();
@@ -85,7 +85,7 @@ try {
     await page.getByRole('button', { name: 'પાછા' }).click();
   });
   await step('everything reaches the office', async () => {
-    await page.getByText('બધું મોકલાઈ ગયું').waitFor({ timeout: 20000 });
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 20000 });
     const owner = await apiAs('+919800000001');
     const today = (await owner('/dashboard')).date;
     const site = (await owner('/dashboard')).sites[0];
@@ -105,14 +105,14 @@ try {
     await shot('09-offline');
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await page.getByText('બધું મોકલાઈ ગયું').first().waitFor({ timeout: 30000 }); // back online: sends on its own
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().waitFor({ timeout: 30000 }); // back online: sends on its own
     const owner = await apiAs('+919800000001');
     const site = (await owner('/projects'))[0];
     const adv = await owner(`/wages/advances?projectId=${site.id}`);
     if (!adv.some((a) => a.amountPaise === rupees * 100)) throw new Error('offline advance did not reach the office');
   });
   await step('sync screen', async () => {
-    await page.getByText('બધું મોકલાઈ ગયું').click();
+    await page.getByLabel('બધું મોકલાઈ ગયું', { exact: true }).first().click();
     await shot('08-sync');
   });
   if (errors.length) throw new Error(`page errors: ${errors.join(' | ')}`);
