@@ -72,8 +72,8 @@ export default function Approvals() {
             </Row>
             <Input placeholder={t('approvals.note')} value={notes[a.id] ?? ''} onChangeText={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} />
             <Row>
-              <Button style={{ flex: 1 }} kind="danger" label={t('approvals.reject')} busy={busy === a.id} onPress={() => void decide(a, 'reject')} />
-              <Button style={{ flex: 1 }} label={t('approvals.approve')} busy={busy === a.id} onPress={() => void decide(a, 'approve')} />
+              <Button style={{ flex: 1 }} kind="secondary" icon="close" label={t('approvals.reject')} busy={busy === a.id} onPress={() => void decide(a, 'reject')} />
+              <Button style={{ flex: 1 }} kind="success" icon="check" label={t('approvals.approve')} busy={busy === a.id} onPress={() => void decide(a, 'approve')} />
             </Row>
           </Card>
         );

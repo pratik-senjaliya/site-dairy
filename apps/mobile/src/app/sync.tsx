@@ -1,5 +1,6 @@
-import { colors } from '@site-diary/ui-tokens';
-import { Banner, Button, Card, Row, Screen, T } from '../components/ui';
+import { colors, spacing } from '@site-diary/ui-tokens';
+import { View } from 'react-native';
+import { Banner, Button, Card, IconBadge, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { useT } from '../lib/i18n';
 
@@ -15,11 +16,16 @@ export default function Sync() {
   for (const o of s.outbox) counts.set(LABEL[o.table] ?? o.table, (counts.get(LABEL[o.table] ?? o.table) ?? 0) + 1);
 
   return (
-    <Screen title={t('sync.title')} footer={<Button label={s.syncing ? t('sync.syncing') : t('sync.now')} busy={s.syncing} onPress={() => void db.sync()} />}>
+    <Screen title={t('sync.title')} footer={<Button icon="sync" label={s.syncing ? t('sync.syncing') : t('sync.now')} busy={s.syncing} onPress={() => void db.sync()} />}>
       {!s.online || s.lastError === 'offline' ? <Banner text={t('sync.offline')} /> : s.lastError ? <Banner tone="error" text={s.lastError} /> : null}
       <Card>
-        <T.big color={s.outbox.length + s.photos ? colors.warning : colors.success}>{s.outbox.length + s.photos}</T.big>
-        <T.body>{s.outbox.length + s.photos ? t('sync.waiting') : t('sync.allSent')}</T.body>
+        <Row style={{ gap: spacing.md }}>
+          <IconBadge name={s.outbox.length + s.photos ? 'cloud-upload-outline' : 'cloud-check-outline'} tone={s.outbox.length + s.photos ? 'warn' : 'ok'} size={52} />
+          <View style={{ flex: 1 }}>
+            {s.outbox.length + s.photos ? <T.big color={colors.warning}>{s.outbox.length + s.photos}</T.big> : null}
+            <T.body bold>{s.outbox.length + s.photos ? t('sync.waiting') : t('sync.allSent')}</T.body>
+          </View>
+        </Row>
         {[...counts].map(([k, n]) => <T.small key={k}>{t(k as 'home.attendance')}: {n}</T.small>)}
         {s.photos ? <T.small>{t('report.photos')}: {s.photos}</T.small> : null}
         <T.small>{t('sync.last')}: {s.lastSync ? new Date(s.lastSync).toLocaleString('en-IN') : '—'}</T.small>
