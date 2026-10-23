@@ -75,6 +75,9 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
   const indent = add('indent', base({ projectId, status: 'submitted', requestedById: sup.id, neededBy: addDays(today, 3), note: 'સ્લેબ માટે', createdById: sup.id }));
   add('indentLine', base({ indentId: indent.id, materialId: mat('Cement').id, qty: 300 }));
   add('indentLine', base({ indentId: indent.id, materialId: mat('TMT steel').id, qty: 2500 }));
+  // Approved earlier, needed by yesterday and not come yet: shows up as late material for the store and the owner.
+  const blocks = add('indent', base({ projectId, status: 'approved', requestedById: sup.id, approvedById: users[0]!.id, neededBy: addDays(today, -1), note: null, createdById: sup.id, createdAt: `${addDays(today, -4)}T05:30:00.000Z` }));
+  add('indentLine', base({ indentId: blocks.id, materialId: mat('AAC blocks').id, qty: 2000 }));
   add('issue', base({ projectId, title: 'લિફ્ટ શાફ્ટ પાસે પાણી ભરાય છે', status: 'open', assignedToId: null, createdById: sup.id }));
   const approvals = [base({ projectId, entityType: 'indent', entityId: indent.id, requestedById: sup.id, status: 'pending', proposal: null })];
   return { t, approvals, companyId };

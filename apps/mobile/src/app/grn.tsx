@@ -1,6 +1,7 @@
 import { isoDate } from '@site-diary/shared';
 import { spacing } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
@@ -31,7 +32,9 @@ export default function Grn() {
   const [challanNo, setChallan] = useState('');
   const [vehicleNo, setVehicle] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
-  const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: '', qty: 0, rejectedQty: 0 });
+  // From the home's "material expected": what was asked for, and how much is still to come.
+  const from = useLocalSearchParams<{ material?: string; qty?: string }>();
+  const [current, setCurrent] = useState<Line>({ id: randomUUID(), materialId: from.material ?? '', qty: Number(from.qty) || 0, rejectedQty: 0 });
   const [short, setShort] = useState(false);
   const unit = (id: string) => String(db.find('material', id)?.unit ?? '');
 

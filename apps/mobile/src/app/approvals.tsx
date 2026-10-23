@@ -1,7 +1,7 @@
-import { formatPaise } from '@site-diary/shared';
+import { formatNumber, formatPaise, shortDate } from '@site-diary/shared';
 import { colors } from '@site-diary/ui-tokens';
 import { useState } from 'react';
-import { Banner, Button, Card, Empty, Input, Row, Screen, T } from '../components/ui';
+import { Banner, Button, Card, Chip, Empty, Input, Row, Screen, T } from '../components/ui';
 import { post } from '../lib/api';
 import { notice, useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -14,6 +14,8 @@ interface Approval {
     current?: { count: number; halfDayCount: number; otHours: number } | null; proposed?: { date: string; count: number; halfDayCount: number; otHours: number }; skill?: string;
   };
 }
+
+const REASONS = ['approvals.r1', 'approvals.r2', 'approvals.r3', 'approvals.r4', 'approvals.r5'] as const;
 
 // M13: approve or reject with a note. Online only (decisions must be on the server at once).
 export default function Approvals() {
@@ -51,20 +53,23 @@ export default function Approvals() {
               <T.h2>{t(`approval.${a.entityType}` as 'approval.indent')}</T.h2>
               <T.small>{a.project}</T.small>
             </Row>
-            <T.small>{t('approvals.from', { name: a.requestedBy ?? '' })} · {new Date(a.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</T.small>
-            {d.lines?.map((l, i) => <T.body key={i}>• {name(l.material)} {l.qty} {l.material?.unit}</T.body>)}
-            {d.neededBy ? <T.small>{t('indent.neededBy')}: {d.neededBy}</T.small> : null}
+            <T.small>{t('approvals.from', { name: a.requestedBy ?? '' })} · {new Date(a.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'numeric', hour: 'numeric', minute: '2-digit' })}</T.small>
+            {d.lines ? <T.body bold>{t('indent.line', { items: d.lines.map((l) => `${name(l.material)} ${formatNumber(l.qty)} ${l.material?.unit ?? ''}`).join(', '), when: d.neededBy ? shortDate(d.neededBy) : '—' })}</T.body> : null}
             {d.poNo ? <T.body>{d.poNo} · {d.supplier} · <T.body bold>{formatPaise(Number(d.totalPaise))}</T.body></T.body> : null}
             {d.netPaise !== undefined ? (
-              <T.body>{d.contractor} · {d.periodFrom} → {d.periodTo}{'\n'}{formatPaise(Number(d.grossPaise))} − {formatPaise(Number(d.advancesPaise))} = <T.body bold>{formatPaise(Number(d.netPaise))}</T.body></T.body>
+              <T.body>{d.contractor} · {shortDate(String(d.periodFrom))}–{shortDate(String(d.periodTo))}{'\n'}{formatPaise(Number(d.grossPaise))} − {formatPaise(Number(d.advancesPaise))} = <T.body bold>{formatPaise(Number(d.netPaise))}</T.body></T.body>
             ) : null}
             {d.proposed ? (
               <T.body>
-                {d.proposed.date} · {d.contractor} · {d.skill}{'\n'}
+                {shortDate(d.proposed.date)} · {d.contractor} · {d.skill}{'\n'}
                 {d.current ? `${d.current.count} + ${d.current.halfDayCount}½ → ` : ''}<T.body bold color={colors.primary}>{d.proposed.count} + {d.proposed.halfDayCount}½</T.body> · OT {d.proposed.otHours}
               </T.body>
             ) : null}
             {d.note ? <T.small>{d.note}</T.small> : null}
+            <T.small>{t('approvals.why')}</T.small>
+            <Row style={{ flexWrap: 'wrap' }}>
+              {REASONS.map((r) => <Chip key={r} label={t(r)} selected={notes[a.id] === t(r)} onPress={() => setNotes((n) => ({ ...n, [a.id]: n[a.id] === t(r) ? '' : t(r) }))} />)}
+            </Row>
             <Input placeholder={t('approvals.note')} value={notes[a.id] ?? ''} onChangeText={(v) => setNotes((n) => ({ ...n, [a.id]: v }))} />
             <Row>
               <Button style={{ flex: 1 }} kind="danger" label={t('approvals.reject')} busy={busy === a.id} onPress={() => void decide(a, 'reject')} />

@@ -1,4 +1,3 @@
-import { isoDate } from '@site-diary/shared';
 import { colors } from '@site-diary/ui-tokens';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
@@ -10,8 +9,7 @@ import { db, useDb, type Row as DbRow } from '../lib/db';
 import { notice, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { takePhoto } from '../lib/photos';
-
-const daysOpen = (createdAt: unknown) => Math.max(0, Math.round((Date.parse(isoDate()) - Date.parse(isoDate(new Date(String(createdAt ?? Date.now()))))) / 86_400_000));
+import { daysSince } from '../lib/diary';
 
 // M10: site problems — what is still open comes first (with how long), then a new one: what, photo, who fixes it.
 export default function Issues() {
@@ -31,7 +29,7 @@ export default function Issues() {
     <Screen title={t('home.issues')}>
       <T.h2>{t('issues.openList')}</T.h2>
       {open.length ? open.map((i) => {
-        const days = daysOpen(i.createdAt);
+        const days = daysSince(i.createdAt);
         return (
           <Card key={i.id}>
             <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>

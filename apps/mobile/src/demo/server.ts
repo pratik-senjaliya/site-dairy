@@ -12,7 +12,7 @@ import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
 
 interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string }
 
-const KEY = 'demo:server:v2'; // v2: contractor rates and advances for the hisab
+const KEY = 'demo:server:v3'; // v3: an approved, overdue material request
 let state: State | null = null;
 
 class DemoError extends Error {
@@ -262,7 +262,8 @@ export async function demoApi(method: string, path: string, body: unknown, token
         grnLines: sites.reduce((a, x) => a + x.materialIn.length, 0), issues: sites.reduce((a, x) => a + x.materialUsed.length, 0), photos: sites.reduce((a, x) => a + x.photos.length, 0),
         sitesMissingEntry: sites.filter((x) => x.missing.includes('attendance')).length, pendingApprovals: s.approvals.filter((a) => a.status === 'pending').length,
       },
-      sites,
+      // The demo's one site has everyone on it.
+      sites: sites.map((x) => ({ ...x, team: ['supervisor', 'engineer', 'store'].flatMap((role) => live(s, 'user').filter((m) => m.role === role).map((m) => ({ id: m.id, name: m.name, role, phone: m.phone }))) })),
     };
   }
   if (p.startsWith('/dashboard/site/')) {

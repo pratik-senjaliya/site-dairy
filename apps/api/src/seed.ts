@@ -150,6 +150,11 @@ async function history() {
       lines: { create: [{ companyId, materialId: mat('Cement').id, qty: 300, createdById: sup.id }, { companyId, materialId: mat('TMT steel').id, qty: 2500, createdById: sup.id }] } },
   });
   await prisma.approval.create({ data: { companyId, projectId: project.id, entityType: 'indent', entityId: indent.id, requestedById: sup.id, createdById: sup.id } });
+  // Approved earlier, needed by yesterday and not come yet: late material for the store keeper and the owner.
+  await prisma.indent.create({
+    data: { companyId, projectId: project.id, status: 'approved', requestedById: sup.id, approvedById: users.find((u) => u.role === 'owner')!.id, neededBy: day(addDays(today, -1)), createdById: sup.id, createdAt: new Date(`${addDays(today, -4)}T05:30:00.000Z`),
+      lines: { create: [{ companyId, materialId: mat('AAC blocks').id, qty: 2000, createdById: sup.id }] } },
+  });
   await prisma.issue.create({ data: { companyId, projectId: project.id, title: 'લિફ્ટ શાફ્ટ પાસે પાણી ભરાય છે', status: 'open', createdById: sup.id } });
 }
 

@@ -1,4 +1,4 @@
-import { acceptedQty, addDays, formatNumber, isLowStock, isoDate, roundQty, stockDaysLeft, stockDelta } from '@site-diary/shared';
+import { formatNumber } from '@site-diary/shared';
 import { colors } from '@site-diary/ui-tokens';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -7,47 +7,15 @@ import { Banner, Button, Card, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { useCan, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
+import { siteStock } from '../lib/stock';
 
-const SOON = 3;
-
-// M11: stock at this site = office figure at the last sync ± entries on this phone not yet sent,
-// with how long each material lasts at the last week's rate of use.
+// M11: stock at this site (lib/stock.ts), what runs out soonest first.
 export default function Stock() {
   const t = useT();
   const can = useCan();
   const name = useName();
   const { siteId } = useSite();
-  const rows = useDb(() => {
-    const local = new Map<string, number>();
-    const add = (projectId: unknown, materialId: unknown, d: number) => {
-      if (projectId !== siteId) return;
-      local.set(String(materialId), (local.get(String(materialId)) ?? 0) + d);
-    };
-    for (const { table, row } of db.outboxRows()) {
-      if (row.deletedAt) continue;
-      if (table === 'grnLine') {
-        const grn = db.find('grn', row.grnId as string);
-        if (grn) add(grn.projectId, row.materialId, stockDelta('grn', acceptedQty(Number(row.qty), Number(row.rejectedQty ?? 0))));
-      }
-      if (table === 'materialIssue') add(row.projectId, row.materialId, stockDelta('issue', Number(row.qty)));
-      if (table === 'stockTransfer' && row.status === 'sent') add(row.fromProjectId, row.materialId, stockDelta('transfer_out', Number(row.qty)));
-    }
-    const settings = db.rows('siteMaterialSetting').filter((s) => s.projectId === siteId);
-    // Last 7 days' use, spread over the days the site worked (attendance entered).
-    const since = addDays(isoDate(), -7);
-    const used = new Map<string, number>();
-    for (const i of db.rows('materialIssue')) if (i.projectId === siteId && String(i.date) > since) used.set(String(i.materialId), (used.get(String(i.materialId)) ?? 0) + Number(i.qty));
-    const workDays = new Set(db.rows('attendanceEntry').filter((a) => a.projectId === siteId && String(a.date) > since).map((a) => a.date)).size;
-    const ids = new Set([...db.stock.filter((s) => s.projectId === siteId).map((s) => s.materialId), ...local.keys(), ...settings.map((s) => String(s.materialId))]);
-    return [...ids].map((materialId) => {
-      const server = db.stock.find((s) => s.projectId === siteId && s.materialId === materialId)?.qty ?? 0;
-      const pending = local.get(materialId) ?? 0;
-      const min = settings.find((s) => s.materialId === materialId)?.minStock;
-      const qty = roundQty(server + pending);
-      const left = stockDaysLeft(qty, used.get(materialId) ?? 0, workDays);
-      return { materialId, material: db.find('material', materialId), qty, pending: roundQty(pending), min: min == null ? null : Number(min), low: isLowStock(qty, min == null ? null : Number(min)), left, soon: !!left && left.days <= SOON };
-    }).sort((a, b) => Number(b.soon || b.low) - Number(a.soon || a.low) || (a.left?.days ?? 1e9) - (b.left?.days ?? 1e9) || name(a.material).localeCompare(name(b.material)));
-  });
+  const rows = useDb(() => siteStock(siteId).sort((a, b) => Number(b.soon || b.low) - Number(a.soon || a.low) || (a.left?.days ?? 1e9) - (b.left?.days ?? 1e9) || name(a.material).localeCompare(name(b.material))));
   const lastSync = useDb(() => db.lastSync);
 
   return (

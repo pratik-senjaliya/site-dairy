@@ -31,6 +31,13 @@ dashboard.get('/', async (req, res) => {
   for (const s of sites) {
     if (afterCutoff && s.missing.includes('attendance')) s.alerts.unshift({ key: 'alert.noEntry', vars: { time: cfg.noEntryCutoff } });
   }
+  // Who to call about a site: the people assigned to it (owner and accountant see every site, so they are not listed).
+  const assigned = await prisma.userSite.findMany({
+    where: { companyId: m.companyId, deletedAt: null, projectId: { in: projects.map((p) => p.id) }, user: { isActive: true, deletedAt: null, role: { in: ['supervisor', 'engineer', 'store'] } } },
+    select: { projectId: true, user: { select: { id: true, name: true, role: true, phone: true } } },
+  });
+  const ORDER = ['supervisor', 'engineer', 'store'];
+  const team = (projectId: string) => assigned.filter((a) => a.projectId === projectId).map((a) => a.user).sort((x, y) => ORDER.indexOf(x.role) - ORDER.indexOf(y.role));
   const pendingApprovals = await prisma.approval.count({ where: { companyId: m.companyId, status: 'pending', deletedAt: null, ...siteOrCompanyWide(m) } });
   res.json({
     date: d,
@@ -44,7 +51,7 @@ dashboard.get('/', async (req, res) => {
       sitesMissingEntry: sites.filter((x) => x.missing.includes('attendance')).length,
       pendingApprovals,
     },
-    sites,
+    sites: sites.map((x) => ({ ...x, team: team(x.project.id) })),
   });
 });
 

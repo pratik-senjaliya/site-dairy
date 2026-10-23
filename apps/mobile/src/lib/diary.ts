@@ -1,5 +1,5 @@
 import { formatNumber, formatPaise, isoDate, shortDate } from '@site-diary/shared';
-import { db, type Row } from './db';
+import { db, useDb, type Row } from './db';
 import { useName, useT } from './i18n';
 import { floorName } from './structure';
 
@@ -66,6 +66,10 @@ export type DiaryKind = 'day' | 'attendance' | 'grn' | 'used' | 'progress' | 'ad
 export function useDayPage(siteId: string | null, date = isoDate()): { kind: DiaryKind; text: string }[] {
   const t = useT();
   const d = useDiary();
+  return useDb(() => dayPage(t, d, siteId, date));
+}
+
+function dayPage(t: ReturnType<typeof useT>, d: ReturnType<typeof useDiary>, siteId: string | null, date: string) {
   const mine = (rows: Row[]) => rows.filter((r) => r.projectId === siteId);
   const out: { kind: DiaryKind; text: string }[] = [];
   const day = mine(db.rows('siteDay')).find((r) => r.date === date);
@@ -83,3 +87,7 @@ export function useDayPage(siteId: string | null, date = isoDate()): { kind: Dia
   for (const i of mine(db.rows('issue')).filter((x) => isoDate(new Date(String(x.createdAt ?? new Date().toISOString()))) === date)) out.push({ kind: 'issue', text: t('issues.line', { title: String(i.title) }) });
   return out;
 }
+
+/** Whole days since a row was made (problems: how long open). */
+export const daysSince = (createdAt: unknown) =>
+  Math.max(0, Math.round((Date.parse(isoDate()) - Date.parse(isoDate(new Date(String(createdAt ?? Date.now()))))) / 86_400_000));
