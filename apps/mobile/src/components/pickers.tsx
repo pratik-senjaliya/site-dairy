@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { db, useDb, type Row } from '../lib/db';
 import { useT } from '../lib/i18n';
-import { Chip, Field, Input, Stepper } from './ui';
+import { useSave } from '../lib/setup';
+import { Button, Chip, Field, Input, Stepper } from './ui';
 
 /**
  * Chips for a list (contractors, materials, floors…) in the caller's order — "most used first" via `byUse`.
@@ -66,5 +67,27 @@ export function TextField({ label, value, onChange, placeholder, multiline }: { 
     <Field label={label}>
       <Input value={value} onChangeText={onChange} placeholder={placeholder} multiline={multiline} accessibilityLabel={label || placeholder} />
     </Field>
+  );
+}
+
+/**
+ * "+ New …" at the end of a list: a name and one tap adds it on the server (needs internet), so a new
+ * contractor or supplier at the gate never stops the entry. Rates and details stay with the office.
+ */
+export function QuickAdd({ label, placeholder, onAdd }: { label: string; placeholder?: string; onAdd: (name: string) => Promise<void> }) {
+  const t = useT();
+  const { busy, run } = useSave();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  if (!open) return <Chip icon="plus" label={label} onPress={() => setOpen(true)} />;
+  return (
+    <View style={{ flexBasis: '100%', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <Input style={{ flex: 1 }} autoFocus value={value} onChangeText={setValue} placeholder={placeholder} accessibilityLabel={label} />
+      <Button small label={t('common.add')} busy={busy} disabled={value.trim().length < 2} onPress={() => void run(async () => {
+        await onAdd(value.trim());
+        setOpen(false);
+        setValue('');
+      })} />
+    </View>
   );
 }

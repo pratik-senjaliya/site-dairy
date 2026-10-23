@@ -5,9 +5,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { byUse, QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
+import { byUse, QtyField, QuickAdd, RowChips, TextField, useMaterials } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Ask, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
+import { post } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -85,6 +86,11 @@ export default function Grn() {
     >
       <Ask q={t('grn.qFrom')}>
         <RowChips label="" rows={suppliers} max={8} value={supplierId} onChange={pickSupplier} nameOf={(r) => String(r.name)} allowNone blank noneLabel={t('grn.noSupplier')} />
+        <QuickAdd label={t('grn.newSupplier')} placeholder="Umiya Cement Traders" onAdd={async (n) => {
+          const sup = await post<{ id: string }>('/masters/supplier', { name: n });
+          await db.sync();
+          pickSupplier(sup.id);
+        }} />
       </Ask>
       {pos.length ? <RowChips label={t('grn.po')} rows={pos.filter((p) => !supplierId || p.supplierId === supplierId)} value={poId} onChange={setPo} nameOf={(r) => String(r.poNo)} allowNone blank noneLabel={t('grn.noPo')} /> : null}
 

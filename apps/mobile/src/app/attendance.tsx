@@ -3,8 +3,9 @@ import { colors, spacing } from '@site-diary/ui-tokens';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { byUse } from '../components/pickers';
+import { byUse, QuickAdd } from '../components/pickers';
 import { Banner, Button, Card, Chip, DiaryLine, Field, Row, Screen, Stepper, T } from '../components/ui';
+import { post } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useDayName, useName, useT } from '../lib/i18n';
@@ -134,7 +135,14 @@ function AttendanceForm() {
           <Field label={adding.contractorId ? t('attendance.pickSkill') : t('attendance.pickContractor')}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {!adding.contractorId
-                ? contractors.map((c) => <Chip key={c.id} label={String(c.name)} onPress={() => setAdding({ contractorId: c.id })} />)
+                ? [
+                    ...contractors.map((c) => <Chip key={c.id} label={String(c.name)} onPress={() => setAdding({ contractorId: c.id })} />),
+                    <QuickAdd key="new" label={t('attendance.newContractor')} placeholder="Bharat Construction" onAdd={async (n) => {
+                      const c = await post<{ id: string }>('/masters/contractor', { name: n, rateType: 'daily' });
+                      await db.sync();
+                      setAdding({ contractorId: c.id });
+                    }} />,
+                  ]
                 : skills.filter((s) => !lines.some((l) => l.contractorId === adding.contractorId && l.skillId === s.id)).map((s) => (
                     <Chip key={s.id} label={name(s)} onPress={() => {
                       setLines((ls) => [...ls, { key: `${adding.contractorId}:${s.id}`, contractorId: adding.contractorId!, skillId: s.id, count: 0, halfDayCount: 0, otHours: 0 }]);

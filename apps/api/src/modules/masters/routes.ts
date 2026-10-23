@@ -17,13 +17,14 @@ interface Delegate {
 }
 
 // Who may change each master list (everyone signed in may read). W3: owner, engineer; W6: store, owner.
+// Supervisors may add a contractor or supplier by name when a new one turns up at the gate (rates stay with the office).
 const WRITERS: Record<MasterKind, Role[]> = {
-  contractor: ['owner', 'engineer'],
+  contractor: ['owner', 'engineer', 'supervisor'],
   skill: ['owner', 'engineer'],
   contractorRate: ['owner', 'engineer'],
   worker: ['owner', 'engineer'],
   material: ['owner', 'store'],
-  supplier: ['owner', 'store'],
+  supplier: ['owner', 'store', 'engineer', 'supervisor'],
   siteMaterialSetting: ['owner', 'store'],
   workItem: ['owner', 'engineer'],
   structureNode: ['owner', 'engineer'],

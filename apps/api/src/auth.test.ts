@@ -60,6 +60,11 @@ test('roles: supervisor cannot add users or edit masters; owner can', async () =
   const sup = await signIn(w.people.supervisor);
   assert.equal((await sup.call('POST', '/users', { name: 'X Y', phone: phone(), role: 'store' })).status, 403);
   assert.equal((await sup.call('POST', '/masters/material', { nameGu: 'x', nameEn: 'x', unit: 'nos' })).status, 403);
+  // A new contractor or supplier at the gate can be added by name; their rates stay with the office.
+  const c = await sup.call<{ id: string }>('POST', '/masters/contractor', { name: 'New Contractor', rateType: 'daily' });
+  assert.equal(c.status, 201);
+  assert.equal((await sup.call('POST', '/masters/supplier', { name: 'New Supplier' })).status, 201);
+  assert.equal((await sup.call('POST', '/masters/contractorRate', { contractorId: c.body.id, skillId: w.kadiya.id, dailyRatePaise: 90000, effectiveFrom: '2026-01-01' })).status, 403);
   const owner = await signIn(w.people.owner);
   const u = await owner.call<{ id: string }>('POST', '/users', { name: 'New Store', phone: phone(), role: 'store', siteIds: [w.siteB.id] });
   assert.equal(u.status, 201);

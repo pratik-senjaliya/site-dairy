@@ -36,7 +36,7 @@ export default function Stock() {
               <T.h2>{formatNumber(r.qty)} {String(r.material?.unit ?? '')}</T.h2>
             </Row>
             {asked.filter((x) => x.materialId === r.materialId).map((x) => (
-              <T.small key={x.indentId} color={colors.primary}>📝 {t('stock.asked', { qty: formatNumber(x.qty), unit: String(r.material?.unit ?? ''), date: shortDate(x.neededBy) })}</T.small>
+              <T.small key={x.indentId} color={colors.primary}>{t('stock.asked', { qty: formatNumber(x.qty), unit: String(r.material?.unit ?? ''), date: shortDate(x.neededBy) })}</T.small>
             ))}
             {r.left ? (
               <T.small color={r.soon ? colors.warning : undefined}>

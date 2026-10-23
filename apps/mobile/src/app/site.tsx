@@ -4,9 +4,9 @@ import { colors, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
-import { Banner, Button, Card, Row, s, Screen, T } from '../components/ui';
+import { Banner, Button, Card, Icon, Row, s, Screen, T } from '../components/ui';
 import { notice, useOnline } from '../lib/hooks';
 import { shareDailyReport } from '../lib/share';
 import { useDayName, useT } from '../lib/i18n';
@@ -50,9 +50,9 @@ export default function Site() {
       ) : undefined}
     >
       <Row style={{ justifyContent: 'space-between' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('common.prevDay')} onPress={() => setDate(addDays(date, -1))} style={s.stepBtn}><Text style={s.stepSign}>‹</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.prevDay')} onPress={() => setDate(addDays(date, -1))} style={s.dayBtn}><Icon name="chevron-left" size={28} /></Pressable>
         <T.h2>{date === today ? t('common.today') : dayName(date)}</T.h2>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('common.nextDay')} disabled={date >= today} onPress={() => setDate(addDays(date, 1))} style={[s.stepBtn, date >= today && { opacity: 0.3 }]}><Text style={s.stepSign}>›</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('common.nextDay')} disabled={date >= today} onPress={() => setDate(addDays(date, 1))} style={[s.dayBtn, date >= today && { opacity: 0.3 }]}><Icon name="chevron-right" size={28} /></Pressable>
       </Row>
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={reload} /> : null}
       {d ? (
@@ -118,7 +118,7 @@ export default function Site() {
               </Row>
             </Card>
           ) : null}
-          <T.small>{t('report.openIssues')}: {d.openIssues}</T.small>
+          {d.openIssues ? <Banner tone="warn" text={`${t('report.openIssues')}: ${d.openIssues}`} /> : null}
         </>
       ) : null}
     </Screen>
