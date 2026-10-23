@@ -231,6 +231,11 @@
   "reports.none": "પહેલો રિપોર્ટ આજે રાત્રે {time} વાગ્યે આવશે.",
   "reports.open": "ખોલો",
   "reports.sendNow": "આજનો રિપોર્ટ અત્યારે બનાવો",
+  "reports.monthly": "મહિનાનો હિસાબ — CA માટે",
+  "reports.lastMonth": "ગયો મહિનો",
+  "reports.advances": "ઉપાડ આપ્યો",
+  "reports.wagesPaid": "પગાર ચૂકવ્યો",
+  "reports.supplierPaid": "સપ્લાયરને ચૂકવ્યા",
   "site.none": "તમને હજી કોઈ સાઇટ આપી નથી. માલિકને પૂછો.",
   "site.trend": "માણસ, છેલ્લા 14 દિવસ",
   "status.draft": "ડ્રાફ્ટ",
@@ -504,5 +509,10 @@
   "supplier.share": "હિસાબ WhatsApp પર મોકલો",
   "supplier.statement": "{company} — {supplier} નો હિસાબ",
   "supplier.none": "હજી કોઈ સપ્લાયરનો માલ આવ્યો નથી",
-  "supplier.balance": "બાકી"
+  "supplier.balance": "બાકી",
+  "month.title": "આ મહિનાનો ખર્ચ",
+  "month.labour": "મજૂરી ({days} માણસ-દિવસ)",
+  "month.material": "માલ",
+  "month.total": "કુલ",
+  "month.note": "ભાવ વગરનો માલ ગણ્યો નથી"
 }

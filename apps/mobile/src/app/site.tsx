@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { PhotoThumb } from '../components/Photo';
 import { Banner, Button, Card, Icon, Row, s, Screen, T } from '../components/ui';
-import { notice, useOnline } from '../lib/hooks';
+import { notice, useCan, useOnline } from '../lib/hooks';
+import { monthRange, useMonth } from '../lib/month';
 import { shareDailyReport } from '../lib/share';
 import { useDayName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
@@ -31,6 +32,10 @@ export default function Site() {
   const today = isoDate();
   const [date, setDate] = useState(today);
   const [sending, setSending] = useState(false);
+  const can = useCan();
+  const range = monthRange(today, 0);
+  // This month's cost of the site, for those who see money (labour cost comes from contractor rates).
+  const month = useMonth(id && can('wages', 'V') ? id : null, range.from, range.to);
   const { data, error, reload } = useOnline<SiteDetail>(id ? `/dashboard/site/${id}?date=${date}` : null);
   const d = data?.date === date ? data : null;
   const photos = useOnline<{ id: string; uploaded: boolean; sourceType: string }[]>(id && d ? `/registers/photos?projectId=${id}&from=${d.date}&to=${d.date}` : null);
@@ -74,6 +79,17 @@ export default function Site() {
             </View>
             <Row style={{ justifyContent: 'space-between' }}><T.small>{shortDate(d.trend[0]?.date ?? date)}</T.small><T.small>{t('site.trendHint')}</T.small><T.small>{shortDate(d.trend.at(-1)?.date ?? date)}</T.small></Row>
           </Card>
+          {month.rows?.[0] ? (
+            <Card onPress={() => router.push('/reports')}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <T.h2>{t('month.title')}</T.h2>
+                <T.h2>{formatPaise((month.rows[0].labourCost ?? 0) + (month.rows[0].material ?? 0))}</T.h2>
+              </Row>
+              <Row style={{ justifyContent: 'space-between' }}><T.body>{t('month.labour', { days: month.rows[0].manDays ?? 0 })}</T.body><T.body bold>{formatPaise(month.rows[0].labourCost ?? 0)}</T.body></Row>
+              <Row style={{ justifyContent: 'space-between' }}><T.body>{t('month.material')}</T.body><T.body bold>{formatPaise(month.rows[0].material ?? 0)}</T.body></Row>
+              <T.small>{t('month.note')}</T.small>
+            </Card>
+          ) : null}
           {d.labour.costPaise ? (
             <Card onPress={() => router.push({ pathname: '/hisab', params: { site: id } })}>
               <Row style={{ justifyContent: 'space-between' }}>

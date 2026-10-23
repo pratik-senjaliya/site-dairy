@@ -231,6 +231,11 @@
   "reports.none": "The first report comes tonight at {time}.",
   "reports.open": "Open",
   "reports.sendNow": "Make tonight's report now",
+  "reports.monthly": "Monthly account — for the CA",
+  "reports.lastMonth": "Last month",
+  "reports.advances": "Advances given",
+  "reports.wagesPaid": "Wages paid",
+  "reports.supplierPaid": "Paid to suppliers",
   "site.none": "No site is assigned to you yet. Ask the owner.",
   "site.trend": "Workers, last 14 days",
   "status.draft": "Draft",
@@ -504,5 +509,10 @@
   "supplier.share": "Send the account on WhatsApp",
   "supplier.statement": "{company} — account of {supplier}",
   "supplier.none": "No material received from suppliers yet",
-  "supplier.balance": "balance"
+  "supplier.balance": "balance",
+  "month.title": "This month's cost",
+  "month.labour": "Labour ({days} man-days)",
+  "month.material": "Material",
+  "month.total": "Total",
+  "month.note": "Material without a rate is not counted"
 }

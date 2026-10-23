@@ -231,6 +231,11 @@
   "reports.none": "पहली रिपोर्ट आज रात {time} बजे आएगी।",
   "reports.open": "खोलें",
   "reports.sendNow": "आज की रिपोर्ट अभी बनाएँ",
+  "reports.monthly": "महीने का हिसाब — CA के लिए",
+  "reports.lastMonth": "पिछला महीना",
+  "reports.advances": "एडवांस दिया",
+  "reports.wagesPaid": "मज़दूरी दी",
+  "reports.supplierPaid": "सप्लायर को दिए",
   "site.none": "आपको अभी कोई साइट नहीं दी गई। मालिक से पूछें।",
   "site.trend": "मज़दूर, पिछले 14 दिन",
   "status.draft": "ड्राफ्ट",
@@ -504,5 +509,10 @@
   "supplier.share": "हिसाब WhatsApp पर भेजें",
   "supplier.statement": "{company} — {supplier} का हिसाब",
   "supplier.none": "अभी किसी सप्लायर का माल नहीं आया",
-  "supplier.balance": "बाकी"
+  "supplier.balance": "बाकी",
+  "month.title": "इस महीने का खर्च",
+  "month.labour": "मज़दूरी ({days} मानव-दिवस)",
+  "month.material": "माल",
+  "month.total": "कुल",
+  "month.note": "बिना भाव का माल नहीं गिना"
 }
