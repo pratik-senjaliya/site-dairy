@@ -125,7 +125,7 @@ function OfficeHome() {
       text: r.left?.days ? t('owner.stockSoon', { site: p.name, material: name(r.material), days: r.left.days }) : t('owner.stockLow', { site: p.name, material: name(r.material), qty: formatNumber(r.qty), unit: String(r.material?.unit ?? '') }),
     })),
     // Approved but not ordered yet: one tap to order it.
-    ...db.rows('indent').filter((i) => i.projectId === p.id && i.status === 'approved').map((i) => ({
+    ...(can('po', 'C') ? db.rows('indent') : []).filter((i) => i.projectId === p.id && i.status === 'approved').map((i) => ({
       key: `order:${i.id}`, site: p.id, icon: 'cart-arrow-right' as const, indent: i.id,
       text: t('order.toOrder', { site: p.name, items: db.rows('indentLine').filter((l) => l.indentId === i.id).map((l) => diary.material(l.materialId, l.qty)).join(', ') }),
     })),

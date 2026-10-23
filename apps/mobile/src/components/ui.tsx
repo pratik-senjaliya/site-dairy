@@ -231,7 +231,8 @@ export function ListRow({ icon, tone = 'primary', title, detail, value, onPress,
 export function Stat({ value, label, tone, onPress }: { value: string | number; label: string; tone?: Tone; onPress?: () => void }) {
   return (
     <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.stat, pressed && s.pressed]}>
-      <Text style={[s.statValue, tone ? { color: TONES[tone].fg } : null]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      {/* Long amounts (₹1,25,000) get a smaller size so they never cut off on a small phone. */}
+      <Text style={[s.statValue, String(value).length > 6 && { fontSize: String(value).length > 9 ? 17 : 20 }, tone ? { color: TONES[tone].fg } : null]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
       <Text style={s.statLabel} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
