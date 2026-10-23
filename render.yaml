@@ -5,7 +5,7 @@ services:
   - type: web
     name: site-diary-api
     runtime: node
-    plan: starter # free instances sleep, and a sleeping API misses the 8 pm report; use free only for a look-around
+    plan: free # testing: sleeps after 15 min idle, so the 8 pm report and 7 pm reminders can be missed; use starter for the pilot
     region: singapore
     # --include=dev: NODE_ENV=production would skip typescript and @types/*, which the build needs.
     buildCommand: npm ci --include=dev && npm run build:packages && npm run build -w apps/api
