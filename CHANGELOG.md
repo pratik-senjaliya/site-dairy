@@ -2,6 +2,19 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-10-24 (day) — Fixing mistakes, tidy lists, photos, 5-site pilot
+
+- **Edit today's entries** (material used, advance, today's work): the pencil in "entered today" puts the entry
+  back in the form; it is saved again under the same id. Material in is still delete and re-enter.
+- **Remove from lists**: contractor (with its named workers, added/removed on its screen), supplier, a site's
+  kinds of work — hidden from new entries, old entries keep the name (`useRemove`).
+- Material used: "+ new" kind of work and place, materials on site first with the quantity.
+- **Site photos** (`app/photos.tsx`): last 30 days by day, filter by kind; any photo opens full screen.
+- Contractor hisab: day-by-day boxes (weekday, date, workers) and an expand mark.
+- Pilot plan allows **5 active sites** (was 2). Demo company is "Shree Ganesh Builders" (the demo banner stays).
+- Fix: a sync asked for while one is running now runs once more and the caller waits for it (setup saves
+  showed up only at the next automatic sync).
+
 ## 2026-10-24 (night) — The phone app is the whole product: setup, new look, ordering, accounts
 
 Builders won't use a web panel, so everything is done from the app. Live database was cleared for a fresh start.

@@ -48,7 +48,7 @@ const live = (s: State, table: string) => rows(s, table).filter((r) => !r.delete
 const find = (s: State, table: string, id: unknown) => rows(s, table).find((r) => r.id === id);
 // As on the real server, the person comes from the sign-in token ("demo:<user id>").
 let current: string | null = null;
-const company = (s: State) => s.company ?? { name: 'Shree Ganesh Builders (demo)', settings: companySettingsSchema.parse({}) };
+const company = (s: State) => s.company ?? { name: 'Shree Ganesh Builders', settings: companySettingsSchema.parse({}) };
 const me = (s: State) => {
   const u = find(s, 'user', current?.startsWith('demo:') ? current.slice(5) : null);
   if (!u) throw new DemoError(401, 'Please sign in', 'unauthenticated');

@@ -329,6 +329,8 @@
   "common.edit": "बदलें",
   "common.add": "जोड़ें",
   "common.done": "हो गया",
+  "common.saveChange": "बदलाव सेव करें",
+  "common.editingHint": "आज की एंट्री बदल रहे हैं। रद्द करने के लिए यहाँ दबाएँ।",
   "advance.worker": "मज़दूर (ज़रूरी नहीं)",
   "advance.wholeContractor": "नहीं, ठेकेदार को",
   "advance.sofar": "इस हफ़्ते: {days} मज़दूर-दिन · हिसाब बाकी एडवांस {amount}",
@@ -457,6 +459,10 @@
   "setup.duplicate": "यह पहले से जुड़ा है",
   "setup.planLimit": "आपके प्लान में इतना ही है। बढ़ाने के लिए Site Diary को फ़ोन करें।",
   "setup.needsOnline": "सेटअप के लिए इंटरनेट चाहिए। नेट चालू करके फिर कोशिश करें।",
+  "setup.removeConfirm": "सूची से हटाना है? पुरानी एंट्री में नाम रहेगा।",
+  "setup.remove": "सूची से हटाएँ",
+  "setup.workers": "नाम वाले कारीगर (एडवांस के लिए)",
+  "setup.workItems": "काम की सूची",
   "type.rcc_frame": "RCC बिल्डिंग",
   "type.load_bearing": "लोड बेयरिंग",
   "type.bungalow": "बंगला / मकान",
@@ -514,5 +520,9 @@
   "month.labour": "मज़दूरी ({days} मानव-दिवस)",
   "month.material": "माल",
   "month.total": "कुल",
-  "month.note": "बिना भाव का माल नहीं गिना"
+  "month.note": "बिना भाव का माल नहीं गिना",
+  "photos.title": "साइट की फ़ोटो",
+  "photos.all": "सभी",
+  "photos.none": "पिछले 30 दिनों में कोई फ़ोटो नहीं",
+  "photos.seeAll": "सभी फ़ोटो देखें"
 }

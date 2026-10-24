@@ -76,6 +76,19 @@ try {
     await page.getByText('Test Contractor').filter({ visible: true }).first().waitFor({ timeout: 10000 });
     await shot('setup-06-attendance');
   });
+  await step('a worker is added to the contractor, then the contractor is removed from the list', async () => {
+    await page.goto(`${APP}/setup/contractors`);
+    await page.getByText(/Test Contractor/).filter({ visible: true }).first().click();
+    await text('નવો કારીગર').click();
+    await field('નવો કારીગર').fill('Ramesh');
+    await tap('ઉમેરો');
+    await text('Ramesh').waitFor({ timeout: 15000 });
+    await tap('યાદીમાંથી કાઢો');
+    await text('કાઢી નાખો').click(); // the app's own confirm
+    await text('કોન્ટ્રાક્ટર ઉમેરો').waitFor({ timeout: 15000 });
+    await page.waitForTimeout(1000);
+    if (await page.getByText(/Test Contractor/).filter({ visible: true }).count()) throw new Error('contractor still listed');
+  });
   if (errors.length) throw new Error(`page errors: ${errors.join(' | ')}`);
   console.log('PASS');
 } catch (e) {

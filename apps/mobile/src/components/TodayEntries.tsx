@@ -9,7 +9,8 @@ import { Card, Icon, Section, T } from './ui';
 export interface Entry { id: string; table: PushTable; label: string; sub?: string; locked?: string }
 
 /** What this site entered today, with delete for mistakes (the office keeps the history in the audit log). */
-export function TodayEntries({ entries }: { entries: Entry[] }) {
+/** With onEdit, a pencil puts the entry back into the form above (saved again under the same id). */
+export function TodayEntries({ entries, onEdit, editing }: { entries: Entry[]; onEdit?: (id: string) => void; editing?: string | null }) {
   const t = useT();
   if (!entries.length) return null;
   return (
@@ -23,6 +24,11 @@ export function TodayEntries({ entries }: { entries: Entry[] }) {
               <T.body>{e.label}</T.body>
               {e.sub ? <T.small>{e.sub}</T.small> : null}
             </View>
+            {!e.locked && onEdit ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.edit')} hitSlop={8} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }} onPress={() => onEdit(e.id)}>
+                <Icon name="pencil-outline" size={22} color={editing === e.id ? colors.primary : colors.muted} />
+              </Pressable>
+            ) : null}
             {e.locked ? <T.small>{e.locked}</T.small> : (
               <Pressable
                 accessibilityRole="button"

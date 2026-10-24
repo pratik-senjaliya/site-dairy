@@ -3,12 +3,13 @@ import { Ask, Button, Card, Empty, flush, Input, ListRow, Row, Screen, Section }
 import { patch, post } from '../../lib/api';
 import { db, useDb } from '../../lib/db';
 import { useT } from '../../lib/i18n';
-import { useSave } from '../../lib/setup';
+import { useRemove, useSave } from '../../lib/setup';
 
 // Suppliers: a name (and number) is all the gate needs; rates and GST are in the office's ledger.
 export default function Suppliers() {
   const t = useT();
   const { busy, run } = useSave();
+  const { busy: removing, remove } = useRemove();
   const list = useDb(() => db.rows('supplier').slice().sort((a, b) => String(a.name).localeCompare(String(b.name))));
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -39,6 +40,7 @@ export default function Suppliers() {
           {editing ? <Button style={{ flex: 1 }} kind="secondary" label={t('common.cancel')} onPress={reset} /> : null}
           <Button style={{ flex: 1 }} icon={editing ? 'check' : 'plus'} label={editing ? t('common.save') : t('setup.addSupplier')} busy={busy} disabled={!ok} onPress={save} />
         </Row>
+        {editing ? <Button kind="ghost" icon="trash-can-outline" label={t('setup.remove')} busy={removing} onPress={() => void remove('supplier', editing, name).then((ok) => ok && reset())} /> : null}
       </Card>
       {list.length ? (
         <>

@@ -3,12 +3,13 @@ import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Ask, Banner, Button, Card, Chips, DiaryLine, flush, Input, ListRow, Row, Screen, Section, Stepper, T } from '../../components/ui';
+import { QuickAdd } from '../../components/pickers';
+import { Ask, Banner, Button, Card, Chip, Chips, DiaryLine, flush, Input, ListRow, Row, Screen, Section, Stepper, T } from '../../components/ui';
 import { patch, post } from '../../lib/api';
 import { useOnline } from '../../lib/hooks';
-import { useT } from '../../lib/i18n';
+import { useName, useT } from '../../lib/i18n';
 import { useSession } from '../../lib/session';
-import { useSave } from '../../lib/setup';
+import { useRemove, useSave } from '../../lib/setup';
 
 type Type = (typeof PROJECT_TYPES)[number];
 type Status = 'active' | 'on_hold' | 'completed';
@@ -16,6 +17,7 @@ interface Detail {
   id: string; name: string; address: string | null; type: Type; status: Status;
   structure: { id: string; kind: string; name: string; parentId: string | null }[];
   team: { id: string; name: string; role: string; phone: string }[];
+  workItems: { id: string; nameGu: string; nameEn: string }[];
 }
 
 /** Floors of one wing: "A wing, ground + 7 floors". */
@@ -40,6 +42,8 @@ export default function SiteSetup() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { refreshMe, setSite, siteId } = useSession();
   const { busy, run } = useSave();
+  const { remove } = useRemove();
+  const nameOf = useName();
   const detail = useOnline<Detail>(id ? `/projects/${id}` : null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -129,6 +133,19 @@ export default function SiteSetup() {
               </Row>
             </Card>
           ) : <Button kind="secondary" icon="plus" label={t('setup.addWing')} onPress={() => setAddingWing(true)} />}
+
+          <Section title={t('setup.workItems')} />
+          <Card>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {detail.data.workItems.map((w) => (
+                <Chip key={w.id} icon="close" label={nameOf(w)} onPress={() => void remove('workItem', w.id, nameOf(w)).then((ok) => { if (ok) void detail.reload(); })} />
+              ))}
+              <QuickAdd label={t('progress.newItem')} placeholder="Waterproofing" onAdd={async (n) => {
+                await post('/masters/workItem', { projectId: id, nameGu: n, nameEn: n, sort: detail.data?.workItems.length ?? 0 });
+                await detail.reload();
+              }} />
+            </View>
+          </Card>
 
           <Section title={t('setup.team')} action={`+ ${t('common.add')}`} onAction={() => router.push({ pathname: '/setup/person', params: { site: id } })} />
           <Card style={flush}>

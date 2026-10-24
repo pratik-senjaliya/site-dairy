@@ -37,6 +37,21 @@ try {
     await page.getByText('સેવ કરો', { exact: true }).click();
     await page.getByText(`${total} માણસ`).filter({ visible: true }).first().waitFor();
   });
+  await step('supervisor: fixes a mistake in material used (edit, not re-enter)', async () => {
+    const vis = (x) => x.filter({ visible: true }).first();
+    await vis(page.getByText('માલ વપરાયો', { exact: true })).click();
+    await vis(page.getByText(/^સિમેન્ટ/)).click();
+    await vis(page.getByRole('textbox', { name: 'જથ્થો' })).fill('12');
+    await vis(page.getByRole('button', { name: 'સેવ કરો', exact: true })).click();
+    await vis(page.getByText(/^સિમેન્ટ 12 bag/)).waitFor({ timeout: 15000 });
+    await vis(page.getByText('માલ વપરાયો', { exact: true })).click();
+    await page.getByLabel('બદલો', { exact: true }).filter({ visible: true }).last().click();
+    await vis(page.getByRole('textbox', { name: 'જથ્થો' })).fill('21');
+    await vis(page.getByRole('button', { name: 'ફેરફાર સેવ કરો', exact: true })).click();
+    await vis(page.getByText(/^સિમેન્ટ 21 bag/)).waitFor({ timeout: 15000 });
+    if (await page.getByText(/^સિમેન્ટ 12 bag/).filter({ visible: true }).count()) throw new Error('the old line is still there');
+    await shot('demo-03b-edited');
+  });
   await step('supervisor: material request sent', async () => {
     await page.getByText(`${total} માણસ`).filter({ visible: true }).first().waitFor();
     await page.getByText('માલની માંગણી', { exact: true }).click();

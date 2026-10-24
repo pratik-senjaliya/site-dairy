@@ -329,6 +329,8 @@
   "common.edit": "બદલો",
   "common.add": "ઉમેરો",
   "common.done": "થઈ ગયું",
+  "common.saveChange": "ફેરફાર સેવ કરો",
+  "common.editingHint": "આજની એન્ટ્રી બદલી રહ્યા છો. રદ કરવા અહીં દબાવો.",
   "advance.worker": "માણસ (જરૂરી નથી)",
   "advance.wholeContractor": "ના, કોન્ટ્રાક્ટરને",
   "advance.sofar": "આ અઠવાડિયે: {days} માણસ-દિવસ · હિસાબ બાકી ઉપાડ {amount}",
@@ -457,6 +459,10 @@
   "setup.duplicate": "આ પહેલેથી ઉમેરેલું છે",
   "setup.planLimit": "તમારા પ્લાનમાં આટલું જ છે. વધારવા Site Diaryને ફોન કરો.",
   "setup.needsOnline": "સેટઅપ માટે ઇન્ટરનેટ જોઈએ. નેટ ચાલુ કરીને ફરી પ્રયત્ન કરો.",
+  "setup.removeConfirm": "યાદીમાંથી કાઢી નાખવું છે? જૂની એન્ટ્રીમાં નામ રહેશે.",
+  "setup.remove": "યાદીમાંથી કાઢો",
+  "setup.workers": "નામવાળા કારીગર (ઉપાડ માટે)",
+  "setup.workItems": "કામની યાદી",
   "type.rcc_frame": "RCC બિલ્ડિંગ",
   "type.load_bearing": "લોડ બેરિંગ",
   "type.bungalow": "બંગલો / ઘર",
@@ -514,5 +520,9 @@
   "month.labour": "મજૂરી ({days} માણસ-દિવસ)",
   "month.material": "માલ",
   "month.total": "કુલ",
-  "month.note": "ભાવ વગરનો માલ ગણ્યો નથી"
+  "month.note": "ભાવ વગરનો માલ ગણ્યો નથી",
+  "photos.title": "સાઇટના ફોટા",
+  "photos.all": "બધા",
+  "photos.none": "છેલ્લા 30 દિવસમાં કોઈ ફોટો નથી",
+  "photos.seeAll": "બધા ફોટા જુઓ"
 }

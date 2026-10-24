@@ -64,6 +64,17 @@ export default function Progress() {
     setPercent(null);
     notice(t('progress.savedNext'));
   };
+  // Fixing a mistake: today's entry goes back into the form (its photos stay with it).
+  const edit = (id: string) => {
+    const e = db.find('dailyProgress', id);
+    if (!e) return;
+    setEntryId(id);
+    setItem(String(e.workItemId));
+    setNode((e.structureNodeId as string | null) ?? null);
+    setPercent(Number(e.percent));
+    setNote(String(e.note ?? ''));
+    setPhotos(db.rows('photo').filter((p) => p.sourceId === id));
+  };
   const saveDay = () => {
     db.save('siteDay', { ...(siteDay && { id: siteDay.id }), projectId: siteId, date: today, marker, note: dayNote || null });
     notice(t('common.saved'));
@@ -97,7 +108,7 @@ export default function Progress() {
         <TextField label={t('progress.qWhy')} value={dayNote} onChange={setDayNote} multiline placeholder={t('progress.voiceHint')} />
       ) : (
         <>
-          <TodayEntries entries={entries.map((e) => ({ id: e.id, table: 'dailyProgress' as const, label: line(e) }))} />
+          <TodayEntries editing={entryId} onEdit={edit} entries={entries.map((e) => ({ id: e.id, table: 'dailyProgress' as const, label: line(e) }))} />
           <Ask q={t('progress.qItem')}>
             <RowChips label="" rows={items} max={8} value={workItemId} onChange={pickItem} nameOf={name} />
             <QuickAdd label={t('progress.newItem')} placeholder="Waterproofing" onAdd={async (n) => {

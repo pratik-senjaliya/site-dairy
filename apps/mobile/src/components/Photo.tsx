@@ -1,12 +1,13 @@
 import { colors, radius } from '@site-diary/ui-tokens';
 import { useEffect, useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhoto } from '../demo/server';
 import { apiUrl, authHeaders, isDemo } from '../lib/api';
 import type { Row } from '../lib/db';
 
-/** A photo from this phone (not yet uploaded) or from the server (with the sign-in header). */
-export function PhotoThumb({ photo, size = 96, onPress }: { photo: Row; size?: number; onPress?: () => void }) {
+
+/** Where a photo's picture comes from: the phone's own file, the demo store, or the server (signed in). */
+function usePhotoSource(photo: Row) {
   const local = typeof photo._uri === 'string' ? photo._uri : null;
   const [webUrl, setWebUrl] = useState<string | null>(null);
   const remote = !local && photo.uploaded ? apiUrl(`/photos/${photo.id}/file`) : null;
@@ -30,17 +31,33 @@ export function PhotoThumb({ photo, size = 96, onPress }: { photo: Row; size?: n
     };
   }, [remote]);
 
-  const source = local ? { uri: local } : demoUri ? { uri: demoUri } : isDemo() ? null : remote ? (Platform.OS === 'web' ? (webUrl ? { uri: webUrl } : null) : { uri: remote, headers: authHeaders() }) : null;
+  return { source: local ? { uri: local } : demoUri ? { uri: demoUri } : isDemo() ? null : remote ? (Platform.OS === 'web' ? (webUrl ? { uri: webUrl } : null) : { uri: remote, headers: authHeaders() }) : null, local };
+}
+
+/** A photo as a small square; a tap shows it full screen (unless the caller handles the tap). */
+export function PhotoThumb({ photo, size = 96, onPress }: { photo: Row; size?: number; onPress?: () => void }) {
+  const { source, local } = usePhotoSource(photo);
+  const [open, setOpen] = useState(false);
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={[st.box, { width: size, height: size }]}>
-      {source ? <Image source={source} style={{ width: size, height: size, borderRadius: radius.md }} resizeMode="cover" /> : <Text style={st.pending}>⏳</Text>}
-      {local && !photo.uploaded ? <View style={st.dot} /> : null}
-    </Pressable>
+    <>
+      <Pressable accessibilityRole="imagebutton" onPress={onPress ?? (() => setOpen(true))} disabled={!source} style={[st.box, { width: size, height: size }]}>
+        {source ? <Image source={source} style={{ width: size, height: size, borderRadius: radius.md }} resizeMode="cover" /> : <Text style={st.pending}>⏳</Text>}
+        {local && !photo.uploaded ? <View style={st.dot} /> : null}
+      </Pressable>
+      {open && source ? (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+          <Pressable style={st.viewer} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="close">
+            <Image source={source} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
+          </Pressable>
+        </Modal>
+      ) : null}
+    </>
   );
 }
 
 const st = StyleSheet.create({
   box: { borderRadius: radius.md, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   pending: { fontSize: 24 },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', right: 6, top: 6, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.warning },
 });

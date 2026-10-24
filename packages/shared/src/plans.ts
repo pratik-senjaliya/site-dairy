@@ -1,8 +1,9 @@
 import { addDays } from './dates';
 
-// Pricing (docs/scope.md → Pricing): Pilot free 60 days up to 2 sites; Basic 5 users per site; Pro unlimited.
+// Pricing (docs/scope.md → Pricing; decisions 2026-10-24): Pilot free 60 days up to 5 sites (builders run 1–5);
+// Basic 5 users per site; Pro unlimited.
 export const PLANS = {
-  pilot: { label: 'Pilot', maxActiveSites: 2, usersPerSite: null, days: 60 },
+  pilot: { label: 'Pilot', maxActiveSites: 5, usersPerSite: null, days: 60 },
   basic: { label: 'Basic', maxActiveSites: null, usersPerSite: 5, days: null },
   pro: { label: 'Pro', maxActiveSites: null, usersPerSite: null, days: null },
 } as const;

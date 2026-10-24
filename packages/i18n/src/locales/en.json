@@ -329,6 +329,8 @@
   "common.edit": "Edit",
   "common.add": "Add",
   "common.done": "Done",
+  "common.saveChange": "Save the change",
+  "common.editingHint": "Changing today's entry. Tap here to cancel.",
   "advance.worker": "Worker (optional)",
   "advance.wholeContractor": "No — to the contractor",
   "advance.sofar": "This week: {days} man-days · upad not yet settled {amount}",
@@ -457,6 +459,10 @@
   "setup.duplicate": "This is already added",
   "setup.planLimit": "Your plan allows no more. Call Site Diary to upgrade.",
   "setup.needsOnline": "Setup needs internet. Turn on data and try again.",
+  "setup.removeConfirm": "Remove from the list? Old entries keep the name.",
+  "setup.remove": "Remove from the list",
+  "setup.workers": "Named workers (for advances)",
+  "setup.workItems": "List of work",
   "type.rcc_frame": "RCC building",
   "type.load_bearing": "Load bearing",
   "type.bungalow": "Bungalow / house",
@@ -514,5 +520,9 @@
   "month.labour": "Labour ({days} man-days)",
   "month.material": "Material",
   "month.total": "Total",
-  "month.note": "Material without a rate is not counted"
+  "month.note": "Material without a rate is not counted",
+  "photos.title": "Site photos",
+  "photos.all": "All",
+  "photos.none": "No photos in the last 30 days",
+  "photos.seeAll": "See all photos"
 }

@@ -24,6 +24,17 @@ export default function Advance() {
   const workers = useDb(() => db.rows('worker').filter((w) => w.contractorId === contractorId));
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState<Mode>('cash');
+  // Fixing a mistake: today's entry goes back into the form, saved again under the same id.
+  const [editId, setEditId] = useState<string | null>(null);
+  const edit = (id: string) => {
+    const a = db.find('advance', id);
+    if (!a) return;
+    setEditId(id);
+    setContractor(String(a.contractorId));
+    setWorker((a.workerId as string | null) ?? null);
+    setAmount(String(Number(a.amountPaise) / 100));
+    setMode((a.mode as Mode) ?? 'cash');
+  };
   const rupees = Number(amount.replace(/[^\d]/g, ''));
 
   // Before giving money: what this contractor's people worked this week and the upad still to be settled.
@@ -45,14 +56,15 @@ export default function Advance() {
       footer={
         <>
           {contractorId && rupees ? <DiaryLine text={line(draft)} /> : null}
-          <Button label={t('common.save')} disabled={!contractorId || !rupees || !siteId} onPress={() => {
-            db.save('advance', { projectId: siteId, ...draft, date: isoDate() });
+          <Button label={editId ? t('common.saveChange') : t('common.save')} disabled={!contractorId || !rupees || !siteId} onPress={() => {
+            db.save('advance', editId ? { id: editId, ...draft } : { projectId: siteId, ...draft, date: isoDate() });
             notice(t('common.saved'));
             done();
           }} />
         </>
       }
     >
+      {editId ? <Banner tone="info" text={t('common.editingHint')} onPress={() => { setEditId(null); setAmount(''); }} /> : null}
       <Ask q={t('advance.qWho')}>
         <RowChips label="" rows={contractors} max={8} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={(r) => String(r.name)} />
       </Ask>
@@ -74,7 +86,7 @@ export default function Advance() {
       <Ask q={t('advance.qMode')}>
         <Chips<Mode> options={[{ value: 'cash', label: t('pay.cash') }, { value: 'upi', label: 'UPI' }, { value: 'bank', label: t('pay.bank') }]} value={mode} onChange={setMode} />
       </Ask>
-      <TodayEntries entries={recent.map((a) => ({ id: a.id, table: 'advance' as const, label: line(a), locked: a.settlementId ? '✓' : undefined }))} />
+      <TodayEntries editing={editId} onEdit={edit} entries={recent.map((a) => ({ id: a.id, table: 'advance' as const, label: line(a), locked: a.settlementId ? '✓' : undefined }))} />
     </Screen>
   );
 }

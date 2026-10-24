@@ -145,8 +145,31 @@ class Db {
     this.syncTimer = setTimeout(() => void this.sync(), 1500);
   }
 
-  async sync(): Promise<void> {
-    if (this.syncing || !this.ns) return;
+  private running: Promise<void> | null = null;
+  private again = false;
+  /**
+   * Push, upload, pull. Asked again while one is running (a save from a setup screen), it runs once more
+   * when that one ends, and the caller waits for that round — nothing asked for is skipped.
+   */
+  sync(): Promise<void> {
+    if (!this.ns) return Promise.resolve();
+    if (this.running) {
+      this.again = true;
+      return this.running;
+    }
+    this.running = (async () => {
+      do {
+        this.again = false;
+        await this.syncOnce();
+      } while (this.again);
+    })().finally(() => {
+      this.running = null;
+    });
+    return this.running;
+  }
+
+  private async syncOnce(): Promise<void> {
+    if (!this.ns) return;
     this.syncing = true;
     this.lastError = null;
     this.changed();

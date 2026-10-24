@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ApiError } from './api';
+import { ApiError, del } from './api';
 import { db } from './db';
-import { notice } from './hooks';
+import { confirm, notice } from './hooks';
 import { useT } from './i18n';
 
 /**
@@ -43,4 +43,20 @@ export interface Person { id: string; name: string; phone: string; role: string;
 export interface Ledger {
   rows: { date: string; kind: 'grn' | 'payment'; id: string; ref: string | null; projectId: string | null; debitPaise: number; creditPaise: number; unpricedLines: number; balancePaise: number }[];
   duePaise: number;
+}
+
+/**
+ * Remove a list item (contractor, supplier, worker, kind of work) after a yes. It is hidden from new entries;
+ * old entries keep its name.
+ */
+export function useRemove() {
+  const t = useT();
+  const { busy, run } = useSave();
+  const remove = async (kind: string, id: string, label: string) => {
+    if (!(await confirm(t('setup.removeConfirm'), label, t('common.delete'), t('common.cancel')))) return false;
+    return run(async () => {
+      await del(`/masters/${kind}/${id}`);
+    });
+  };
+  return { busy, remove };
 }

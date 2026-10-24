@@ -1,13 +1,13 @@
-import { formatPaise, isoDate, shortDate, wageWeek } from '@site-diary/shared';
-import { colors, spacing } from '@site-diary/ui-tokens';
+import { formatNumber, formatPaise, isoDate, shortDate, wageWeek } from '@site-diary/shared';
+import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Share, View } from 'react-native';
-import { Banner, Button, Card, Chips, Empty, Row, Screen, T } from '../components/ui';
+import { Banner, Button, Card, Chips, Empty, Icon, Row, Screen, T } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { post } from '../lib/api';
 import { confirm, notice, useOnline, useSite } from '../lib/hooks';
-import { useName, useT } from '../lib/i18n';
+import { useDayName, useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 
 interface Account {
@@ -27,6 +27,7 @@ type Mode = 'cash' | 'upi' | 'bank';
 // Contractor hisab: what each contractor has earned this week, the upad already given, and what is left to pay.
 export default function Hisab() {
   const t = useT();
+  const dayName = useDayName();
   const name = useName();
   const { me } = useSession();
   const { siteId: current } = useSite();
@@ -122,6 +123,7 @@ export default function Hisab() {
                     <T.small>{t('hisab.payable')}</T.small>
                     <T.h2>{formatPaise(a.net)}</T.h2>
                   </View>
+                  <Icon name={open === a.contractor.id ? 'chevron-up' : 'chevron-down'} size={24} color={colors.faint} />
                 </Row>
                 <Row style={{ justifyContent: 'space-between' }}>
                   <T.body>{t('hisab.earned')} {formatPaise(a.gross)}</T.body>
@@ -153,7 +155,13 @@ export default function Hisab() {
                   ))}
                   <T.small>{t('hisab.byDay')}</T.small>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                    {a.days.map((d) => <T.small key={d.date}>{shortDate(d.date)}: {d.manDays}</T.small>)}
+                    {a.days.map((d) => (
+                      <View key={d.date} style={{ minWidth: 64, alignItems: 'center', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceAlt }}>
+                        <T.small>{dayName(d.date).split(' ')[0]}</T.small>
+                        <T.small>{shortDate(d.date)}</T.small>
+                        <T.body bold>{formatNumber(d.manDays)}</T.body>
+                      </View>
+                    ))}
                   </View>
                   <Button kind="secondary" small label={t('hisab.send')} onPress={() => send(a)} />
                   {office && a.manDays > 0 && !a.missingRates.length && a.from <= lastDay ? (

@@ -1,14 +1,15 @@
 import { isoDate } from '@site-diary/shared';
-import { spacing } from '@site-diary/ui-tokens';
+import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { Ask, Button, Card, Chip, Input, Row, Screen, T } from '../../components/ui';
+import { Pressable, View } from 'react-native';
+import { QuickAdd } from '../../components/pickers';
+import { Ask, Button, Card, Chip, flush, Icon, Input, Row, Screen, T } from '../../components/ui';
 import { patch, post } from '../../lib/api';
 import { db, useDb } from '../../lib/db';
 import { useOnline } from '../../lib/hooks';
 import { useName, useT } from '../../lib/i18n';
-import { TRADES, toPaise, useSave, type Rate } from '../../lib/setup';
+import { TRADES, toPaise, useRemove, useSave, type Rate } from '../../lib/setup';
 
 // One contractor: name, number, trade, and the daily rate for each kind of worker they send.
 // A changed rate starts today; earlier days keep the old rate in the hisab.
@@ -17,6 +18,8 @@ export default function Contractor() {
   const name = useName();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { busy, run } = useSave();
+  const { busy: removing, remove } = useRemove();
+  const workers = useDb(() => (id ? db.rows('worker').filter((w) => w.contractorId === id) : []));
   const skills = useDb(() => db.rows('skill').slice().sort((a, b) => Number(a.sort) - Number(b.sort)));
   const existing = useDb(() => (id ? db.find('contractor', id) : undefined));
   const rates = useOnline<Rate[]>(id ? `/masters/contractorRate?contractorId=${id}` : null);
@@ -90,6 +93,26 @@ export default function Contractor() {
           ))}
         </Card>
       </Ask>
+      {id ? (
+        <>
+          <Ask q={t('setup.workers')} optional>
+            {workers.length ? (
+              <Card style={flush}>
+                {workers.map((w, i) => (
+                  <Row key={w.id} style={{ paddingHorizontal: spacing.lg, minHeight: 52, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
+                    <View style={{ flex: 1 }}><T.body>{String(w.name)}</T.body></View>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`${t('setup.remove')}: ${String(w.name)}`} hitSlop={8} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }} onPress={() => void remove('worker', w.id, String(w.name))}>
+                      <Icon name="trash-can-outline" size={22} color={colors.danger} />
+                    </Pressable>
+                  </Row>
+                ))}
+              </Card>
+            ) : null}
+            <QuickAdd label={t('advance.newWorker')} placeholder="Ramesh" onAdd={async (n) => { await post('/masters/worker', { contractorId: id, name: n }); }} />
+          </Ask>
+          <Button kind="ghost" icon="trash-can-outline" label={t('setup.remove')} busy={removing} onPress={() => void remove('contractor', id, title).then((ok) => ok && router.back())} />
+        </>
+      ) : null}
     </Screen>
   );
 }

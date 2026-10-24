@@ -96,16 +96,17 @@ test('notifications are written in each person’s language', async () => {
   assert.equal(await titleFor(w.people.owner), 'મંજૂરી જોઈએ: માલની માંગણી');
 });
 
-test('plans: pilot allows 2 active sites; basic allows 5 people per active site', async () => {
+test('plans: pilot allows 5 active sites; basic allows 5 people per active site', async () => {
   const w = await world();
   const owner = await signIn(w.people.owner);
-  const third = await owner.call<{ error: { code: string } }>('POST', '/projects', { name: 'Site C', type: 'bungalow' });
+  for (const n of ['C', 'D', 'E']) assert.equal((await owner.call('POST', '/projects', { name: `Site ${n}`, type: 'bungalow' })).status, 201);
+  const third = await owner.call<{ error: { code: string } }>('POST', '/projects', { name: 'Site F', type: 'bungalow' });
   assert.equal(third.status, 402);
   assert.equal(third.body.error.code, 'plan_limit');
-  assert.equal((await owner.call('POST', '/projects', { name: 'Site C', type: 'bungalow', status: 'on_hold' })).status, 201, 'an inactive site is fine');
+  assert.equal((await owner.call('POST', '/projects', { name: 'Site F', type: 'bungalow', status: 'on_hold' })).status, 201, 'an inactive site is fine');
 
   await prisma.company.update({ where: { id: w.companyId }, data: { plan: 'basic' } });
-  await prisma.project.update({ where: { id: w.siteB.id }, data: { status: 'on_hold' } });
+  await prisma.project.updateMany({ where: { companyId: w.companyId, id: { not: w.siteA.id } }, data: { status: 'on_hold' } });
   const add = (n: number) => owner.call('POST', '/users', { name: `Person ${n}`, phone: `+9196${String(Date.now() + n).slice(-8)}`, role: 'supervisor', siteIds: [w.siteA.id] });
   assert.equal((await add(1)).status, 201);
   assert.equal((await add(2)).status, 201);

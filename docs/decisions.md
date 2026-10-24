@@ -17,7 +17,7 @@ WatermelonDB needs a custom native build (its SQLite adapter is not in Expo Go) 
 - **Web panel language**: English with Gujarati names beside materials/skills/work items (office staff and the CA read English); reports follow each user's language. The phone app is Gujarati-first with English and Hindi.
 - **RLS**: done (17 Oct). Every company table has a policy; the API sets `app.company_id` per query and runs as `site_app` (no BYPASSRLS). Jobs, sign-in and report links run as "system". Cost: each query runs in a small transaction (a few extra round trips), so the API and database must share a region.
 - **Wages and payments**: supervisors record advances; settlements and their payment are office work (owner, engineer, accountant); supplier payments are owner/accountant. Attendance and advances inside a settlement are frozen until it is cancelled.
-- **Plans**: Pilot 2 active sites and 60 days (a banner warns; nothing is locked when it ends — Site Diary decides), Basic 5 site staff per active site (owners and accountants not counted), Pro unlimited. Changed with `npm run set-plan -w apps/api -- <owner phone> <plan>`.
+- **Plans**: Pilot 5 active sites (raised from 2 on 2026-10-24: builders run 1–5 sites) and 60 days (a banner warns; nothing is locked when it ends — Site Diary decides), Basic 5 site staff per active site (owners and accountants not counted), Pro unlimited. Changed with `npm run set-plan -w apps/api -- <owner phone> <plan>`.
 - **Notifications** are written in each recipient's language when created.
 - **Crash reports** from the web panel and the phone go to `POST /client-errors` and from there to Sentry, so one DSN covers all three apps.
 

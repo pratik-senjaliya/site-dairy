@@ -1,8 +1,9 @@
 import { formatNumber, isoDate } from '@site-diary/shared';
 import { useState } from 'react';
-import { byUse, QtyField, RowChips, useMaterials } from '../components/pickers';
+import { byUse, QtyField, QuickAdd, RowChips, useMaterials } from '../components/pickers';
 import { TodayEntries } from '../components/TodayEntries';
 import { Ask, Banner, Button, DiaryLine, Screen, T } from '../components/ui';
+import { post } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -27,6 +28,18 @@ export default function Used() {
   const [workItemId, setItem] = useState<string | null>(null);
   const [nodeId, setNode] = useState<string | null>(null);
   const [fromLast, setFromLast] = useState(false);
+  // Fixing a mistake: the entry goes back into the form and is saved again under the same id.
+  const [editId, setEditId] = useState<string | null>(null);
+  const edit = (id: string) => {
+    const r = db.find('materialIssue', id);
+    if (!r) return;
+    setEditId(id);
+    setFromLast(false);
+    setMaterial(String(r.materialId));
+    setQty(Number(r.qty));
+    setItem((r.workItemId as string | null) ?? null);
+    setNode((r.structureNodeId as string | null) ?? null);
+  };
   // What is on site comes first, with how much is there; the rest follow (stock can lag a sync).
   const qtyAt = (materialId: string) => stock.find((x) => x.projectId === siteId && x.materialId === materialId)?.qty ?? 0;
   const onSite = [...materials.filter((m) => qtyAt(m.id) > 0), ...materials.filter((m) => qtyAt(m.id) <= 0)];
@@ -53,14 +66,15 @@ export default function Used() {
       footer={
         <>
           {materialId && qty ? <DiaryLine text={line({ materialId, qty, workItemId, structureNodeId: nodeId })} /> : null}
-          <Button label={t('common.save')} disabled={!materialId || !qty} onPress={() => {
-            db.save('materialIssue', { projectId: siteId, materialId, qty, workItemId, structureNodeId: nodeId, date: isoDate() });
+          <Button label={editId ? t('common.saveChange') : t('common.save')} disabled={!materialId || !qty} onPress={() => {
+            db.save('materialIssue', { ...(editId && { id: editId, date: String(db.find('materialIssue', editId)?.date ?? isoDate()) }), projectId: siteId, materialId, qty, workItemId, structureNodeId: nodeId, ...(!editId && { date: isoDate() }) });
             notice(t('common.saved'));
             done();
           }} />
         </>
       }
     >
+      {editId ? <Banner tone="info" text={t('common.editingHint')} onPress={() => { setEditId(null); setMaterial(null); setQty(0); }} /> : null}
       <Ask q={t('used.qWhich')}>
         <RowChips label="" rows={onSite} max={8} value={materialId} onChange={pickMaterial} nameOf={(m) => { const q = qtyAt(m.id); return q > 0 ? `${name(m)} · ${formatNumber(q)} ${String(m.unit ?? '')}` : name(m); }} />
       </Ask>
@@ -74,12 +88,23 @@ export default function Used() {
           <Ask q={t('used.qWhere')} hint={t('used.whereHint')} optional>
             <T.body bold>{t('used.inWork')}</T.body>
             <RowChips label="" rows={items} max={8} value={workItemId} onChange={setItem} nameOf={name} allowNone noneLabel={t('common.notSure')} />
+            <QuickAdd label={t('progress.newItem')} placeholder="Waterproofing" onAdd={async (n) => {
+              const w = await post<{ id: string }>('/masters/workItem', { projectId: siteId, nameGu: n, nameEn: n, sort: items.length });
+              await db.sync();
+              setItem(w.id);
+            }} />
             <T.body bold>{t('used.onFloor')}</T.body>
             <RowChips label="" rows={floors} value={nodeId} onChange={setNode} nameOf={(r) => floorName(r)} allowNone noneLabel={t('common.notSure')} />
+            <QuickAdd label={t('progress.newPlace')} placeholder="Terrace" onAdd={async (n) => {
+              const tower = db.rows('structureNode').find((x) => x.projectId === siteId && x.kind === 'tower');
+              const f = await post<{ id: string }>('/masters/structureNode', { projectId: siteId, parentId: tower?.id ?? null, kind: 'floor', name: n, sort: floors.length + 100 });
+              await db.sync();
+              setNode(f.id);
+            }} />
           </Ask>
         </>
       ) : null}
-      <TodayEntries entries={today} />
+      <TodayEntries entries={today} editing={editId} onEdit={edit} />
     </Screen>
   );
 }

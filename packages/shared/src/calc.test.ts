@@ -76,7 +76,7 @@ test('settlement period uses the rate in force on each day', async () => {
 test('plans: pilot ends after 60 days, basic allows 5 people per active site', async () => {
   const { planStatus } = await import('./plans');
   const pilot = planStatus('pilot', '2026-10-01', '2026-10-21', 1);
-  assert.deepEqual([pilot.endsOn, pilot.daysLeft, pilot.maxActiveSites], ['2026-11-30', 40, 2]);
+  assert.deepEqual([pilot.endsOn, pilot.daysLeft, pilot.maxActiveSites], ['2026-11-30', 40, 5]);
   assert.equal(planStatus('basic', '2026-01-01', '2026-10-21', 3).maxUsers, 15);
   assert.equal(planStatus('pro', '2026-01-01', '2026-10-21', 3).maxUsers, null);
 });

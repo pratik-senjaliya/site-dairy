@@ -132,6 +132,7 @@ export default function Site() {
               <Row style={{ flexWrap: 'wrap' }}>
                 {photos.data?.filter((p) => p.uploaded).map((p) => <PhotoThumb key={p.id} photo={p} size={100} />)}
               </Row>
+              <Button small kind="secondary" icon="image-multiple-outline" label={t('photos.seeAll')} onPress={() => router.push({ pathname: '/photos', params: { site: id } })} />
             </Card>
           ) : null}
           {d.openIssues ? <Banner tone="warn" text={`${t('report.openIssues')}: ${d.openIssues}`} /> : null}
