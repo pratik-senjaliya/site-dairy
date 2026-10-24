@@ -201,7 +201,8 @@ export function FieldHome({ back = false }: { back?: boolean }) {
         {can('indent', 'C') && <Tile compact icon="clipboard-text-outline" label={t('home.indent')} onPress={() => router.push('/indent')} />}
         {can('progress', 'C') && <Tile compact icon="alert-circle-outline" label={t('home.issues')} badge={stats.openIssues} onPress={() => router.push('/issues')} />}
         <Tile compact icon="warehouse" label={t('home.stock')} badge={stats.low || undefined} tone={stats.low ? 'warn' : undefined} onPress={() => router.push('/stock')} />
-        {can('store', 'C') && <Tile compact icon="swap-horizontal" label={t('home.transfers')} badge={stats.incoming} onPress={() => router.push('/transfer')} />}
+        {/* Transfers need another site (or something on its way here). */}
+        {can('store', 'C') && ((me?.projects.length ?? 0) > 1 || stats.incoming) ? <Tile compact icon="swap-horizontal" label={t('home.transfers')} badge={stats.incoming} onPress={() => router.push('/transfer')} /> : null}
         {approvals.data && !back ? <Tile compact icon="check-decagram-outline" label={t('home.approvals')} badge={approvals.data.count} onPress={() => router.push('/approvals')} /> : null}
         {can('wages', 'V') && !back && <Tile compact icon="calculator-variant-outline" label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         {can('reports', 'V') && <Tile compact icon="chart-box-outline" label={t('home.siteToday')} onPress={() => router.push({ pathname: '/site', params: { id: siteId } })} />}

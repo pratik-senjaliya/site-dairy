@@ -27,6 +27,9 @@ export default function Used() {
   const [workItemId, setItem] = useState<string | null>(null);
   const [nodeId, setNode] = useState<string | null>(null);
   const [fromLast, setFromLast] = useState(false);
+  // What is on site comes first, with how much is there; the rest follow (stock can lag a sync).
+  const qtyAt = (materialId: string) => stock.find((x) => x.projectId === siteId && x.materialId === materialId)?.qty ?? 0;
+  const onSite = [...materials.filter((m) => qtyAt(m.id) > 0), ...materials.filter((m) => qtyAt(m.id) <= 0)];
   const material = materials.find((m) => m.id === materialId);
   const unit = String(material?.unit ?? '');
   const onHand = stock.find((s) => s.projectId === siteId && s.materialId === materialId)?.qty;
@@ -59,7 +62,7 @@ export default function Used() {
       }
     >
       <Ask q={t('used.qWhich')}>
-        <RowChips label="" rows={materials} max={8} value={materialId} onChange={pickMaterial} nameOf={name} />
+        <RowChips label="" rows={onSite} max={8} value={materialId} onChange={pickMaterial} nameOf={(m) => { const q = qtyAt(m.id); return q > 0 ? `${name(m)} · ${formatNumber(q)} ${String(m.unit ?? '')}` : name(m); }} />
       </Ask>
       {material ? (
         <>
