@@ -4,7 +4,7 @@ import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Bell, DiaryLines, FieldHome, openTel } from '../components/FieldHome';
+import { Bell, DiaryLines, FieldHome, Me, openTel } from '../components/FieldHome';
 import { SyncBadge } from '../components/SyncBadge';
 import { Banner, Button, Card, flush, Icon, IconBadge, ListRow, Row, s, Screen, Section, Stat, T, Tile } from '../components/ui';
 import { get, isDemo } from '../lib/api';
@@ -134,7 +134,7 @@ function OfficeHome() {
   ]));
 
   return (
-    <Screen back={false} title={me?.company.name ?? ''} subtitle={`${t('common.today')} · ${dayName(today)}`} right={<Row style={{ gap: 2 }}><SyncBadge /><Bell /></Row>}>
+    <Screen back={false} title={me?.company.name ?? ''} subtitle={`${t('common.today')} · ${dayName(today)}`} right={<Row style={{ gap: 2 }}><SyncBadge /><Bell /><Me /></Row>}>
       {isDemo() ? <Banner tone="info" text={t('demo.banner')} onPress={() => router.push('/profile')} /> : null}
       {error && !data ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={() => void reload()} /> : null}
       {owner ? <GettingStarted people={people.data?.length ?? null} /> : null}

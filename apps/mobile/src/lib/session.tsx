@@ -89,7 +89,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refreshMe,
       async signOut() {
         // Entries not yet sent stay on the phone for this user and go out at the next sign-in.
-        await post('/auth/logout').catch(() => {});
+        // A sleeping server can take a minute to answer: end the session on the server if it answers soon, never wait for it.
+        await Promise.race([post('/auth/logout').catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
         if (!DEMO_BUILD) await setDemo(false);
         await clearTokens();
         await kv.remove('me');

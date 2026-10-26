@@ -35,6 +35,16 @@ export function DiaryLines({ lines, max = Infinity }: { lines: { kind: DiaryKind
   ));
 }
 
+/** Header button to the profile (language, sync, sign out), so it is never at the bottom of a long home. */
+export function Me() {
+  const t = useT();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t('home.profile')} onPress={() => router.push('/profile')} hitSlop={10} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <Icon name="account-circle-outline" size={28} />
+    </Pressable>
+  );
+}
+
 export function Bell() {
   const t = useT();
   const { data } = useOnline<{ unread: number }>('/notifications');
@@ -114,6 +124,7 @@ export function FieldHome({ back = false }: { back?: boolean }) {
             </Pressable>
           ) : null}
           {back ? null : <Bell />}
+          {back ? null : <Me />}
         </Row>
       }
       footer={

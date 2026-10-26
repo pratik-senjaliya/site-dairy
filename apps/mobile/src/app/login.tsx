@@ -1,8 +1,8 @@
 import type { Locale, MessageKey } from '@site-diary/i18n';
 import { colors, spacing, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, Button, Card, Chips, Field, Icon, Input, T } from '../components/ui';
 import { ApiError, DEMO_BUILD, getDeviceId, getServer, post, setDemo, setServer } from '../lib/api';
@@ -38,6 +38,13 @@ export default function Login() {
   // The server address is for us, not the builder: shown in development, else after a long press on the name.
   const [showServer, setShowServer] = useState(__DEV__);
   const device = { deviceId: getDeviceId(), deviceName: Platform.OS };
+  // Keyboard open: drop the logo and tagline so the number and the button stay above it on a small phone.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setTyping(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setTyping(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // A server that was asleep takes up to a minute to answer the first time: say so instead of looking stuck.
   const [slow, setSlow] = useState(false);
@@ -63,14 +70,16 @@ export default function Login() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.xl, flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={{ gap: spacing.md, alignItems: 'center' }}>
-            <View style={{ width: 84, height: 84, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="notebook-edit-outline" size={48} color={colors.primaryText} />
-            </View>
-            <Text onLongPress={() => setShowServer(true)} style={{ fontSize: 32, fontWeight: '800', color: colors.ink }}>{t('app.name')}</Text>
-            <T.body muted>{t('login.tagline')}</T.body>
+            {typing ? null : (
+              <View style={{ width: 84, height: 84, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="notebook-edit-outline" size={48} color={colors.primaryText} />
+              </View>
+            )}
+            <Text onLongPress={() => setShowServer(true)} style={{ fontSize: typing ? 24 : 32, fontWeight: '800', color: colors.ink }}>{t('app.name')}</Text>
+            {typing ? null : <T.body muted>{t('login.tagline')}</T.body>}
           </View>
           <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
           {error ? <Banner tone="error" text={error} /> : null}

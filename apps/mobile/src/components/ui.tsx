@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { colors, radius, shadow, spacing, touch, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import type { ComponentProps, ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../lib/i18n';
 
@@ -52,8 +52,11 @@ export function Screen({ title, subtitle, children, footer, back = true, right, 
         </View>
         {right}
       </View>
-      {scroll ? <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">{children}</ScrollView> : <View style={[s.body, { flex: 1 }]}>{children}</View>}
-      {footer ? <View style={s.footer}>{footer}</View> : null}
+      {/* Android draws edge to edge, so the window no longer shrinks for the keyboard: pad on both platforms. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        {scroll ? <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">{children}</ScrollView> : <View style={[s.body, { flex: 1 }]}>{children}</View>}
+        {footer ? <View style={s.footer}>{footer}</View> : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
