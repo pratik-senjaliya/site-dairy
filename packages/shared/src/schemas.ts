@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ROLES = ['owner', 'engineer', 'supervisor', 'store', 'accountant'] as const;
+export const ROLES = ['owner', 'engineer', 'supervisor', 'store', 'accountant', 'partner'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const UNITS = ['bag', 'ton', 'brass', 'nos', 'cft', 'sqft', 'kg', 'litre', 'rft', 'cum'] as const;

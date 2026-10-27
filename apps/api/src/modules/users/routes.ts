@@ -1,4 +1,4 @@
-import { companySchema, companySettingsSchema, parseSettings, userSchema } from '@site-diary/shared';
+import { companySchema, companySettingsSchema, parseSettings, seesAllSites, userSchema, type Role } from '@site-diary/shared';
 import { Router } from 'express';
 import { audit } from '../../lib/audit';
 import { allow, me } from '../../lib/auth';
@@ -46,7 +46,7 @@ users.post('/', allow('users', 'C'), async (req, res) => {
   const { siteIds, ...input } = body(userSchema, req);
   const user = await write(m.companyId, async (tx) => {
     if (await tx.user.findFirst({ where: { companyId: m.companyId, phone: input.phone } })) throw new HttpError(409, 'This phone number already has a login', 'duplicate');
-    if (input.isActive && input.role !== 'owner' && input.role !== 'accountant') await assertUserAllowed(tx, m.companyId);
+    if (input.isActive && !seesAllSites(input.role)) await assertUserAllowed(tx, m.companyId);
     const u = await tx.user.create({ data: { ...input, companyId: m.companyId, createdById: m.id } });
     await setSites(tx, m.companyId, u.id, siteIds, m.id);
     await audit(tx, { me: m, ip: req.ip }, { action: 'create', entityType: 'user', entityId: u.id, after: { ...u, siteIds } });
@@ -62,7 +62,7 @@ users.patch('/:id', allow('users', 'C'), async (req, res) => {
     const before = await tx.user.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null }, include: { sites: true } });
     if (!before) throw new HttpError(404, 'Not found', 'not_found');
     if (before.id === m.id && (input.role !== 'owner' || !input.isActive)) throw new HttpError(400, 'You cannot remove your own owner access', 'self');
-    const counted = (r: string, active: boolean) => active && r !== 'owner' && r !== 'accountant';
+    const counted = (r: Role, active: boolean) => active && !seesAllSites(r);
     if (counted(input.role, input.isActive) && !counted(before.role, before.isActive)) await assertUserAllowed(tx, m.companyId);
     const u = await tx.user.update({ where: { id: before.id }, data: input });
     await setSites(tx, m.companyId, u.id, siteIds, m.id);

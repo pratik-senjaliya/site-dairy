@@ -1,6 +1,6 @@
 import { noticeText, t as tr, type Locale, type Notice } from '@site-diary/i18n';
 import {
-  acceptedQty, addDays, can, companySettingsSchema, masterSchemas, WORK_ITEM_TEMPLATES, type CompanySettings, type MasterKind, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
+  acceptedQty, addDays, bookTotals, can, unitAccount, type BookLine, companySettingsSchema, masterSchemas, WORK_ITEM_TEMPLATES, type CompanySettings, type MasterKind, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
 import { randomUUID } from 'expo-crypto';
 import { kv } from '../lib/kv';
@@ -12,7 +12,7 @@ import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
 
 interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string; company?: { name: string; settings: CompanySettings } }
 
-const KEY = 'demo:server:v3'; // v3: an approved, overdue material request
+const KEY = 'demo:server:v4'; // v4: a partner, flats and the money book
 let state: State | null = null;
 
 class DemoError extends Error {
@@ -224,7 +224,7 @@ export async function demoApi(method: string, path: string, body: unknown, token
   if (p === '/auth/otp/verify' || p === '/auth/demo') {
     const digits = String(b.phone ?? '').replace(/\D/g, '').slice(-10);
     const u = live(s, 'user').find((x) => (b.role ? x.role === b.role : digits.length === 10 && String(x.phone).endsWith(digits)));
-    if (!u) throw new DemoError(403, 'Demo: use 98000 00001 (owner), …02 engineer, …03 supervisor, …04 store, …05 accountant', 'no_account');
+    if (!u) throw new DemoError(403, 'Demo: use 98000 00001 (owner), …02 engineer, …03 supervisor, …04 store, …05 accountant, …06 partner', 'no_account');
     return out({ accessToken: `demo:${u.id}`, refreshToken: `demo:${u.id}`, user: { id: u.id, name: u.name, role: u.role, companyId: s.companyId } });
   }
   if (p === '/auth/logout') return out({ ok: true });
@@ -446,15 +446,88 @@ export async function demoApi(method: string, path: string, body: unknown, token
           if (rate == null) unpricedLines++;
           return x + Math.round((Number(l.qty) - Number(l.rejectedQty ?? 0)) * Number(rate ?? 0));
         }, 0);
-        return { date: `${String(g.date)}T00:00:00.000Z`, kind: 'grn' as const, id: g.id, ref: (g.challanNo as string | null) ?? null, projectId: g.projectId, debitPaise, creditPaise: 0, unpricedLines };
+        const items = live(s, 'grnLine').filter((l) => l.grnId === g.id).map((l) => ({ materialId: String(l.materialId), qty: Number(l.qty) - Number(l.rejectedQty ?? 0), ratePaise: l.ratePaise == null ? null : Number(l.ratePaise) }));
+        return { date: `${String(g.date)}T00:00:00.000Z`, kind: 'grn' as const, id: g.id, ref: (g.challanNo as string | null) ?? null, projectId: g.projectId, debitPaise, creditPaise: 0, unpricedLines, items, mode: null };
       }),
-      ...live(s, 'supplierPayment').filter((x) => x.supplierId === supplierId).map((x) => ({ date: `${String(x.date)}T00:00:00.000Z`, kind: 'payment' as const, id: x.id, ref: null, projectId: null, debitPaise: 0, creditPaise: Number(x.amountPaise), unpricedLines: 0 })),
+      ...live(s, 'supplierPayment').filter((x) => x.supplierId === supplierId).map((x) => ({ date: `${String(x.date)}T00:00:00.000Z`, kind: 'payment' as const, id: x.id, ref: (x.reference as string | null) ?? null, projectId: (x.projectId as string | null) ?? null, debitPaise: 0, creditPaise: Number(x.amountPaise), unpricedLines: 0, items: [], mode: x.mode })),
     ].sort((x, y) => x.date.localeCompare(y.date));
     let balance = 0;
     const list = entries.map((e) => ({ ...e, balancePaise: (balance += e.debitPaise - e.creditPaise) }));
     return { rows: list, duePaise: balance };
   }
-  if (p === '/purchase/supplier-payments') return out(bump('supplierPayment', { id: randomUUID(), supplierId: b.supplierId, amountPaise: b.amountPaise, date: b.date, mode: b.mode }));
+  if (p === '/purchase/supplier-payments') return out(bump('supplierPayment', { id: randomUUID(), supplierId: b.supplierId, projectId: b.projectId ?? null, amountPaise: b.amountPaise, date: b.date, mode: b.mode, reference: b.reference ?? null, createdById: u.id }));
+  if (p === '/purchase/by-material') {
+    const by = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }>();
+    for (const g of live(s, 'grn').filter((x) => x.supplierId)) {
+      for (const l of live(s, 'grnLine').filter((x) => x.grnId === g.id)) {
+        const key = `${String(l.materialId)}:${String(g.supplierId)}`;
+        const r = by.get(key) ?? { materialId: String(l.materialId), supplierId: String(g.supplierId), qty: 0, amountPaise: 0, receipts: 0, unpriced: 0 };
+        const qty = Number(l.qty) - Number(l.rejectedQty ?? 0);
+        r.qty += qty;
+        r.amountPaise += Math.round(qty * Number(l.ratePaise ?? 0));
+        r.receipts += 1;
+        if (l.ratePaise == null) r.unpriced += 1;
+        by.set(key, r);
+      }
+    }
+    return [...by.values()];
+  }
+  // The partners' book, as the API's accounts module: entries, plus supplier payments and upad made elsewhere.
+  if (p.startsWith('/accounts')) {
+    if (!can(u.role as Role, 'accounts', method === 'GET' ? 'V' : 'C')) throw new DemoError(403, 'You do not have permission to do this', 'forbidden');
+    const name = (id: unknown) => (find(s, 'user', id)?.name as string | undefined) ?? null;
+    const entryMatch = p.match(/^\/accounts\/entries\/([^/]+)$/);
+    if (entryMatch && method === 'DELETE') {
+      const e = find(s, 'moneyEntry', entryMatch[1]);
+      if (!e || e.deletedAt) throw new DemoError(404, 'Not found', 'not_found');
+      if (e.createdById !== u.id && u.role !== 'owner') throw new DemoError(403, 'Only the person who wrote it or the owner can remove it', 'forbidden');
+      return out(bump('moneyEntry', { ...e, deletedAt: new Date().toISOString(), deletedById: u.id }));
+    }
+    if (p === '/accounts/entries') {
+      const unit = b.unitId ? find(s, 'unit', b.unitId) : null;
+      return out(bump('moneyEntry', { id: (b.id as string | undefined) ?? randomUUID(), projectId: unit?.projectId ?? b.projectId ?? null, direction: b.direction, kind: b.kind, unitId: b.unitId ?? null, party: b.party ?? null, amountPaise: b.amountPaise, date: b.date, mode: b.mode, reference: b.reference ?? null, note: b.note ?? null, deletedById: null, createdById: u.id }));
+    }
+    const unitMatch = p.match(/^\/accounts\/units\/([^/]+)$/);
+    if (unitMatch && method === 'DELETE') {
+      if (live(s, 'moneyEntry').some((e) => e.unitId === unitMatch[1])) throw new DemoError(409, 'This flat has payments; remove them first', 'has_payments');
+      return out(bump('unit', { ...find(s, 'unit', unitMatch[1]), id: unitMatch[1]!, deletedAt: new Date().toISOString() }));
+    }
+    if (p === '/accounts/units') {
+      const before = find(s, 'unit', b.id);
+      return out(bump('unit', { ...(before ?? { createdById: u.id }), id: (b.id as string | undefined) ?? randomUUID(), projectId: b.projectId, name: b.name, buyerName: b.buyerName ?? null, buyerPhone: b.buyerPhone ?? null, dealPaise: b.dealPaise ?? null, note: b.note ?? null, deletedAt: null }));
+    }
+    const site = q('projectId');
+    const inSite = (r: DemoRow) => !site || r.projectId === site;
+    const contractor = (id: unknown) => (find(s, 'contractor', id)?.name as string | undefined) ?? null;
+    const at = (r: DemoRow) => String(r.createdAt ?? new Date().toISOString());
+    const lines: BookLine[] = [
+      ...rows(s, 'moneyEntry').filter((e) => inSite(e) && (!e.deletedAt || e.deletedById)).map((e) => ({
+        id: e.id, source: 'entry' as const, projectId: (e.projectId as string | null) ?? null, direction: e.direction as 'in' | 'out', kind: e.kind as BookLine['kind'], unitId: (e.unitId as string | null) ?? null, party: (e.party as string | null) ?? null,
+        amountPaise: Number(e.amountPaise), date: String(e.date), mode: e.mode as BookLine['mode'], reference: (e.reference as string | null) ?? null, note: (e.note as string | null) ?? null, by: name(e.createdById), byId: (e.createdById as string | null) ?? null, at: at(e),
+        removed: e.deletedAt ? { by: name(e.deletedById), at: String(e.deletedAt) } : null,
+      })),
+      ...live(s, 'supplierPayment').filter(inSite).map((x) => ({
+        id: x.id, source: 'supplier' as const, projectId: (x.projectId as string | null) ?? null, direction: 'out' as const, kind: 'supplier' as const, unitId: null, party: (find(s, 'supplier', x.supplierId)?.name as string | undefined) ?? null,
+        amountPaise: Number(x.amountPaise), date: String(x.date), mode: x.mode as BookLine['mode'], reference: (x.reference as string | null) ?? null, note: null, by: name(x.createdById), byId: (x.createdById as string | null) ?? null, at: at(x), removed: null,
+      })),
+      ...live(s, 'advance').filter(inSite).map((x) => ({
+        id: x.id, source: 'upad' as const, projectId: String(x.projectId), direction: 'out' as const, kind: 'upad' as const, unitId: null, party: contractor(x.contractorId),
+        amountPaise: Number(x.amountPaise), date: String(x.date), mode: x.mode as BookLine['mode'], reference: null, note: null, by: name(x.createdById), byId: (x.createdById as string | null) ?? null, at: at(x), removed: null,
+      })),
+      ...live(s, 'wageSettlement').filter((w) => inSite(w) && w.status === 'paid' && Number(w.netPaise) > 0).map((w) => ({
+        id: w.id, source: 'wages' as const, projectId: String(w.projectId), direction: 'out' as const, kind: 'wages' as const, unitId: null, party: contractor(w.contractorId),
+        amountPaise: Number(w.netPaise), date: String(w.paidAt ?? w.updatedAt ?? today).slice(0, 10), mode: (w.paidMode as BookLine['mode']) ?? null, reference: null, note: `${String(w.periodFrom)} – ${String(w.periodTo)}`, by: name(w.approvedById ?? w.createdById), byId: null, at: at(w), removed: null,
+      })),
+    ].sort((x, y) => y.date.localeCompare(x.date) || y.at.localeCompare(x.at));
+    return {
+      lines,
+      totals: bookTotals(lines),
+      units: live(s, 'unit').filter(inSite).sort((x, y) => String(x.name).localeCompare(String(y.name))).map((x) => ({
+        id: x.id, projectId: String(x.projectId), name: String(x.name), buyerName: (x.buyerName as string | null) ?? null, buyerPhone: (x.buyerPhone as string | null) ?? null, note: (x.note as string | null) ?? null,
+        dealPaise: x.dealPaise == null ? null : Number(x.dealPaise), ...unitAccount(x.dealPaise == null ? null : Number(x.dealPaise), lines, x.id),
+      })),
+    };
+  }
   const rateMatch = p.match(/^\/registers\/grn-lines\/([^/]+)\/rate$/);
   if (rateMatch) return out(bump('grnLine', { ...find(s, 'grnLine', rateMatch[1]), id: rateMatch[1]!, ratePaise: b.ratePaise }));
   if (p === '/registers/photos') {

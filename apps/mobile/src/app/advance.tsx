@@ -8,6 +8,7 @@ import { db, useDb } from '../lib/db';
 import { done, notice, useSite } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { useContractorName } from '../lib/setup';
 import { useDiary } from '../lib/diary';
 
 type Mode = 'cash' | 'upi' | 'bank';
@@ -48,6 +49,7 @@ export default function Advance() {
   });
 
   const line = useDiary().advance;
+  const contractorName = useContractorName();
   const draft = { contractorId, workerId, amountPaise: rupeesToPaise(rupees), mode };
 
   return (
@@ -66,7 +68,7 @@ export default function Advance() {
     >
       {editId ? <Banner tone="info" text={t('common.editingHint')} onPress={() => { setEditId(null); setAmount(''); }} /> : null}
       <Ask q={t('advance.qWho')}>
-        <RowChips label="" rows={contractors} max={8} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={(r) => String(r.name)} />
+        <RowChips label="" rows={contractors} max={8} value={contractorId} onChange={(id) => { setContractor(id); setWorker(null); }} nameOf={contractorName} />
       </Ask>
       {sofar ? <Banner tone="info" text={t('advance.sofar', { days: sofar.days, amount: formatPaise(sofar.open) })} /> : null}
       {contractorId ? (

@@ -12,6 +12,7 @@ export const DEMO_USERS = [
   { name: 'Kanubhai Rathod', phone: '+919800000003', role: 'supervisor' },
   { name: 'Vipul Prajapati', phone: '+919800000004', role: 'store' },
   { name: 'Nisha Mehta', phone: '+919800000005', role: 'accountant' },
+  { name: 'Mukeshbhai Desai', phone: '+919800000006', role: 'partner' },
 ] as const;
 
 export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string } {
@@ -79,6 +80,26 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
   const blocks = add('indent', base({ projectId, status: 'approved', requestedById: sup.id, approvedById: users[0]!.id, neededBy: addDays(today, -1), note: null, createdById: sup.id, createdAt: `${addDays(today, -4)}T05:30:00.000Z` }));
   add('indentLine', base({ indentId: blocks.id, materialId: mat('AAC blocks').id, qty: 2000 }));
   add('issue', base({ projectId, title: 'લિફ્ટ શાફ્ટ પાસે પાણી ભરાય છે', status: 'open', assignedToId: null, createdById: sup.id }));
+  // Steel from two parties, a cheque to one of them: the party accounts and the "by material" view.
+  for (const [i, back] of [[2, 9], [2, 3]] as const) {
+    const g = add('grn', base({ projectId, supplierId: suppliers[i]!.id, poId: null, challanNo: `SS-${1040 + back}`, vehicleNo: null, date: addDays(today, -back), note: null, createdById: users[0]!.id }));
+    add('grnLine', base({ grnId: g.id, materialId: mat('TMT steel').id, qty: 2500, rejectedQty: 0, ratePaise: rupeesToPaise(back === 9 ? 61 : 63) }));
+  }
+  add('supplierPayment', base({ supplierId: suppliers[2]!.id, projectId, amountPaise: rupeesToPaise(1_50_000), date: addDays(today, -5), mode: 'cheque', reference: '004512', createdById: users[0]!.id }));
+  // The partners' book: flats with buyers, what came in and what went out.
+  const owner = users[0]!;
+  const partner = users[5]!;
+  const flats = [
+    { name: 'A-101', buyerName: 'Mahendrabhai Patel', buyerPhone: '9825012345', dealPaise: rupeesToPaise(45_00_000) },
+    { name: 'A-102', buyerName: 'Kiritbhai Shah', buyerPhone: '9825054321', dealPaise: rupeesToPaise(42_00_000) },
+    { name: 'A-201', buyerName: null, buyerPhone: null, dealPaise: null },
+  ].map((f) => add('unit', base({ projectId, ...f, note: null, createdById: owner.id })));
+  const money = (by: DemoRow, back: number, e: Record<string, unknown>) => add('moneyEntry', base({ projectId, unitId: null, party: null, reference: null, note: null, deletedById: null, date: addDays(today, -back), createdById: by.id, ...e }));
+  money(partner, 13, { direction: 'in', kind: 'partner', party: 'Mukeshbhai Desai', amountPaise: rupeesToPaise(25_00_000), mode: 'bank', reference: 'NEFT 88123' });
+  money(owner, 10, { direction: 'in', kind: 'flat', unitId: flats[0]!.id, amountPaise: rupeesToPaise(11_00_000), mode: 'cheque', reference: '004211' });
+  money(owner, 6, { direction: 'in', kind: 'flat', unitId: flats[1]!.id, amountPaise: rupeesToPaise(5_00_000), mode: 'cheque', reference: '118734' });
+  money(owner, 8, { direction: 'out', kind: 'labour', party: 'Jay Ambe Shuttering', amountPaise: rupeesToPaise(1_80_000), mode: 'cheque', reference: '000981', note: '4th slab centering bill' });
+  money(partner, 4, { direction: 'out', kind: 'other', party: 'AMC', amountPaise: rupeesToPaise(65_000), mode: 'bank', note: 'Plan pass fee' });
   const approvals = [base({ projectId, entityType: 'indent', entityId: indent.id, requestedById: sup.id, status: 'pending', proposal: null })];
   return { t, approvals, companyId };
 }

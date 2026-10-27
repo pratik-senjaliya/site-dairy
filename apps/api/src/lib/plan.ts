@@ -5,7 +5,7 @@ import { HttpError } from './errors';
 export async function companyPlan(tx: Tx, companyId: string) {
   const company = await tx.company.findUniqueOrThrow({ where: { id: companyId } });
   const activeSites = await tx.project.count({ where: { companyId, deletedAt: null, status: 'active' } });
-  const activeUsers = await tx.user.count({ where: { companyId, deletedAt: null, isActive: true, role: { notIn: ['owner', 'accountant'] } } });
+  const activeUsers = await tx.user.count({ where: { companyId, deletedAt: null, isActive: true, role: { notIn: ['owner', 'accountant', 'partner'] } } });
   return { ...planStatus(company.plan, isoDate(company.createdAt), isoDate(), activeSites), activeSites, activeUsers };
 }
 
@@ -19,7 +19,7 @@ export async function assertSiteAllowed(tx: Tx, companyId: string) {
   }
 }
 
-/** Called before a field/office person (not owner or accountant) can sign in. */
+/** Called before a field/office person (not owner, accountant or partner) can sign in. */
 export async function assertUserAllowed(tx: Tx, companyId: string) {
   const p = await companyPlan(tx, companyId);
   if (p.maxUsers !== null && p.activeUsers >= p.maxUsers) {

@@ -1,18 +1,76 @@
-import { formatNumber, formatPaise, isoDate, rupeesToPaise, shortDate } from '@site-diary/shared';
+import { formatNumber, formatPaise, isoDate, rupeesToPaise, shortDate, type PayMode } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useLocalSearchParams } from 'expo-router';
+import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
+import { DayStep, PayModeField, QtyField, RowChips, useMaterials, useModeText } from '../components/pickers';
 import { Ask, Banner, Button, Card, Chips, DiaryLine, Icon, IconBadge, Input, Row, Screen, Section, Stat, T } from '../components/ui';
 import { patch, post } from '../lib/api';
 import { db, useDb } from '../lib/db';
-import { useOnline } from '../lib/hooks';
+import { useCan, useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { toPaise, useSave, type Ledger } from '../lib/setup';
 
-type Mode = 'cash' | 'upi' | 'bank';
-const BY = { cash: 'advance.byCash', upi: 'advance.byUpi', bank: 'advance.byBank' } as const;
+/** "સળિયા (TMT) 2,500 kg @ ₹62": what came on a receipt. */
+function useItemText() {
+  const name = useName();
+  return (i: { materialId: string; qty: number; ratePaise: number | null }) => {
+    const m = db.find('material', i.materialId);
+    return `${name(m)} ${formatNumber(i.qty)} ${String(m?.unit ?? '')}${i.ratePaise != null ? ` @ ${formatPaise(i.ratePaise)}` : ''}`;
+  };
+}
+
+/**
+ * The owner notes a party's bill himself (steel ordered from 3–4 parties, often for another site): which site,
+ * which day, what and how much at what rate. It is a material receipt like the store keeper's, so stock and the
+ * party's account both follow.
+ */
+function NoteBill({ supplierId, supplierName, onSaved }: { supplierId: string; supplierName: string; onSaved: () => void }) {
+  const t = useT();
+  const name = useName();
+  const { me } = useSession();
+  const materials = useMaterials();
+  const sites = me?.projects.filter((p) => p.status === 'active') ?? [];
+  const [site, setSite] = useState<string | null>(sites.length === 1 ? sites[0]!.id : null);
+  const [date, setDate] = useState(isoDate());
+  const [materialId, setMaterial] = useState<string | null>(null);
+  const [qty, setQty] = useState(0);
+  const [rate, setRate] = useState('');
+  const [billNo, setBillNo] = useState('');
+  const { busy, run } = useSave();
+  const m = useDb(() => (materialId ? db.find('material', materialId) : undefined));
+  const ratePaise = rate ? toPaise(rate) : null;
+  const ok = !!site && !!materialId && qty > 0;
+  const amount = ratePaise ? ` · ${formatPaise(Math.round(qty * ratePaise))}` : '';
+  return (
+    <Card>
+      {sites.length > 1 ? <Ask q={t('money.qSite')}><Chips<string> options={sites.map((p) => ({ value: p.id, label: p.name }))} value={site} onChange={setSite} /></Ask> : null}
+      <Ask q={t('money.qDate')}><DayStep value={date} onChange={setDate} /></Ask>
+      <Ask q={t('supplier.billQ')}>
+        <RowChips label="" rows={materials} max={8} value={materialId} onChange={setMaterial} nameOf={(r) => name(r)} />
+      </Ask>
+      {m ? <QtyField label="" unit={String(m.unit ?? '')} value={qty} onChange={setQty} /> : null}
+      {m ? (
+        <Ask q={t('supplier.rateQ', { unit: String(m.unit ?? '') })} optional>
+          <Input value={rate} onChangeText={(v) => setRate(v.replace(/[^\d.]/g, ''))} keyboardType="decimal-pad" placeholder="₹ 62" accessibilityLabel={t('supplier.rateQ', { unit: String(m.unit ?? '') })} />
+        </Ask>
+      ) : null}
+      <Ask q={t('supplier.billNo')} optional>
+        <Input value={billNo} onChangeText={setBillNo} placeholder="SS-1042" accessibilityLabel={t('supplier.billNo')} maxLength={60} />
+      </Ask>
+      {ok ? <DiaryLine text={t('supplier.billLine', { supplier: supplierName, item: `${name(m)} ${formatNumber(qty)} ${String(m?.unit ?? '')}`, date: shortDate(date), amount })} /> : null}
+      <Button icon="check" label={t('common.save')} busy={busy} disabled={!ok} onPress={() => void run(async () => {
+        const grnId = randomUUID();
+        db.save('grn', { id: grnId, projectId: site, supplierId, poId: null, challanNo: billNo.trim() || null, vehicleNo: null, date, note: null });
+        db.save('grnLine', { id: randomUUID(), grnId, materialId, qty, rejectedQty: 0, ratePaise });
+        await db.sync();
+        onSaved();
+      })} />
+    </Card>
+  );
+}
 
 /** Rates for a receipt that came without one: each line of it, priced here. */
 function PriceReceipt({ grnId, onSaved }: { grnId: string; onSaved: () => void }) {
@@ -51,21 +109,32 @@ export default function Supplier() {
   const { data, error, reload } = useOnline<Ledger>(`/purchase/supplier-ledger/${id}`);
   const { busy, run } = useSave();
   const [amount, setAmount] = useState('');
-  const [mode, setMode] = useState<Mode>('bank');
+  const [mode, setMode] = useState<PayMode>('cheque');
+  const [reference, setReference] = useState('');
+  const [payDate, setPayDate] = useState(isoDate());
+  const sites = me?.projects.filter((p) => p.status === 'active') ?? [];
+  const [paySite, setPaySite] = useState<string>(sites.length === 1 ? sites[0]!.id : '');
   const [open, setOpen] = useState<string | null>(null);
+  const [billing, setBilling] = useState(false);
+  const can = useCan();
+  const modeText = useModeText();
+  const itemText = useItemText();
   const canPay = me?.user.role === 'owner' || me?.user.role === 'accountant';
   const unpriced = data?.rows.reduce((x, r) => x + r.unpricedLines, 0) ?? 0;
   const rupees = Number(amount.replace(/[^\d]/g, ''));
   const name = String(supplier?.name ?? '');
-  const payLine = rupees ? t('supplier.payLine', { supplier: name, amount: formatPaise(rupeesToPaise(rupees)), mode: t(BY[mode]) }) : null;
+  const payReady = rupees > 0 && (mode !== 'cheque' || reference.trim().length > 0);
+  const payLine = payReady ? `${t('supplier.payLine', { supplier: name, amount: formatPaise(rupeesToPaise(rupees)), mode: modeText(mode, reference.trim() || null) })} — ${shortDate(payDate)}` : null;
+  const siteName = (pid: string | null) => (sites.length > 1 ? sites.find((p) => p.id === pid)?.name ?? '' : '');
 
   const pay = () => void run(async () => {
-    await post('/purchase/supplier-payments', { supplierId: id, amountPaise: rupeesToPaise(rupees), date: isoDate(), mode });
+    await post('/purchase/supplier-payments', { supplierId: id, projectId: paySite || null, amountPaise: rupeesToPaise(rupees), date: payDate, mode, reference: reference.trim() || null });
     setAmount('');
+    setReference('');
     await reload();
   });
   const share = () => {
-    const lines = (data?.rows ?? []).map((r) => `${shortDate(r.date.slice(0, 10))} ${r.kind === 'grn' ? `${t('supplier.received')}${r.ref ? ` (${r.ref})` : ''} ${formatPaise(r.debitPaise)}` : `${t('supplier.paid')} ${formatPaise(r.creditPaise)}`}`);
+    const lines = (data?.rows ?? []).map((r) => `${shortDate(r.date.slice(0, 10))} ${r.kind === 'grn' ? `${t('supplier.received')}${r.ref ? ` (${r.ref})` : ''}: ${(r.items ?? []).map(itemText).join(', ')} = ${formatPaise(r.debitPaise)}` : `${t('supplier.paid')} ${formatPaise(r.creditPaise)} ${modeText(r.mode, r.ref)}`}`);
     const text = [`*${t('supplier.statement', { company: me?.company.name ?? '', supplier: name })}*`, ...lines, `*${t('supplier.due', { amount: formatPaise(data?.duePaise ?? 0) })}*`].join('\n');
     const phone = String(supplier?.phone ?? '').replace(/\D/g, '').slice(-10);
     void Linking.openURL(`https://wa.me/${phone ? `91${phone}` : ''}?text=${encodeURIComponent(text)}`);
@@ -85,11 +154,27 @@ export default function Supplier() {
           <Ask q={t('supplier.qAmount')}>
             <Input value={amount} onChangeText={setAmount} keyboardType="number-pad" placeholder="₹ 25,000" accessibilityLabel={t('supplier.qAmount')} style={{ fontSize: 22 }} />
             {data && data.duePaise > 0 ? <Chips options={[{ value: String(Math.round(data.duePaise / 100)), label: formatPaise(Math.round(data.duePaise / 100) * 100) }]} value={String(rupees)} onChange={setAmount} /> : null}
-            <Chips<Mode> options={[{ value: 'bank', label: t('pay.bank') }, { value: 'upi', label: 'UPI' }, { value: 'cash', label: t('pay.cash') }]} value={mode} onChange={setMode} />
           </Ask>
+          <Ask q={t('money.qMode')}>
+            <PayModeField mode={mode} onMode={setMode} reference={reference} onReference={setReference} />
+          </Ask>
+          <Ask q={t('supplier.qWhen')}>
+            <DayStep value={payDate} onChange={setPayDate} />
+          </Ask>
+          {sites.length > 1 ? (
+            <Ask q={t('money.qSite')} optional>
+              <Chips<string> options={[...sites.map((p) => ({ value: p.id, label: p.name })), { value: '', label: t('money.noSite') }]} value={paySite} onChange={setPaySite} />
+            </Ask>
+          ) : null}
           {payLine ? <DiaryLine text={payLine} /> : null}
-          <Button icon="cash-check" label={t('supplier.pay')} busy={busy} disabled={!rupees} onPress={pay} />
+          <Button icon="cash-check" label={t('supplier.pay')} busy={busy} disabled={!payReady} onPress={pay} />
         </Card>
+      ) : null}
+
+      {can('store', 'C') ? (
+        billing
+          ? <NoteBill supplierId={id} supplierName={name} onSaved={() => { setBilling(false); void reload(); }} />
+          : <Button kind="secondary" icon="truck-delivery-outline" label={t('supplier.bill')} onPress={() => setBilling(true)} />
       ) : null}
 
       {data?.rows.length ? (
@@ -101,8 +186,8 @@ export default function Supplier() {
                 <Pressable disabled={r.kind !== 'grn'} onPress={() => setOpen(open === r.id ? null : r.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <IconBadge name={r.kind === 'grn' ? 'truck-delivery' : 'cash-check'} tone={r.kind === 'grn' ? (r.unpricedLines ? 'warn' : 'primary') : 'ok'} size={34} />
                   <View style={{ flex: 1 }}>
-                    <T.body bold>{r.kind === 'grn' ? t('supplier.received') : t('supplier.paid')}{r.ref ? ` · ${r.ref}` : ''}</T.body>
-                    <T.small>{shortDate(r.date.slice(0, 10))}{r.unpricedLines ? ` · ${t('supplier.rateNeeded')}` : ''} · {t('supplier.balance')} {formatPaise(r.balancePaise)}</T.small>
+                    <T.body bold>{r.kind === 'grn' ? (r.items?.length ? r.items.map(itemText).join(', ') : t('supplier.received')) : `${t('supplier.paid')} ${modeText(r.mode, r.ref)}`}</T.body>
+                    <T.small>{[shortDate(r.date.slice(0, 10)), r.kind === 'grn' && r.ref ? r.ref : '', siteName(r.projectId), r.unpricedLines ? t('supplier.rateNeeded') : ''].filter(Boolean).join(' · ')} · {t('supplier.balance')} {formatPaise(r.balancePaise)}</T.small>
                   </View>
                   {r.kind === 'grn' && r.unpricedLines && !r.debitPaise ? <T.small bold color={colors.warning}>{t('supplier.setRate')}</T.small> : <T.body bold color={r.kind === 'grn' ? colors.ink : colors.success}>{r.kind === 'grn' ? formatPaise(r.debitPaise) : `−${formatPaise(r.creditPaise)}`}</T.body>}
                   {r.kind === 'grn' ? <Icon name={open === r.id ? 'chevron-up' : 'chevron-down'} size={22} color={colors.faint} /> : null}

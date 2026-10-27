@@ -1,6 +1,6 @@
 // Demo data: one company with a supervisor-ready site. Safe to run twice (skips if the demo company exists).
 import { Prisma } from '@prisma/client';
-import { addDays, isoDate, rupeesToPaise } from '@site-diary/shared';
+import { addDays, isoDate, rupeesToPaise, seesAllSites } from '@site-diary/shared';
 import { prisma, transaction } from './lib/prisma';
 import { createCompany } from './modules/company/setup';
 import { rebuildLedger } from './modules/store/ledger';
@@ -23,6 +23,7 @@ async function main() {
       { name: 'Kanubhai Rathod', phone: '+919800000003', role: 'supervisor' },
       { name: 'Vipul Prajapati', phone: '+919800000004', role: 'store' },
       { name: 'Nisha Mehta', phone: '+919800000005', role: 'accountant' },
+      { name: 'Mukeshbhai Desai', phone: '+919800000006', role: 'partner' },
     ] as const;
     const users = [owner, ...(await Promise.all(people.map((p) => tx.user.create({ data: { ...p, companyId, language: p.role === 'accountant' ? 'en' : 'gu', createdById } }))))];
     const skills = await tx.skill.findMany({ where: { companyId } });
@@ -40,7 +41,7 @@ async function main() {
         createdById,
       },
     });
-    await tx.userSite.createMany({ data: users.filter((u) => u.role !== 'owner' && u.role !== 'accountant').map((u) => ({ companyId, userId: u.id, projectId: project.id, createdById })) });
+    await tx.userSite.createMany({ data: users.filter((u) => !seesAllSites(u.role)).map((u) => ({ companyId, userId: u.id, projectId: project.id, createdById })) });
 
     // "B block, 12 floors" — the bulk-create shape from the scope.
     const tower = await tx.structureNode.create({ data: { companyId, projectId: project.id, kind: 'tower', name: 'B block', createdById } });
@@ -156,6 +157,24 @@ async function history() {
       lines: { create: [{ companyId, materialId: mat('AAC blocks').id, qty: 2000, createdById: sup.id }] } },
   });
   await prisma.issue.create({ data: { companyId, projectId: project.id, title: 'લિફ્ટ શાફ્ટ પાસે પાણી ભરાય છે', status: 'open', createdById: sup.id } });
+
+  // The partners' book: flats with buyers, money in and out (supplier payments and upad come in by themselves).
+  const owner = users.find((u) => u.role === 'owner')!;
+  const partner = users.find((u) => u.role === 'partner')!;
+  const flat = (name: string, buyerName: string | null, buyerPhone: string | null, deal: number | null) =>
+    prisma.unit.create({ data: { companyId, projectId: project.id, name, buyerName, buyerPhone, dealPaise: deal == null ? null : BigInt(rupeesToPaise(deal)), createdById: owner.id } });
+  const a101 = await flat('A-101', 'Mahendrabhai Patel', '9825012345', 45_00_000);
+  const a102 = await flat('A-102', 'Kiritbhai Shah', '9825054321', 42_00_000);
+  await flat('A-201', null, null, null);
+  const money = (by: string, back: number, e: Omit<Prisma.MoneyEntryUncheckedCreateInput, 'companyId' | 'date' | 'createdById' | 'amountPaise'> & { rupees: number }) => {
+    const { rupees, ...rest } = e;
+    return prisma.moneyEntry.create({ data: { ...rest, companyId, projectId: project.id, date: day(addDays(today, -back)), amountPaise: BigInt(rupeesToPaise(rupees)), createdById: by } });
+  };
+  await money(partner.id, 13, { direction: 'in', kind: 'partner', party: 'Mukeshbhai Desai', rupees: 25_00_000, mode: 'bank', reference: 'NEFT 88123' });
+  await money(owner.id, 10, { direction: 'in', kind: 'flat', unitId: a101.id, rupees: 11_00_000, mode: 'cheque', reference: '004211' });
+  await money(owner.id, 6, { direction: 'in', kind: 'flat', unitId: a102.id, rupees: 5_00_000, mode: 'cheque', reference: '118734' });
+  await money(owner.id, 8, { direction: 'out', kind: 'labour', party: 'Jay Ambe Shuttering', rupees: 1_80_000, mode: 'cheque', reference: '000981', note: '4th slab centering bill' });
+  await money(partner.id, 4, { direction: 'out', kind: 'other', party: 'AMC', rupees: 65_000, mode: 'bank', note: 'Plan pass fee' });
 }
 
 async function rebuild(companyId: string, source: 'grn' | 'issue', id: string) {

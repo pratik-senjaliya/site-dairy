@@ -2,6 +2,20 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-10-27 — Partners' money book, party accounts, upad by trade
+
+From a builder's call (party-wise steel bills, cheque numbers, upad for centering/saliya/bharai) and the ask for a
+flats' hisab every partner can see. Rules in `docs/decisions.md`.
+
+- **Money book** (`app/accounts.tsx`, `app/money.tsx`, `app/unit.tsx`; API `modules/accounts`; shared
+  `accounts.ts` with tests): totals in / out / in hand, the book (who wrote each line, removed lines struck
+  through), flats with buyer, deal, received and due; WhatsApp statement for partners and for a buyer.
+- **Partner** role (migration `accounts_partners`, also `cheque` payment mode); demo login and seed …06.
+- **Party accounts**: cheque + number, payment date and site; items on each receipt; "note this party's bill";
+  suppliers list "by material".
+- **Upad**: contractors by trade first; trade ભરાઈ added.
+- Owner/partner home: "in hand" card and a money book tile.
+
 ## 2026-10-27 — Phone UI pass: header, footer, large-font phones
 
 On a real Android phone the screens looked unfinished: a beige strip above the white header, a crowded header,

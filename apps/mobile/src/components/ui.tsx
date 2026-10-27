@@ -168,7 +168,7 @@ export function Chip({ label, selected, onPress, tone, icon }: { label: string; 
       style={({ pressed }) => [s.chip, selected && s.chipSelected, toneColor && !selected && { borderColor: toneColor, backgroundColor: colors.surface }, pressed && s.pressed]}
     >
       {selected ? <Icon name="check" size={16} color={fg} /> : icon ? <Icon name={icon} size={16} color={fg} /> : null}
-      <Text style={[s.chipText, { color: fg }]}>{label}</Text>
+      <Text style={[s.chipText, { color: fg }]} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
 }
@@ -276,6 +276,20 @@ export function ListRow({ icon, tone = 'primary', title, detail, value, onPress,
   );
 }
 
+/** Money totals as rows (label left, amount right): lakhs and crores never get cut off the way three boxes do. */
+export function Totals({ rows }: { rows: { label: string; value: string; tone?: Tone; bold?: boolean; onPress?: () => void }[] }) {
+  return (
+    <Card style={flush}>
+      {rows.map((r, i) => (
+        <Pressable key={r.label} disabled={!r.onPress} onPress={r.onPress} style={({ pressed }) => [s.totalRow, i > 0 && s.totalLine, pressed && { backgroundColor: colors.surfaceAlt }]}>
+          <Text style={[s.text, { flex: 1, color: colors.muted, fontWeight: '600' }]}>{r.label}</Text>
+          <Text style={[r.bold ? s.totalBig : s.totalValue, r.tone ? { color: TONES[r.tone].fg } : null]} numberOfLines={1}>{r.value}</Text>
+        </Pressable>
+      ))}
+    </Card>
+  );
+}
+
 /** A number with what it counts, for the top of a dashboard. */
 export function Stat({ value, label, tone, onPress }: { value: string | number; label: string; tone?: Tone; onPress?: () => void }) {
   return (
@@ -345,9 +359,9 @@ export const s = StyleSheet.create({
   badgeInline: { backgroundColor: colors.primary, borderRadius: radius.pill, minWidth: 24, height: 24, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: colors.primaryText, fontWeight: '800', fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { minHeight: touch.minTarget, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  chip: { maxWidth: '100%', minHeight: touch.minTarget, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: type.body, color: colors.ink, fontWeight: '600' },
+  chipText: { flexShrink: 1, fontSize: type.body, color: colors.ink, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepBtn: { width: 52, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   stepBtnPlus: { backgroundColor: colors.primarySoft },
@@ -383,6 +397,10 @@ export const s = StyleSheet.create({
   small: { fontSize: type.label, color: colors.muted, lineHeight: 20 },
   big: { fontSize: 30, fontWeight: '800', color: colors.ink },
   empty: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
+  totalRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  totalLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  totalValue: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  totalBig: { fontSize: 24, fontWeight: '800', color: colors.ink },
   banner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md },
   bannerText: { flex: 1, fontSize: type.body, fontWeight: '600', lineHeight: 22 },
 });

@@ -25,6 +25,8 @@ enum Role {
   supervisor
   store
   accountant
+  /// A partner in the company: sees every site and the money, and notes money in and out.
+  partner
 }
 
 enum Language {
@@ -61,6 +63,12 @@ enum PaymentMode {
   cash
   upi
   bank
+  cheque
+}
+
+enum MoneyDirection {
+  in
+  out
 }
 
 enum SettlementStatus {
@@ -884,4 +892,58 @@ model SupplierPayment {
   @@index([supplierId, date])
   @@index([companyId, serverRev])
   @@map("supplier_payments")
+}
+
+/// A flat, shop or bungalow of a site, and its buyer once sold. Payments from the buyer are money entries.
+model Unit {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  name        String
+  buyerName   String?   @map("buyer_name")
+  buyerPhone  String?   @map("buyer_phone")
+  /// The price agreed with the buyer.
+  dealPaise   BigInt?   @map("deal_paise")
+  note        String?
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId])
+  @@index([companyId, serverRev])
+  @@map("units")
+}
+
+/// The partners' cash book: money that came in (a buyer's payment, a partner's capital, a loan) or went out
+/// (anything not already in the app as a supplier payment, upad or wage settlement). Removed entries stay
+/// visible with who removed them, so every partner can trust the book.
+model MoneyEntry {
+  id          String         @id @default(uuid()) @db.Uuid
+  companyId   String         @map("company_id") @db.Uuid
+  projectId   String?        @map("project_id") @db.Uuid
+  direction   MoneyDirection
+  /// in: flat | partner | loan | other; out: labour | material | partner | other
+  kind        String
+  unitId      String?        @map("unit_id") @db.Uuid
+  /// Who paid or was paid, in words ("Patel Hardware", "Jay Ambe Centering").
+  party       String?
+  amountPaise BigInt         @map("amount_paise")
+  date        DateTime       @db.Date
+  mode        PaymentMode    @default(cash)
+  /// Cheque number, UPI or bank reference.
+  reference   String?
+  note        String?
+  deletedById String?        @map("deleted_by") @db.Uuid
+  createdById String?        @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt         @default(0) @map("server_rev")
+
+  @@index([companyId, projectId, date])
+  @@index([unitId])
+  @@index([companyId, serverRev])
+  @@map("money_entries")
 }

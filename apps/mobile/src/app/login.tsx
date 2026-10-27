@@ -89,7 +89,7 @@ export default function Login() {
             <Card style={DEMO_BUILD ? { borderColor: colors.primary, borderWidth: 2 } : undefined}>
               <T.h2>{t('demo.title')}</T.h2>
               <T.small>{t('demo.hint')}</T.small>
-              {(['supervisor', 'owner', 'engineer', 'store', 'accountant'] as const).map((role) => (
+              {(['supervisor', 'owner', 'partner', 'engineer', 'store', 'accountant'] as const).map((role) => (
                 <Button key={role} kind={role === 'supervisor' ? 'primary' : 'secondary'} small label={t(`role.${role}`)} busy={busy} onPress={() => run(async () => {
                   await setDemo(true);
                   await finish(await post<Verify>('/auth/demo', { role }));

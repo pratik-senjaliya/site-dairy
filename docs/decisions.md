@@ -2,6 +2,25 @@
 
 Short records of choices that differ from, or add to, `docs/scope.md`. Newest first.
 
+## 2026-10-27 — Partners and the money book
+
+Builders asked for the flats' hisab that every partner can see, so trust does not depend on one person's diary.
+
+- **Partner** is a role: sees every site and all money (V everywhere a builder would look), writes only in the
+  money book. Like owners and accountants, partners are not counted against the plan's staff limit.
+- **The book** (`units`, `money_entries`, `GET /accounts`): flats with buyer and deal amount; money in (flat,
+  partner capital, loan, other) and out (labour/contract bills, material, paid to a partner, other). Supplier
+  payments, upad and paid wage settlements are added by the book itself, never entered twice.
+- **Trust rules**: every line shows who wrote it. Lines are never edited; the writer or the owner removes one,
+  and it stays in the book struck through with who removed it. Each new or removed line notifies the owner,
+  partners and accountant (not the writer). Online only, like supplier payments (no offline money entries).
+- **Party accounts** (from the builders' call): a payment has its date, mode incl. cheque with the cheque number,
+  and optionally its site; each receipt shows what came ("સળિયા 2,500 kg @ ₹62"). The owner can note a
+  party's bill himself (a material receipt with rate, any past day); "by material" shows e.g. steel from 3 parties.
+- **Upad by trade**: contractors show as "સેન્ટરિંગ · Jay Ambe"; new trade ભરાઈ (filling). Upad stays a labour
+  contractor's advance; material is the builder's (supplier accounts).
+- Not done yet, from the same call: contractor RA bills (piece-rate work like centering per sq ft).
+
 ## 2026-10-15 — Phone storage: our own small sync store instead of WatermelonDB (for now)
 
 WatermelonDB needs a custom native build (its SQLite adapter is not in Expo Go) and its support for React Native's new architecture on Expo SDK 57 is unproven. That would block the quickest pilot path (Expo Go and the browser build). The app keeps its copy in `apps/mobile/src/lib/db.ts`: per-table maps persisted to AsyncStorage, an outbox, a photo upload queue, and pulls by `server_rev` — the same protocol shape WatermelonDB's sync uses, so a later swap only touches that file. Limits: everything for the user's sites (30 days of daily entries) is held in memory; fine for 1–5 sites, revisit above a few thousand rows per table or when lists feel slow on a ₹10k phone.

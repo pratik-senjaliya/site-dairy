@@ -9,4 +9,4 @@ export const dateTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 /** "Cement · સિમેન્ટ" */
 export const bilingual = (r: { nameEn?: string; nameGu?: string } | undefined) => (r ? (r.nameGu && r.nameGu !== r.nameEn ? `${r.nameEn} · ${r.nameGu}` : (r.nameEn ?? '')) : '');
-export const ROLE_LABEL: Record<string, string> = { owner: 'Owner', engineer: 'Site engineer', supervisor: 'Supervisor', store: 'Store keeper', accountant: 'Accountant' };
+export const ROLE_LABEL: Record<string, string> = { owner: 'Owner', engineer: 'Site engineer', supervisor: 'Supervisor', store: 'Store keeper', accountant: 'Accountant', partner: 'Partner' };

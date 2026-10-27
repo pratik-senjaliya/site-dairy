@@ -1,4 +1,4 @@
-import { isoDateSchema, paiseSchema, parseSettings, qtySchema, uuidSchema } from '@site-diary/shared';
+import { isoDateSchema, PAY_MODES, paiseSchema, parseSettings, qtySchema, uuidSchema } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
@@ -97,7 +97,7 @@ const paymentSchema = z.object({
   projectId: uuidSchema.nullable().optional(),
   amountPaise: paiseSchema.min(1),
   date: isoDateSchema,
-  mode: z.enum(['cash', 'upi', 'bank']),
+  mode: z.enum(PAY_MODES),
   reference: z.string().trim().max(100).nullable().optional(),
 });
 
@@ -127,14 +127,16 @@ export async function supplierLedger(companyId: string, supplierId: string) {
   const entries = [
     ...grns.map((g) => {
       let unpriced = 0;
-      const amount = g.lines.reduce((s, l) => {
+      // What came, so the account reads "સળિયા 2,500 kg @ ₹62", not just an amount.
+      const items = g.lines.map((l) => {
         const rate = l.ratePaise ?? poLines.find((p) => p.poId === g.poId && p.materialId === l.materialId)?.ratePaise ?? null;
         if (rate == null) unpriced++;
-        return s + Math.round((l.qty.toNumber() - l.rejectedQty.toNumber()) * Number(rate ?? 0));
-      }, 0);
-      return { date: g.date, kind: 'grn' as const, id: g.id, ref: g.challanNo, projectId: g.projectId, debitPaise: amount, creditPaise: 0, unpricedLines: unpriced };
+        return { materialId: l.materialId, qty: l.qty.toNumber() - l.rejectedQty.toNumber(), ratePaise: rate == null ? null : Number(rate) };
+      });
+      const amount = items.reduce((s, i) => s + Math.round(i.qty * (i.ratePaise ?? 0)), 0);
+      return { date: g.date, kind: 'grn' as const, id: g.id, ref: g.challanNo, projectId: g.projectId, debitPaise: amount, creditPaise: 0, unpricedLines: unpriced, items, mode: null };
     }),
-    ...payments.map((p) => ({ date: p.date, kind: 'payment' as const, id: p.id, ref: p.reference, projectId: p.projectId, debitPaise: 0, creditPaise: Number(p.amountPaise), unpricedLines: 0 })),
+    ...payments.map((p) => ({ date: p.date, kind: 'payment' as const, id: p.id, ref: p.reference, projectId: p.projectId, debitPaise: 0, creditPaise: Number(p.amountPaise), unpricedLines: 0, items: [], mode: p.mode })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
   let balance = 0;
   const rows = entries.map((e) => ({ ...e, balancePaise: (balance += e.debitPaise - e.creditPaise) }));
@@ -143,6 +145,30 @@ export async function supplierLedger(companyId: string, supplierId: string) {
 
 purchase.get('/supplier-ledger/:id', allow('po', 'V'), async (req, res) => {
   res.json(await supplierLedger(me(req).companyId, param(req)));
+});
+
+/** Each material by party: how much came from whom and its value (steel often comes from 3–4 parties). */
+purchase.get('/by-material', allow('po', 'V'), async (req, res) => {
+  const m = me(req);
+  const projectId = siteParam(m, req.query.projectId);
+  const lines = await prisma.grnLine.findMany({
+    where: { companyId: m.companyId, deletedAt: null, grn: { deletedAt: null, supplierId: { not: null }, ...siteWhere(m), ...(projectId && { projectId }) } },
+    include: { grn: { select: { supplierId: true, poId: true } } },
+  });
+  const poLines = await prisma.poLine.findMany({ where: { poId: { in: lines.map((l) => l.grn.poId ?? '').filter(Boolean) }, deletedAt: null } });
+  const rows = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }>();
+  for (const l of lines) {
+    const key = `${l.materialId}:${l.grn.supplierId}`;
+    const r = rows.get(key) ?? { materialId: l.materialId, supplierId: l.grn.supplierId!, qty: 0, amountPaise: 0, receipts: 0, unpriced: 0 };
+    const qty = l.qty.toNumber() - l.rejectedQty.toNumber();
+    const rate = l.ratePaise ?? poLines.find((p) => p.poId === l.grn.poId && p.materialId === l.materialId)?.ratePaise ?? null;
+    r.qty += qty;
+    r.amountPaise += Math.round(qty * Number(rate ?? 0));
+    r.receipts += 1;
+    if (rate == null) r.unpriced += 1;
+    rows.set(key, r);
+  }
+  res.json([...rows.values()]);
 });
 
 purchase.get('/pos/:id/pdf', allow('po', 'V', 'C'), async (req, res) => {

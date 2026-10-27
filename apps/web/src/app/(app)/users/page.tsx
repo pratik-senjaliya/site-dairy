@@ -1,6 +1,6 @@
 'use client';
 
-import { ROLES } from '@site-diary/shared';
+import { ROLES, seesAllSites, type Role } from '@site-diary/shared';
 import { App, Button, Form, Input, Modal, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Page } from '@/components/Page';
@@ -45,7 +45,7 @@ export default function UsersPage() {
         { title: 'Name', dataIndex: 'name' },
         { title: 'Phone', dataIndex: 'phone' },
         { title: 'Role', dataIndex: 'role', render: (r: string) => ROLE_LABEL[r] },
-        { title: 'Sites', dataIndex: 'siteIds', render: (ids: string[], u: User) => (u.role === 'owner' || u.role === 'accountant' ? <Typography.Text type="secondary">All sites</Typography.Text> : ids.map((id) => <Tag key={id}>{sites.find((s) => s.id === id)?.name}</Tag>)) },
+        { title: 'Sites', dataIndex: 'siteIds', render: (ids: string[], u: User) => (seesAllSites(u.role as Role) ? <Typography.Text type="secondary">All sites</Typography.Text> : ids.map((id) => <Tag key={id}>{sites.find((s) => s.id === id)?.name}</Tag>)) },
         { title: 'Language', dataIndex: 'language', render: (l: string) => ({ gu: 'ગુજરાતી', en: 'English', hi: 'हिन्दी' })[l] },
         { title: 'Last seen', dataIndex: 'lastSeenAt', render: dateTime },
         { title: 'Status', dataIndex: 'isActive', render: (a: boolean) => (a ? <Tag color="green">active</Tag> : <Tag>removed</Tag>) },
@@ -63,7 +63,7 @@ export default function UsersPage() {
           <Form.Item name="name" label="Name" rules={[{ required: true, min: 2 }]}><Input /></Form.Item>
           <Form.Item name="phone" label="Mobile number (signs in with OTP)" rules={[{ required: true }]}><Input placeholder="98250 12345" /></Form.Item>
           <Form.Item name="role" label="Role" rules={[{ required: true }]}><Select options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} /></Form.Item>
-          {role !== 'owner' && role !== 'accountant' ? <Form.Item name="siteIds" label="Sites"><Select mode="multiple" options={sites.map((s) => ({ value: s.id, label: s.name }))} /></Form.Item> : null}
+          {role && !seesAllSites(role as Role) ? <Form.Item name="siteIds" label="Sites"><Select mode="multiple" options={sites.map((s) => ({ value: s.id, label: s.name }))} /></Form.Item> : null}
           <Form.Item name="language" label="App language"><Select options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} /></Form.Item>
           <Form.Item name="isActive" label="Can sign in" valuePropName="checked"><Switch /></Form.Item>
         </Form>

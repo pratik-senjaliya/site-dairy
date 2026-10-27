@@ -1,12 +1,12 @@
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { db, useDb, type Row } from '../lib/db';
-import { useT } from '../lib/i18n';
+import { useDayName, useT } from '../lib/i18n';
 import { useSave } from '../lib/setup';
-import { UNITS, type Unit } from '@site-diary/shared';
+import { addDays, isoDate, UNITS, type PayMode, type Unit } from '@site-diary/shared';
 import { post } from '../lib/api';
-import { Button, Chip, Chips, Field, Input, Stepper, Text } from './ui';
+import { Button, Chip, Chips, Field, Icon, Input, s, Stepper, Text } from './ui';
 
 /**
  * Chips for a list (contractors, materials, floors…) in the caller's order — "most used first" via `byUse`.
@@ -115,4 +115,43 @@ export function NewMaterial({ onAdded }: { onAdded: (id: string) => void }) {
       })} />
     </View>
   );
+}
+
+/** A past day for money that was paid earlier: ‹ Tuesday 27/10 ›, never after today. */
+export function DayStep({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
+  const t = useT();
+  const dayName = useDayName();
+  const today = isoDate();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('common.prevDay')} onPress={() => onChange(addDays(value, -1))} hitSlop={6} style={s.dayBtn}><Icon name="chevron-left" size={26} /></Pressable>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Text style={{ fontSize: 17, fontWeight: '800', color: colors.ink }}>{value === today ? `${t('common.today')} · ${dayName(value)}` : dayName(value)}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('common.nextDay')} disabled={value >= today} onPress={() => onChange(addDays(value, 1))} hitSlop={6} style={[s.dayBtn, value >= today && { opacity: 0.3 }]}><Icon name="chevron-right" size={26} /></Pressable>
+    </View>
+  );
+}
+
+/** Cash, cheque, bank or UPI; a cheque asks for its number, bank and UPI for a reference (optional). */
+export function PayModeField({ mode, onMode, reference, onReference }: { mode: PayMode; onMode: (m: PayMode) => void; reference: string; onReference: (v: string) => void }) {
+  const t = useT();
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Chips<PayMode> options={[{ value: 'cash', label: t('pay.cash') }, { value: 'cheque', label: t('pay.cheque') }, { value: 'bank', label: t('pay.bank') }, { value: 'upi', label: 'UPI' }]} value={mode} onChange={onMode} />
+      {mode === 'cash' ? null : (
+        <Input value={reference} onChangeText={onReference} placeholder={mode === 'cheque' ? `${t('money.chequeNo')} · 004512` : `${t('money.ref')} (${t('common.optional')})`} accessibilityLabel={mode === 'cheque' ? t('money.chequeNo') : t('money.ref')} keyboardType={mode === 'cheque' ? 'number-pad' : 'default'} maxLength={40} />
+      )}
+    </View>
+  );
+}
+
+/** "by cheque 004512", "in cash": how money moved, for diary sentences and book lines. */
+export function useModeText() {
+  const t = useT();
+  return (mode: PayMode | null | undefined, reference?: string | null) => {
+    if (!mode) return '';
+    const by = t(({ cash: 'advance.byCash', upi: 'advance.byUpi', bank: 'advance.byBank', cheque: 'advance.byCheque' } as const)[mode]);
+    return reference ? `${by} (${reference})` : by;
+  };
 }

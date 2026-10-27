@@ -1,3 +1,4 @@
+import { seesAllSites, type Role } from '@site-diary/shared';
 import { router } from 'expo-router';
 import { Banner, Button, Card, Empty, flush, ListRow, Screen } from '../../components/ui';
 import { useOnline } from '../../lib/hooks';
@@ -23,7 +24,7 @@ export default function People() {
               icon={p.role === 'owner' ? 'crown-outline' : 'account-outline'}
               tone={p.isActive ? 'primary' : 'muted'}
               title={p.name}
-              detail={[t(`role.${p.role}` as 'role.owner'), p.role === 'owner' || p.role === 'accountant' ? t('setup.allSites') : siteNames(p.siteIds), p.isActive ? '' : t('setup.stopped')].filter(Boolean).join(' · ')}
+              detail={[t(`role.${p.role}` as 'role.owner'), seesAllSites(p.role as Role) ? t('setup.allSites') : siteNames(p.siteIds), p.isActive ? '' : t('setup.stopped')].filter(Boolean).join(' · ')}
               onPress={p.id === me?.user.id ? undefined : () => router.push({ pathname: '/setup/person', params: { id: p.id } })}
               last={i === data.length - 1}
             />

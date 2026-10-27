@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { bookTotals, moneyEntrySchema, unitAccount } from './accounts';
 import { addDays, daysBetween, isoDate, shortDate, wageWeek } from './dates';
 import { formatPaise, rupeesToPaise } from './money';
 import { phoneSchema } from './schemas';
@@ -97,4 +98,20 @@ test('stock days left at the recent rate of use', () => {
   assert.deepEqual(stockDaysLeft(-5, 10, 2), { perDay: 5, days: 0 });
   assert.equal(stockDaysLeft(100, 0, 6), null, 'not used lately');
   assert.equal(stockDaysLeft(100, 10, 0), null);
+});
+
+test('accounts: removed lines do not count; in hand = in − out', () => {
+  const line = (direction: 'in' | 'out', amountPaise: number, removed = false, unitId: string | null = null) => ({ direction, amountPaise, unitId, removed: removed ? { by: 'x', at: '2026-10-27' } : null });
+  const lines = [line('in', 500000, false, 'a101'), line('in', 200000, false, 'a101'), line('in', 900000, true, 'a101'), line('out', 300000), line('out', 50000, true)];
+  assert.deepEqual(bookTotals(lines), { inPaise: 700000, outPaise: 300000, balancePaise: 400000 });
+  assert.deepEqual(unitAccount(1000000, lines, 'a101'), { receivedPaise: 700000, duePaise: 300000 });
+  assert.deepEqual(unitAccount(null, lines, 'a102'), { receivedPaise: 0, duePaise: null });
+});
+
+test('accounts: a buyer payment needs the flat; kinds follow the direction', () => {
+  const base = { direction: 'in', amountPaise: 100, date: '2026-10-27', mode: 'cheque' } as const;
+  assert.equal(moneyEntrySchema.safeParse({ ...base, kind: 'flat' }).success, false);
+  assert.equal(moneyEntrySchema.safeParse({ ...base, kind: 'flat', unitId: '6f333777-ca21-43ad-b1ef-8caadba2b246' }).success, true);
+  assert.equal(moneyEntrySchema.safeParse({ ...base, kind: 'labour' }).success, false);
+  assert.equal(moneyEntrySchema.safeParse({ ...base, direction: 'out', kind: 'labour' }).success, true);
 });

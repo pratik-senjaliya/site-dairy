@@ -1,3 +1,4 @@
+import { seesAllSites } from '@site-diary/shared';
 import { colors } from '@site-diary/ui-tokens';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
@@ -13,7 +14,7 @@ export default function Gate() {
     );
   }
   if (status === 'out') return <Redirect href="/login" />;
-  const office = me?.user.role === 'owner' || me?.user.role === 'accountant';
+  const office = me ? seesAllSites(me.user.role) : false;
   if (!siteId && !office) return <Redirect href="/sites" />;
   return <Redirect href="/home" />;
 }

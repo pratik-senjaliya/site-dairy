@@ -62,10 +62,10 @@ export async function world() {
   const companyId = company.id;
   const siteA = await prisma.project.create({ data: { companyId, name: 'Site A', type: 'rcc_frame' } });
   const siteB = await prisma.project.create({ data: { companyId, name: 'Site B', type: 'rcc_frame' } });
-  const people: Record<Role, string> = { owner: ownerPhone, engineer: phone(), supervisor: phone(), store: phone(), accountant: phone() };
-  for (const role of ['engineer', 'supervisor', 'store', 'accountant'] as const) {
+  const people: Record<Role, string> = { owner: ownerPhone, engineer: phone(), supervisor: phone(), store: phone(), accountant: phone(), partner: phone() };
+  for (const role of ['engineer', 'supervisor', 'store', 'accountant', 'partner'] as const) {
     const u = await prisma.user.create({ data: { companyId, name: role, phone: people[role], role } });
-    if (role !== 'accountant') await prisma.userSite.create({ data: { companyId, userId: u.id, projectId: siteA.id } });
+    if (role !== 'accountant' && role !== 'partner') await prisma.userSite.create({ data: { companyId, userId: u.id, projectId: siteA.id } });
   }
   const contractor = await prisma.contractor.create({ data: { companyId, name: 'Contractor' } });
   const skills = await prisma.skill.findMany({ where: { companyId }, orderBy: { sort: 'asc' } });

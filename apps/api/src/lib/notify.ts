@@ -24,13 +24,13 @@ export function render(lang: Locale, m: Var | undefined): string {
   return lang === 'en' ? m.en : lang === 'hi' ? (m.hi ?? m.en) : m.gu;
 }
 
-/** Users of these roles who can see this site (owner/accountant see every site). */
+/** Users of these roles who can see this site (owner, accountant and partners see every site). */
 export async function recipients(tx: Tx, companyId: string, roles: Role[], projectId?: string | null): Promise<string[]> {
   const users = await tx.user.findMany({
     where: {
       companyId, isActive: true, deletedAt: null, role: { in: roles },
       ...(projectId && {
-        OR: [{ role: { in: ['owner', 'accountant'] } }, { sites: { some: { projectId, deletedAt: null } } }],
+        OR: [{ role: { in: ['owner', 'accountant', 'partner'] } }, { sites: { some: { projectId, deletedAt: null } } }],
       }),
     },
     select: { id: true },

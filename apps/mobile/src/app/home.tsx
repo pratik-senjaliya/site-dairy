@@ -1,5 +1,5 @@
 import { noticeText, type Notice } from '@site-diary/i18n';
-import { formatNumber, formatPaise, shortDate, wageWeek } from '@site-diary/shared';
+import { formatNumber, formatPaise, seesAllSites, shortDate, wageWeek } from '@site-diary/shared';
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -13,6 +13,7 @@ import { daysSince, useDayPage, useDayPages, useDiary } from '../lib/diary';
 import { useCan, useOnline } from '../lib/hooks';
 import { useDayName, useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import type { Book } from '../lib/setup';
 import { shareMessage } from '../lib/share';
 import { awaitedMaterial, siteStock } from '../lib/stock';
 
@@ -31,8 +32,7 @@ interface Dashboard {
 // M3 (field) / M12 (owner): one home that shows each role only its own jobs.
 export default function Home() {
   const { me } = useSession();
-  const role = me?.user.role;
-  if (role === 'owner' || role === 'accountant') return <OfficeHome />;
+  if (me && seesAllSites(me.user.role)) return <OfficeHome />;
   return <FieldHome />;
 }
 
@@ -160,6 +160,8 @@ function OfficeHome() {
         </Card>
       ) : null}
 
+      {can('accounts', 'V') ? <MoneyCard /> : null}
+
       {can('wages', 'V') && wages.data && (wages.data.gross || wages.data.advances) ? (
         <Card onPress={() => router.push('/hisab')}>
           <Row>
@@ -181,6 +183,7 @@ function OfficeHome() {
 
       <Section title={t('home.more')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        {can('accounts', 'V') && <Tile compact icon="book-open-variant" label={t('home.accounts')} onPress={() => router.push('/accounts')} />}
         {can('wages', 'V') && <Tile compact icon="calculator-variant-outline" label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
         <Tile compact icon="check-decagram-outline" label={t('home.approvals')} badge={data?.totals.pendingApprovals} onPress={() => router.push('/approvals')} />
         {can('po', 'V') ? <Tile compact icon="truck-outline" label={t('supplier.title')} onPress={() => router.push('/suppliers')} /> : null}
@@ -190,6 +193,32 @@ function OfficeHome() {
       </View>
     </Screen>
   );
+}
+
+/** The partners' book at a glance: in, out, in hand; one tap opens it. */
+function MoneyCard() {
+  const t = useT();
+  const { data } = useOnline<Book>('/accounts');
+  if (!data || !data.lines.length) {
+    return <ListRowCard icon="book-open-variant" title={t('home.accounts')} detail={t('accounts.empty')} onPress={() => router.push('/accounts')} />;
+  }
+  return (
+    <Card onPress={() => router.push('/accounts')}>
+      <Row>
+        <IconBadge name="book-open-variant" size={44} />
+        <View style={{ flex: 1 }}>
+          <T.small>{t('accounts.inHand')}</T.small>
+          <T.big color={data.totals.balancePaise < 0 ? colors.danger : undefined}>{rupees(data.totals.balancePaise)}</T.big>
+          <T.small>{t('accounts.homeLine', { in: rupees(data.totals.inPaise), out: rupees(data.totals.outPaise) })}</T.small>
+        </View>
+        <Icon name="chevron-right" size={26} color={colors.faint} />
+      </Row>
+    </Card>
+  );
+}
+
+function ListRowCard(props: Parameters<typeof ListRow>[0]) {
+  return <Card style={flush}><ListRow {...props} last /></Card>;
 }
 
 /** One site on the owner's home: its diary page for today, as the supervisor wrote it, and a way in. */

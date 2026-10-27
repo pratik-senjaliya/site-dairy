@@ -1,3 +1,4 @@
+import type { BookLine, PayMode } from '@site-diary/shared';
 import { useState } from 'react';
 import { ApiError, del } from './api';
 import { db } from './db';
@@ -35,14 +36,35 @@ export const toPaise = (rupees: string) => Math.round(Number(rupees.replace(/[^\
 export interface Rate { id: string; contractorId: string; skillId: string; dailyRatePaise: number; effectiveFrom: string }
 
 /** The trades a contractor usually is; stored in English, shown in the person's language. */
-export const TRADES = ['Civil', 'Shuttering', 'Steel', 'Plumbing', 'Electric', 'Painting', 'Tiles', 'Labour'] as const;
+export const TRADES = ['Civil', 'Shuttering', 'Steel', 'Filling', 'Plumbing', 'Electric', 'Painting', 'Tiles', 'Labour'] as const;
+
+/** "સેન્ટરિંગ · Jay Ambe": on site a contractor is known by the trade first ("centering wala"). */
+export function useContractorName() {
+  const t = useT();
+  return (c: Record<string, unknown> | null | undefined) => {
+    const trade = (TRADES as readonly string[]).includes(String(c?.trade)) ? t(`trade.${String(c!.trade)}` as 'trade.Civil') : null;
+    return trade ? `${trade} · ${String(c?.name ?? '')}` : String(c?.name ?? '');
+  };
+}
 
 export interface Person { id: string; name: string; phone: string; role: string; language: string; isActive: boolean; siteIds: string[]; lastSeenAt: string | null }
 
 /** A supplier's account: receipts (valued at their rate) and payments, with the running balance. */
 export interface Ledger {
-  rows: { date: string; kind: 'grn' | 'payment'; id: string; ref: string | null; projectId: string | null; debitPaise: number; creditPaise: number; unpricedLines: number; balancePaise: number }[];
+  rows: {
+    date: string; kind: 'grn' | 'payment'; id: string; ref: string | null; projectId: string | null; debitPaise: number; creditPaise: number; unpricedLines: number; balancePaise: number;
+    /** What came on a receipt (net of rejected), with its rate when known. */
+    items?: { materialId: string; qty: number; ratePaise: number | null }[];
+    mode?: PayMode | null;
+  }[];
   duePaise: number;
+}
+
+/** The partners' money book (GET /accounts): lines newest first, totals, and each flat's account. */
+export interface Book {
+  lines: BookLine[];
+  totals: { inPaise: number; outPaise: number; balancePaise: number };
+  units: { id: string; projectId: string; name: string; buyerName: string | null; buyerPhone: string | null; note: string | null; dealPaise: number | null; receivedPaise: number; duePaise: number | null }[];
 }
 
 /**

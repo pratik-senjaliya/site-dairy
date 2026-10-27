@@ -1,11 +1,41 @@
-import { formatPaise } from '@site-diary/shared';
+import { formatNumber, formatPaise } from '@site-diary/shared';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Banner, Card, Empty, flush, ListRow, Screen, Stat } from '../components/ui';
+import { Banner, Card, Chips, Empty, flush, ListRow, Screen, Stat } from '../components/ui';
 import { ApiError, get } from '../lib/api';
 import { db, useDb } from '../lib/db';
-import { useT } from '../lib/i18n';
+import { useOnline } from '../lib/hooks';
+import { useName, useT } from '../lib/i18n';
 import type { Ledger } from '../lib/setup';
+
+interface ByMaterial { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }
+
+/** Each material and the parties it came from (steel is often bought from 3–4 parties at different rates). */
+function MaterialView() {
+  const t = useT();
+  const name = useName();
+  const { data, error, reload } = useOnline<ByMaterial[]>('/purchase/by-material');
+  const groups = useDb(() => {
+    const by = new Map<string, ByMaterial[]>();
+    for (const r of data ?? []) by.set(r.materialId, [...(by.get(r.materialId) ?? []), r]);
+    return [...by].map(([materialId, rows]) => ({ material: db.find('material', materialId), rows: rows.sort((a, b) => b.qty - a.qty) }))
+      .sort((a, b) => b.rows.reduce((x, r) => x + r.amountPaise, 0) - a.rows.reduce((x, r) => x + r.amountPaise, 0));
+  });
+  if (error) return <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={() => void reload()} />;
+  if (data && !groups.length) return <Empty icon="truck-outline" text={t('supplier.none')} />;
+  return groups.map(({ material, rows }) => {
+    const unit = String(material?.unit ?? '');
+    const qty = rows.reduce((x, r) => x + r.qty, 0);
+    return (
+      <Card key={String(material?.id)} style={flush}>
+        <ListRow icon="package-variant-closed" title={name(material)} detail={t('supplier.materialSum', { parties: rows.length, qty: `${formatNumber(qty)} ${unit}` })} value={rows.some((r) => r.unpriced) && !rows.some((r) => r.amountPaise) ? t('supplier.rateNeeded') : formatPaise(rows.reduce((x, r) => x + r.amountPaise, 0))} />
+        {rows.map((r, i) => (
+          <ListRow key={r.supplierId} title={String(db.find('supplier', r.supplierId)?.name ?? '')} detail={`${t('supplier.times', { count: r.receipts, qty: `${formatNumber(r.qty)} ${unit}` })}${r.unpriced ? ` · ${t('supplier.rateNeeded')}` : ''}`} value={r.unpriced && !r.amountPaise ? t('supplier.rateNeeded') : formatPaise(r.amountPaise)} onPress={() => router.push({ pathname: '/supplier', params: { id: r.supplierId } })} last={i === rows.length - 1} />
+        ))}
+      </Card>
+    );
+  });
+}
 
 // The udhar khata with suppliers: what each is owed for material received, less what was paid.
 export default function Suppliers() {
@@ -32,14 +62,17 @@ export default function Suppliers() {
     seen.current = true;
   }, [load]));
 
+  const [view, setView] = useState<'party' | 'material'>('party');
   const used = suppliers.filter((s) => ledgers?.[s.id]?.rows.length);
   const total = used.reduce((x, s) => x + Math.max(0, ledgers?.[s.id]?.duePaise ?? 0), 0);
   return (
     <Screen title={t('supplier.title')}>
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={() => void load()} /> : null}
       {ledgers ? <Stat value={formatPaise(total)} label={t('supplier.totalDue')} tone={total ? 'warn' : 'ok'} /> : null}
-      {ledgers && !used.length ? <Empty icon="truck-outline" text={t('supplier.none')} /> : null}
-      {used.length ? (
+      <Chips<'party' | 'material'> options={[{ value: 'party', label: t('supplier.byParty') }, { value: 'material', label: t('supplier.byMaterial') }]} value={view} onChange={setView} />
+      {view === 'material' ? <MaterialView /> : null}
+      {view === 'party' && ledgers && !used.length ? <Empty icon="truck-outline" text={t('supplier.none')} /> : null}
+      {view === 'party' && used.length ? (
         <Card style={flush}>
           {used.map((s, i) => {
             const l = ledgers![s.id]!;
