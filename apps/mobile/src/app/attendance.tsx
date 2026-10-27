@@ -108,7 +108,7 @@ function AttendanceForm() {
               <T.h2>{String(c.name)}</T.h2>
               <T.small>{t('attendance.workers', { count: workersOf(c.id) })}</T.small>
             </View>
-            {workersOf(c.id) ? <Button kind="ghost" small label={t('attendance.absent')} onPress={() => setLines((ls) => ls.map((l) => (l.contractorId === c.id ? { ...l, count: 0, halfDayCount: 0, otHours: 0, fromYesterday: false } : l)))} /> : null}
+            {workersOf(c.id) ? <Button kind="ghost" small style={{ maxWidth: '50%', paddingHorizontal: spacing.sm, marginRight: -spacing.sm, marginTop: -spacing.sm }} label={t('attendance.absent')} onPress={() => setLines((ls) => ls.map((l) => (l.contractorId === c.id ? { ...l, count: 0, halfDayCount: 0, otHours: 0, fromYesterday: false } : l)))} /> : null}
           </Row>
           {lines.filter((l) => l.contractorId === c.id).map((l) => (
             <View key={l.key} style={{ gap: spacing.sm, paddingVertical: spacing.xs }}>

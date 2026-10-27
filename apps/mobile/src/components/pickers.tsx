@@ -1,12 +1,12 @@
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { db, useDb, type Row } from '../lib/db';
 import { useT } from '../lib/i18n';
 import { useSave } from '../lib/setup';
 import { UNITS, type Unit } from '@site-diary/shared';
 import { post } from '../lib/api';
-import { Button, Chip, Chips, Field, Input, Stepper } from './ui';
+import { Button, Chip, Chips, Field, Input, Stepper, Text } from './ui';
 
 /**
  * Chips for a list (contractors, materials, floors…) in the caller's order — "most used first" via `byUse`.

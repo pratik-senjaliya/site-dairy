@@ -1,7 +1,8 @@
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { Button } from './ui';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Text } from './ui';
 
 // On the web (and inside sandboxed pages) alert() and confirm() may do nothing, so the app draws its own:
 // a toast that fades for "Saved", and a dialog with two buttons for questions.
@@ -17,6 +18,7 @@ export const askConfirm = (title: string, message: string, ok: string, cancel: s
 
 export function DialogHost() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const insets = useSafeAreaInsets();
   const [ask, setAsk] = useState<Ask | null>(null);
   useEffect(() => {
     let n = 0;
@@ -33,7 +35,7 @@ export function DialogHost() {
   };
   return (
     <>
-      <View pointerEvents="box-none" style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 96, gap: spacing.sm }}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 96 + insets.bottom, gap: spacing.sm }}>
         {toasts.map((t) => (
           <Pressable key={t.id} onPress={() => setToasts((x) => x.filter((y) => y.id !== t.id))} accessibilityRole="alert"
             style={{ backgroundColor: colors.ink, borderRadius: radius.md, padding: spacing.md, maxHeight: 360 }}>
@@ -42,7 +44,7 @@ export function DialogHost() {
           </Pressable>
         ))}
       </View>
-      <Modal visible={!!ask} transparent animationType="fade" onRequestClose={() => answer(false)}>
+      <Modal visible={!!ask} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => answer(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(28,25,23,0.5)', justifyContent: 'center', padding: spacing.xl }}>
           <View accessibilityRole="alert" style={{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, gap: spacing.md }}>
             <Text style={{ fontSize: 20, fontWeight: '800', color: colors.ink }}>{ask?.title}</Text>

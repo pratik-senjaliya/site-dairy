@@ -1,6 +1,7 @@
 import { colors, radius } from '@site-diary/ui-tokens';
 import { useEffect, useState } from 'react';
-import { Image, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './ui';
 import { demoPhoto } from '../demo/server';
 import { apiUrl, authHeaders, isDemo } from '../lib/api';
 import type { Row } from '../lib/db';
@@ -45,7 +46,7 @@ export function PhotoThumb({ photo, size = 96, onPress }: { photo: Row; size?: n
         {local && !photo.uploaded ? <View style={st.dot} /> : null}
       </Pressable>
       {open && source ? (
-        <Modal visible transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Modal visible transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setOpen(false)}>
           <Pressable style={st.viewer} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="close">
             <Image source={source} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
           </Pressable>

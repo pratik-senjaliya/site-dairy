@@ -1,9 +1,9 @@
 import { colors, radius } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
 import { db, useDb } from '../lib/db';
 import { useT } from '../lib/i18n';
-import { Icon } from './ui';
+import { Icon, Text } from './ui';
 
 /** "Never lose an entry": always shows whether everything has reached the office. */
 export function SyncBadge() {
@@ -15,9 +15,9 @@ export function SyncBadge() {
   // All sent: just the green mark (its name is read out); otherwise say what is waiting.
   const quiet = !state.syncing && !state.offline && !state.waiting;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push('/sync')} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: quiet ? 8 : 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: soft, maxWidth: 170 }}>
-      <Icon name={state.syncing ? 'sync' : state.offline ? 'wifi-off' : state.waiting ? 'cloud-upload-outline' : 'cloud-check-outline'} size={quiet ? 20 : 16} color={tone} />
-      {quiet ? null : <Text style={{ color: tone, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{label}</Text>}
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push('/sync')} hitSlop={8} style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 34, borderRadius: radius.pill, backgroundColor: soft, marginRight: 4 }, quiet ? { width: 34 } : { paddingHorizontal: 10, maxWidth: 140 }]}>
+      <Icon name={state.syncing ? 'sync' : state.offline ? 'wifi-off' : state.waiting ? 'cloud-upload-outline' : 'cloud-check-outline'} size={quiet ? 19 : 16} color={tone} />
+      {quiet ? null : <Text style={{ flexShrink: 1, color: tone, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{label}</Text>}
     </Pressable>
   );
 }

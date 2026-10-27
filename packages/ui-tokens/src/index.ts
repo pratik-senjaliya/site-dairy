@@ -37,11 +37,16 @@ export const touch = { minTarget: 48, stepperButton: 56 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
-/** One soft shadow for raised surfaces (cards, header, footer); Android uses elevation. */
+/**
+ * Raised surfaces (cards, tiles): a hairline edge and a barely-there shadow. Android's elevation shadow is grey
+ * and heavy on a warm background, so it stays at 1 and the edge does the work.
+ */
 export const shadow = {
+  borderWidth: 1,
+  borderColor: '#EDE8E0',
   shadowColor: '#3B2A1A',
-  shadowOpacity: 0.08,
-  shadowRadius: 10,
-  shadowOffset: { width: 0, height: 3 },
-  elevation: 2,
+  shadowOpacity: 0.05,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 1,
 } as const;

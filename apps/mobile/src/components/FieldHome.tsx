@@ -2,7 +2,7 @@ import { addDays, isLowStock, shortDate, type StockRow } from '@site-diary/share
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { isDemo } from '../lib/api';
 import { db, useDb, type Row as DbRow } from '../lib/db';
 import { useDayPage, useDiary, type DiaryKind } from '../lib/diary';
@@ -12,7 +12,7 @@ import { useSession } from '../lib/session';
 import { shareDailyReport, shareMessage } from '../lib/share';
 import { awaitedMaterial } from '../lib/stock';
 import { SyncBadge } from './SyncBadge';
-import { Banner, Button, Card, Chip, Icon, IconBadge, Row, s, Screen, Section, T, Tile, type IconName, type Tone } from './ui';
+import { Banner, Button, Card, Chip, HeaderButton, Icon, IconBadge, Row, s, Screen, Section, T, Text, Tile, type IconName, type Tone } from './ui';
 
 export const KIND: Record<DiaryKind, { icon: IconName; tone: Tone }> = {
   day: { icon: 'weather-pouring', tone: 'info' },
@@ -38,26 +38,13 @@ export function DiaryLines({ lines, max = Infinity }: { lines: { kind: DiaryKind
 /** Header button to the profile (language, sync, sign out), so it is never at the bottom of a long home. */
 export function Me() {
   const t = useT();
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={t('home.profile')} onPress={() => router.push('/profile')} hitSlop={10} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon name="account-circle-outline" size={28} />
-    </Pressable>
-  );
+  return <HeaderButton icon="account-circle-outline" label={t('home.profile')} onPress={() => router.push('/profile')} />;
 }
 
 export function Bell() {
   const t = useT();
   const { data } = useOnline<{ unread: number }>('/notifications');
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={t('notifications.title')} onPress={() => router.push('/notifications')} hitSlop={10} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon name={data?.unread ? 'bell-ring-outline' : 'bell-outline'} size={26} />
-      {data?.unread ? (
-        <View style={{ position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: radius.pill, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
-          <Text style={{ color: colors.primaryText, fontSize: 11, fontWeight: '800' }}>{data.unread}</Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
+  return <HeaderButton icon={data?.unread ? 'bell-ring-outline' : 'bell-outline'} label={t('notifications.title')} badge={data?.unread} onPress={() => router.push('/notifications')} />;
 }
 
 // M3: the site's diary for the day, what is still to do, and the entry screens. Home for supervisors,
@@ -115,23 +102,19 @@ export function FieldHome({ back = false }: { back?: boolean }) {
       back={back}
       title={site?.name ?? ''}
       subtitle={`${t('home.hello', { name: me?.user.name.split(' ')[0] ?? '' })} · ${dayName(today)}`}
+      // Several sites: the site name itself is the switch (one icon less in a crowded header).
+      onTitlePress={(me?.projects.length ?? 0) > 1 && !back ? () => router.push('/sites') : undefined}
       right={
-        <Row style={{ gap: 2 }}>
+        <>
           <SyncBadge />
-          {(me?.projects.length ?? 0) > 1 && !back ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={t('home.changeSite')} onPress={() => router.push('/sites')} hitSlop={8} style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="swap-horizontal" size={24} />
-            </Pressable>
-          ) : null}
           {back ? null : <Bell />}
           {back ? null : <Me />}
-        </Row>
+        </>
       }
       footer={
         <Row>
-          <Button style={{ flex: 2 }} kind="success" icon="whatsapp" label={t('home.whatsapp')} disabled={!page.length} onPress={() => void shareMessage(message)} />
+          <Button style={{ flex: 1 }} kind="success" icon="whatsapp" label={t('home.whatsapp')} disabled={!page.length} onPress={() => void shareMessage(message)} />
           <Button
-            style={{ flex: 1 }}
             kind="secondary"
             icon="file-pdf-box"
             label="PDF"

@@ -2,9 +2,9 @@ import type { Locale, MessageKey } from '@site-diary/i18n';
 import { colors, spacing, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Banner, Button, Card, Chips, Field, Icon, Input, T } from '../components/ui';
+import { Banner, Button, Card, Chips, Field, Icon, Input, T, Text } from '../components/ui';
 import { ApiError, DEMO_BUILD, getDeviceId, getServer, post, setDemo, setServer } from '../lib/api';
 import { notice } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -81,7 +81,7 @@ export default function Login() {
             <Text onLongPress={() => setShowServer(true)} style={{ fontSize: typing ? 24 : 32, fontWeight: '800', color: colors.ink }}>{t('app.name')}</Text>
             {typing ? null : <T.body muted>{t('login.tagline')}</T.body>}
           </View>
-          <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
+          <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} style={{ justifyContent: 'center' }} />
           {error ? <Banner tone="error" text={error} /> : null}
           {busy && slow ? <Banner tone="info" text={t('login.waking')} /> : null}
 

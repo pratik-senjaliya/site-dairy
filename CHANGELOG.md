@@ -2,6 +2,22 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-10-27 — Phone UI pass: header, footer, large-font phones
+
+On a real Android phone the screens looked unfinished: a beige strip above the white header, a crowded header,
+buttons whose text ran over their icon, and text that collided when the phone's font size was set large.
+
+- **Edge to edge done properly** (`Screen` in `components/ui.tsx`): the header's white runs up under the status
+  bar and the footer's down under the navigation bar (safe-area insets instead of `SafeAreaView` padding).
+  Header and footer get a hairline edge instead of a shadow; dialogs and the photo viewer cover the bars too.
+- **Header**: round 44 px buttons (`HeaderButton`) for bell and profile, a compact sync mark. With several sites
+  the site name is the switch (chevron), so the swap icon is gone and the title has room.
+- **Large-font phones**: every text goes through our `Text` (and inputs) with `maxFontSizeMultiplier` 1.2.
+- Buttons shrink their label (ellipsis) instead of pushing out the icon; WhatsApp gets the room next to PDF.
+- Cards and tiles: a hairline edge and a faint shadow (Android's elevation shadow was grey and heavy).
+- Smaller pieces: steppers 20 px narrower (labels no longer squeezed), "will save" line at most 3 lines so the
+  form stays visible, list values capped at 40% width, login language chips centred, toasts above the nav bar.
+
 ## 2026-10-24 (day) — Fixing mistakes, tidy lists, photos, 5-site pilot
 
 - **Edit today's entries** (material used, advance, today's work): the pencil in "entered today" puts the entry

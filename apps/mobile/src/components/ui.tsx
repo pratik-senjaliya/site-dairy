@@ -2,12 +2,21 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { colors, radius, shadow, spacing, touch, type } from '@site-diary/ui-tokens';
 import { router } from 'expo-router';
 import type { ComponentProps, ReactNode } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text as RNText, TextInput, View, type TextInputProps, type TextProps, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../lib/i18n';
 
 // Field UI: big targets (≥ 48 px), 16 px+ text, steppers and chips instead of typing.
 // One look everywhere: soft raised cards on a warm background, icons in tinted circles, brick-orange actions.
+
+/** Android's font-size setting can make text up to 2× bigger; past 1.2× steppers, headers and buttons collide. */
+const MAX_FONT_SCALE = 1.2;
+
+/** Use this instead of react-native's Text everywhere, so a phone's large-font setting cannot break a layout. */
+export function Text(props: TextProps) {
+  return <RNText maxFontSizeMultiplier={MAX_FONT_SCALE} {...props} />;
+}
 
 export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -36,28 +45,65 @@ const TONES: Record<Tone, { fg: string; soft: string }> = {
   muted: { fg: colors.muted, soft: colors.surfaceAlt },
 };
 
-export function Screen({ title, subtitle, children, footer, back = true, right, scroll = true }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode; back?: boolean; right?: ReactNode; scroll?: boolean }) {
+function useKeyboardOpen() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setOpen(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setOpen(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return open;
+}
+
+/**
+ * Android draws edge to edge: the header's white runs up under the status bar and the footer's down under the
+ * navigation bar, so there is no strip of background above or below them.
+ * `onTitlePress` makes the title a switch (the site name on the home opens the site list).
+ */
+export function Screen({ title, subtitle, children, footer, back = true, right, scroll = true, onTitlePress }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode; back?: boolean; right?: ReactNode; scroll?: boolean; onTitlePress?: () => void }) {
   const t = useT();
+  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboardOpen();
+  const bottom = keyboard ? 0 : insets.bottom;
   return (
-    <SafeAreaView style={s.screen} edges={['top', 'bottom']}>
-      <View style={s.header}>
+    <View style={s.screen}>
+      <View style={[s.header, { paddingTop: insets.top + spacing.sm, paddingLeft: insets.left + (back ? spacing.xs : spacing.lg), paddingRight: insets.right + spacing.sm }]}>
         {back ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={s.back} hitSlop={8}>
-            <Icon name="arrow-left" size={26} />
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={({ pressed }) => [s.headerBtn, pressed && { backgroundColor: colors.surfaceAlt }]} hitSlop={4}>
+            <Icon name="arrow-left" size={24} />
           </Pressable>
         ) : null}
-        <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+        <Pressable disabled={!onTitlePress} onPress={onTitlePress} accessibilityRole={onTitlePress ? 'button' : undefined} style={s.headerTitle}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <Text style={s.title} numberOfLines={1} accessibilityRole="header">{title}</Text>
+            {onTitlePress ? <Icon name="chevron-down" size={22} color={colors.muted} /> : null}
+          </View>
           {subtitle ? <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
-        </View>
-        {right}
+        </Pressable>
+        {right ? <View style={s.headerRight}>{right}</View> : null}
       </View>
       {/* Android draws edge to edge, so the window no longer shrinks for the keyboard: pad on both platforms. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        {scroll ? <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">{children}</ScrollView> : <View style={[s.body, { flex: 1 }]}>{children}</View>}
-        {footer ? <View style={s.footer}>{footer}</View> : null}
+        {scroll ? (
+          <ScrollView contentContainerStyle={[s.body, { paddingLeft: spacing.lg + insets.left, paddingRight: spacing.lg + insets.right }, !footer && { paddingBottom: spacing.xxl + bottom }]} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+        ) : <View style={[s.body, { flex: 1, paddingBottom: footer ? spacing.lg : spacing.lg + bottom }]}>{children}</View>}
+        {footer ? <View style={[s.footer, { paddingBottom: spacing.md + bottom }]}>{footer}</View> : null}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
+  );
+}
+
+/** A round icon button for the header's right side (bell, profile). */
+export function HeaderButton({ icon, label, onPress, badge }: { icon: IconName; label: string; onPress: () => void; badge?: number }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={4} style={({ pressed }) => [s.headerBtn, pressed && { backgroundColor: colors.surfaceAlt }]}>
+      <Icon name={icon} size={24} />
+      {badge ? (
+        <View style={s.headerBadge}>
+          <Text style={s.headerBadgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -127,9 +173,9 @@ export function Chip({ label, selected, onPress, tone, icon }: { label: string; 
   );
 }
 
-export function Chips<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T | null | undefined; onChange: (v: T) => void }) {
+export function Chips<T extends string>({ options, value, onChange, style }: { options: { value: T; label: string }[]; value: T | null | undefined; onChange: (v: T) => void; style?: ViewStyle }) {
   return (
-    <View style={s.chips}>
+    <View style={[s.chips, style]}>
       {options.map((o) => <Chip key={o.value} label={o.label} selected={o.value === value} onPress={() => onChange(o.value)} />)}
     </View>
   );
@@ -186,7 +232,7 @@ export function DiaryLine({ text }: { text: string }) {
       <Icon name="notebook-edit-outline" size={22} color={colors.primary} />
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={s.diaryLabel}>{t('common.willSave')}</Text>
-        <Text style={s.diaryText}>{text}</Text>
+        <Text style={s.diaryText} numberOfLines={3}>{text}</Text>
       </View>
     </View>
   );
@@ -273,19 +319,23 @@ export function Banner({ text, tone = 'warn', onPress }: { text: string; tone?: 
 
 export const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md, minHeight: 60, gap: spacing.sm, backgroundColor: colors.surface, ...shadow, zIndex: 1 },
-  back: { width: touch.minTarget, height: touch.minTarget, alignItems: 'center', justifyContent: 'center', marginLeft: -spacing.md, borderRadius: radius.pill },
-  title: { fontSize: type.title, fontWeight: '800', color: colors.ink },
-  subtitle: { fontSize: type.label, color: colors.muted, marginTop: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingBottom: spacing.sm, gap: spacing.xs, backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, zIndex: 1 },
+  headerTitle: { flex: 1, minWidth: 0, justifyContent: 'center', minHeight: 44, paddingRight: spacing.xs },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 0 },
+  headerBtn: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  headerBadge: { position: 'absolute', top: 5, right: 4, minWidth: 18, height: 18, borderRadius: radius.pill, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 1.5, borderColor: colors.surface },
+  headerBadgeText: { color: colors.primaryText, fontSize: 10, fontWeight: '800' },
+  title: { flexShrink: 1, fontSize: type.title, lineHeight: 26, fontWeight: '800', color: colors.ink },
+  subtitle: { fontSize: 13, lineHeight: 18, color: colors.muted },
   body: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
-  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, backgroundColor: colors.surface, gap: spacing.sm, ...shadow, shadowOffset: { width: 0, height: -3 } },
+  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: colors.surface, gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
   button: { minHeight: touch.stepperButton, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
   buttonSecondary: { borderWidth: 1.5, borderColor: colors.border },
-  buttonInner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  buttonInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, maxWidth: '100%' },
   buttonSmall: { minHeight: touch.minTarget, paddingHorizontal: spacing.md },
-  buttonText: { fontSize: 18, fontWeight: '700' },
-  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 132, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1.5, borderColor: 'transparent', padding: spacing.lg, gap: spacing.sm, justifyContent: 'flex-start', ...shadow },
+  buttonText: { flexShrink: 1, fontSize: 17, fontWeight: '700' },
+  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 132, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, justifyContent: 'flex-start', ...shadow, borderWidth: 1.5 },
   tileLabel: { fontSize: 18, fontWeight: '800', color: colors.ink },
   tileHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   tileHint: { fontSize: type.label, color: colors.muted, fontWeight: '600' },
@@ -299,21 +349,21 @@ export const s = StyleSheet.create({
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: type.body, color: colors.ink, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stepBtn: { width: touch.stepperButton, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 52, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   stepBtnPlus: { backgroundColor: colors.primarySoft },
   stepSign: { fontSize: 28, fontWeight: '700', color: colors.ink },
   dayBtn: { width: touch.minTarget, height: touch.minTarget, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   callBtn: { minHeight: touch.minTarget, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
   callText: { fontSize: type.body, color: colors.primaryText, fontWeight: '700' },
-  stepValue: { width: 76, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
+  stepValue: { width: 68, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   field: { gap: spacing.sm },
   askBlock: { gap: spacing.sm },
   label: { fontSize: type.label, fontWeight: '700', color: colors.muted },
   ask: { fontSize: 18, fontWeight: '800', color: colors.ink },
   optional: { fontSize: type.label, fontWeight: '600', color: colors.faint },
-  diary: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radius.md, padding: spacing.md },
+  diary: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   diaryLabel: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
-  diaryText: { fontSize: type.body + 1, fontWeight: '700', color: colors.ink },
+  diaryText: { fontSize: type.body, lineHeight: 22, fontWeight: '700', color: colors.ink },
   hint: { fontSize: type.label, color: colors.muted },
   input: { minHeight: touch.stepperButton, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, fontSize: type.body, color: colors.ink, backgroundColor: colors.surface },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, ...shadow },
@@ -323,7 +373,7 @@ export const s = StyleSheet.create({
   listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 64, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   listRowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   listTitle: { fontSize: type.body, fontWeight: '700', color: colors.ink },
-  listValue: { fontSize: type.body, fontWeight: '700', color: colors.ink },
+  listValue: { maxWidth: '40%', textAlign: 'right', fontSize: type.body, fontWeight: '700', color: colors.ink },
   stat: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, gap: 2, ...shadow },
   statValue: { fontSize: 26, fontWeight: '800', color: colors.ink },
   statLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },
