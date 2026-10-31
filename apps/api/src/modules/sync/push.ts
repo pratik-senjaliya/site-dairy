@@ -193,6 +193,7 @@ async function guardSettled(tx: Tx, table: PushTable, row: Row, existing: Row | 
       if (s) throw new HttpError(409, 'This day is already in a wage settlement. Cancel that settlement first.', 'settled');
     }
   }
+  if (table === 'advance' && existing?.carriedFromId) throw new HttpError(409, 'This upad was carried from a hisab; cancel that hisab to change it', 'carried');
   if (table === 'advance' && existing?.settlementId) throw new HttpError(409, 'This advance is already in a wage settlement', 'settled');
   if (table === 'indentLine') {
     const indent = await tx.indent.findUnique({ where: { id: String(row.indentId) } });

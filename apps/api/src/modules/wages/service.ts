@@ -1,6 +1,7 @@
 import { settlePeriod, type RateRow, type WageResult } from '@site-diary/shared';
 import type { Tx } from '../../lib/db';
 import { day, isoOf } from '../../lib/json';
+import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 
 export interface WagePreview extends WageResult {
@@ -11,12 +12,17 @@ export interface WagePreview extends WageResult {
 }
 
 /** Attendance × rates in force each day − advances not yet settled (given on or before the period end). */
-export async function previewWages(db: Tx | typeof prisma, projectId: string, contractorId: string, from: string, to: string): Promise<WagePreview> {
-  const [entries, rates, advances] = await Promise.all([
+export async function previewWages(db: Tx | typeof prisma, projectId: string, contractorId: string, from: string, to: string, opts: { skipSettled?: boolean } = {}): Promise<WagePreview> {
+  const [all, rates, advances, settled] = await Promise.all([
     db.attendanceEntry.findMany({ where: { projectId, contractorId, deletedAt: null, date: { gte: day(from), lte: day(to) } }, orderBy: { date: 'asc' } }),
     db.contractorRate.findMany({ where: { contractorId, deletedAt: null } }),
     db.advance.findMany({ where: { projectId, contractorId, deletedAt: null, settlementId: null, date: { lte: day(to) } } }),
+    opts.skipSettled
+      ? db.wageSettlement.findMany({ where: { projectId, contractorId, deletedAt: null, status: { not: 'rejected' }, periodFrom: { lte: day(to) }, periodTo: { gte: day(from) } } })
+      : [],
   ]);
+  // Days inside a settlement are not owed again (only those days: an unsettled week before a settled one still counts).
+  const entries = all.filter((e) => !settled.some((s) => e.date >= s.periodFrom && e.date <= s.periodTo));
   const days = entries.map((e) => ({ date: isoOf(e.date), skillId: e.skillId, count: e.count, halfDayCount: e.halfDayCount, otHours: e.otHours.toNumber() }));
   const rateRows: RateRow[] = rates.map((r) => ({ skillId: r.skillId, dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: isoOf(r.effectiveFrom) }));
   const advancePaise = advances.reduce((s, a) => s + Number(a.amountPaise), 0);
@@ -27,4 +33,12 @@ export async function previewWages(db: Tx | typeof prisma, projectId: string, co
     return { skillId, manDays: r.manDays, otHours: mine.reduce((s, d) => s + d.otHours, 0), gross: r.gross };
   });
   return { ...result, advanceIds: advances.map((a) => a.id), days, bySkill };
+}
+
+/** A cancelled or rejected settlement frees its upad and takes back the upad it carried forward (refused once a later hisab used it). */
+export async function releaseSettlement(tx: Tx, settlementId: string) {
+  const carried = await tx.advance.findFirst({ where: { carriedFromId: settlementId, deletedAt: null } });
+  if (carried?.settlementId) throw new HttpError(409, 'The upad carried from this hisab is already in a later one. Cancel that one first.', 'carry_used');
+  if (carried) await tx.advance.update({ where: { id: carried.id }, data: { deletedAt: new Date() } });
+  await tx.advance.updateMany({ where: { settlementId }, data: { settlementId: null } });
 }

@@ -1,4 +1,4 @@
-import { addDays, isoDateSchema, uuidSchema } from '@site-diary/shared';
+import { addDays, isoDate, isoDateSchema, uuidSchema } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
@@ -9,7 +9,7 @@ import { day, isoOf } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { body, param, query } from '../../lib/validate';
 import { requestApproval } from '../sync/push';
-import { previewWages } from './service';
+import { previewWages, releaseSettlement } from './service';
 
 export const wages = Router();
 
@@ -38,10 +38,9 @@ wages.get('/summary', allow('wages', 'V'), async (req, res) => {
   const contractors = await prisma.contractor.findMany({ where: { companyId: m.companyId, id: { in: ids } }, orderBy: { name: 'asc' } });
   const rows = await Promise.all(
     contractors.map(async (c) => {
-      // Days already in a settlement are not owed again: start after the last settled day.
       const till = settled.find((s) => s.contractorId === c.id)?._max.periodTo;
-      const from = till && isoOf(till) >= q.from ? addDays(isoOf(till), 1) : q.from;
-      const p = await previewWages(prisma, q.projectId, c.id, from, q.to);
+      const from = q.from;
+      const p = await previewWages(prisma, q.projectId, c.id, from, q.to, { skipSettled: true });
       const { advanceIds: _ids, days, ...money } = p;
       const perDay = new Map<string, number>();
       for (const d of days) perDay.set(d.date, (perDay.get(d.date) ?? 0) + d.count + d.halfDayCount / 2);
@@ -72,18 +71,27 @@ wages.post('/', office, async (req, res) => {
       where: { contractorId: input.contractorId, projectId: input.projectId, deletedAt: null, status: { not: 'rejected' }, periodFrom: { lte: day(input.to) }, periodTo: { gte: day(input.from) } },
     });
     if (overlap) throw new HttpError(409, 'These days are already in another settlement', 'overlap');
+    // Today is still being entered (an offline phone may send today's attendance tonight): settle up to yesterday.
+    if (input.to >= isoDate()) throw new HttpError(400, "Today's attendance may still come in; settle up to yesterday", 'today');
     const p = await previewWages(tx, input.projectId, input.contractorId, input.from, input.to);
     if (p.missingRates.length) throw new HttpError(400, 'Some skills have no rate for this contractor. Add rates first.', 'missing_rates');
     if (!p.manDays) throw new HttpError(400, 'No attendance in this period', 'empty');
     const owner = m.role === 'owner';
+    // Upad beyond this period's wages is not lost: it carries into the next period as unsettled upad.
+    const carry = Math.max(0, -p.net);
     const s = await tx.wageSettlement.create({
       data: {
         companyId: m.companyId, projectId: input.projectId, contractorId: input.contractorId, periodFrom: day(input.from), periodTo: day(input.to),
-        grossPaise: BigInt(p.gross), advancesPaise: BigInt(p.advances), netPaise: BigInt(p.net),
+        grossPaise: BigInt(p.gross), advancesPaise: BigInt(p.advances - carry), netPaise: BigInt(p.net + carry),
         status: owner ? 'approved' : 'submitted', approvedById: owner ? m.id : null, createdById: m.id,
       },
     });
     await tx.advance.updateMany({ where: { id: { in: p.advanceIds } }, data: { settlementId: s.id } });
+    if (carry) {
+      await tx.advance.create({
+        data: { companyId: m.companyId, projectId: input.projectId, contractorId: input.contractorId, amountPaise: BigInt(carry), date: day(addDays(input.to, 1)), carriedFromId: s.id, createdById: m.id },
+      });
+    }
     if (!owner) await requestApproval(tx, m, input.projectId, 'wageSettlement', s.id, null);
     await audit(tx, { me: m, ip: req.ip }, { action: 'create', entityType: 'wageSettlement', entityId: s.id, after: s });
     return s;
@@ -114,8 +122,8 @@ wages.post('/:id/cancel', office, async (req, res) => {
     if (!before) throw new HttpError(404, 'Not found', 'not_found');
     assertSite(m, before.projectId);
     if (before.status === 'paid') throw new HttpError(409, 'A paid settlement cannot be cancelled', 'paid');
+    await releaseSettlement(tx, before.id);
     const s = await tx.wageSettlement.update({ where: { id: before.id }, data: { deletedAt: new Date() } });
-    await tx.advance.updateMany({ where: { settlementId: before.id }, data: { settlementId: null } });
     await tx.approval.updateMany({ where: { entityId: before.id, status: 'pending' }, data: { status: 'withdrawn' } });
     await audit(tx, { me: m, ip: req.ip }, { action: 'delete', entityType: 'wageSettlement', entityId: s.id, before });
     return s;
@@ -137,3 +145,4 @@ wages.get('/advances', allow('wages', 'V', 'C'), async (req, res) => {
     }),
   );
 });
+

@@ -10,6 +10,7 @@ import { notify } from '../../lib/notify';
 import { prisma } from '../../lib/prisma';
 import { body, param, query } from '../../lib/validate';
 import { applyRow, companyProjects, finish, newCtx } from '../sync/push';
+import { releaseSettlement } from '../wages/service';
 
 export const approvals = Router();
 
@@ -108,7 +109,7 @@ export async function decide(m: Me, ip: string | null, id: string, decision: 'ap
       await tx.purchaseOrder.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
     } else if (a.entityType === 'wageSettlement') {
       await tx.wageSettlement.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
-      if (!approved) await tx.advance.updateMany({ where: { settlementId: a.entityId }, data: { settlementId: null } });
+      if (!approved) await releaseSettlement(tx, a.entityId);
     }
 
     const updated = await tx.approval.update({

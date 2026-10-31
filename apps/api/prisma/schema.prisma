@@ -13,7 +13,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   /// Migrations and the job queue need a direct (session) connection when DATABASE_URL goes through a pooler.
   directUrl = env("DIRECT_URL")
@@ -159,18 +159,18 @@ model Company {
 }
 
 model User {
-  id         String    @id @default(uuid()) @db.Uuid
-  companyId  String    @map("company_id") @db.Uuid
-  name       String
-  phone      String
-  role       Role
-  language   Language  @default(gu)
-  isActive   Boolean   @default(true) @map("is_active")
-  createdById String?  @map("created_by") @db.Uuid
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
-  serverRev  BigInt    @default(0) @map("server_rev")
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  name        String
+  phone       String
+  role        Role
+  language    Language  @default(gu)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
 
   company Company    @relation(fields: [companyId], references: [id])
   sites   UserSite[]
@@ -389,21 +389,23 @@ model AttendanceEntry {
 
 /// Upad: an advance given against wages.
 model Advance {
-  id           String      @id @default(uuid()) @db.Uuid
-  companyId    String      @map("company_id") @db.Uuid
-  projectId    String      @map("project_id") @db.Uuid
-  contractorId String      @map("contractor_id") @db.Uuid
-  workerId     String?     @map("worker_id") @db.Uuid
-  amountPaise  BigInt      @map("amount_paise")
-  date         DateTime    @db.Date
-  mode         PaymentMode @default(cash)
-  givenById    String?     @map("given_by") @db.Uuid
-  settlementId String?     @map("settlement_id") @db.Uuid
-  createdById  String?     @map("created_by") @db.Uuid
-  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(3)
-  serverRev    BigInt      @default(0) @map("server_rev")
+  id            String      @id @default(uuid()) @db.Uuid
+  companyId     String      @map("company_id") @db.Uuid
+  projectId     String      @map("project_id") @db.Uuid
+  contractorId  String      @map("contractor_id") @db.Uuid
+  workerId      String?     @map("worker_id") @db.Uuid
+  amountPaise   BigInt      @map("amount_paise")
+  date          DateTime    @db.Date
+  mode          PaymentMode @default(cash)
+  givenById     String?     @map("given_by") @db.Uuid
+  settlementId  String?     @map("settlement_id") @db.Uuid
+  /// Upad that went beyond a settlement's wages, carried into the next one (not new money given).
+  carriedFromId String?     @map("carried_from") @db.Uuid
+  createdById   String?     @map("created_by") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  serverRev     BigInt      @default(0) @map("server_rev")
 
   @@index([projectId, contractorId, date])
   @@index([companyId, serverRev])

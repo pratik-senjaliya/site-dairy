@@ -193,7 +193,7 @@ export async function buildReport(type: ReportType, a: ReportArgs): Promise<Repo
         prisma.wageSettlement.findMany({ where: { ...where, periodFrom: { lte: day(a.to) }, periodTo: { gte: day(a.from) } }, orderBy: { periodFrom: 'asc' } }),
         prisma.attendanceEntry.findMany({ where: { ...where, date: range(a) } }),
         prisma.contractorRate.findMany({ where: { companyId: a.companyId, deletedAt: null } }),
-        prisma.advance.findMany({ where: { ...where, date: range(a) } }),
+        prisma.advance.findMany({ where: { ...where, carriedFromId: null, date: range(a) } }),
       ]);
       const contractorIds = [...new Set(entries.map((e) => e.contractorId))];
       const sheet = contractorIds.map((cid) => {
@@ -206,13 +206,13 @@ export async function buildReport(type: ReportType, a: ReportArgs): Promise<Repo
       });
       return {
         ...base, title: 'Wage settlement sheet', subtitle: `${sitesLabel} · ${period(a)}`,
-        highlights: [{ label: 'Payable', value: formatPaise(sheet.reduce((s, r) => s + r.net, 0)) }],
+        highlights: [{ label: 'Earned less upad in period', value: formatPaise(sheet.reduce((s, r) => s + r.net, 0)) }],
         tables: [
           {
             title: 'Worked out from attendance',
             columns: [
               { key: 'contractor', header: 'Contractor', width: 3 }, { key: 'manDays', header: 'Man-days', fmt: 'qty' }, { key: 'gross', header: 'Gross', fmt: 'money' },
-              { key: 'advances', header: 'Advances (upad)', fmt: 'money' }, { key: 'net', header: 'Payable', fmt: 'money' }, { key: 'note', header: 'Note', width: 2 },
+              { key: 'advances', header: 'Advances (upad)', fmt: 'money' }, { key: 'net', header: 'Earned less upad', fmt: 'money' }, { key: 'note', header: 'Note', width: 2 },
             ],
             rows: sheet,
             totals: ['manDays', 'gross', 'advances', 'net'],
@@ -325,7 +325,7 @@ export async function buildReport(type: ReportType, a: ReportArgs): Promise<Repo
         prisma.grn.findMany({ where: { ...where, date: range(a) }, include: { lines: { where: { deletedAt: null } } } }),
         prisma.wageSettlement.findMany({ where: { ...where, status: 'paid', paidAt: { gte: new Date(`${a.from}T00:00:00+05:30`), lt: new Date(new Date(`${a.to}T00:00:00+05:30`).getTime() + 86_400_000) } } }),
         prisma.supplierPayment.findMany({ where: { companyId: a.companyId, deletedAt: null, date: range(a), OR: [{ projectId: { in: a.projectIds } }, { projectId: null }] } }),
-        prisma.advance.findMany({ where: { ...where, date: range(a) } }),
+        prisma.advance.findMany({ where: { ...where, carriedFromId: null, date: range(a) } }),
       ]);
       const rows = a.projectIds.map((pid) => {
         const labour = settlePeriod(

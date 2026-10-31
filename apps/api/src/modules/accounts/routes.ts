@@ -19,7 +19,7 @@ export async function book(companyId: string, projectId?: string) {
   const [entries, supplierPayments, advances, settlements, units, users, suppliers, contractors] = await Promise.all([
     prisma.moneyEntry.findMany({ where: { companyId, ...site, OR: [{ deletedAt: null }, { deletedById: { not: null } }] } }),
     prisma.supplierPayment.findMany({ where: { companyId, deletedAt: null, ...site } }),
-    prisma.advance.findMany({ where: { companyId, deletedAt: null, ...site } }),
+    prisma.advance.findMany({ where: { companyId, deletedAt: null, carriedFromId: null, ...site } }), // carried upad is not new money out
     prisma.wageSettlement.findMany({ where: { companyId, deletedAt: null, status: 'paid', ...site } }),
     prisma.unit.findMany({ where: { companyId, deletedAt: null, ...site }, orderBy: { name: 'asc' } }),
     prisma.user.findMany({ where: { companyId }, select: { id: true, name: true } }),

@@ -15,25 +15,26 @@ test('wages: settlement = attendance × rate in force − unsettled advances; ow
   const eng = await signIn(w.people.engineer);
   await eng.call('POST', '/masters/contractorRate', { contractorId: w.contractor.id, skillId: w.kadiya.id, dailyRatePaise: rupeesToPaise(900), effectiveFrom: addDays(today, -30) });
   const sup = await signIn(w.people.supervisor);
-  const d1 = addDays(today, -1);
+  const d1 = addDays(today, -2);
+  const yd = addDays(today, -1); // settlements end yesterday at the latest
   await sup.call('POST', '/sync/push', {
     changes: {
       attendanceEntry: [
-        { id: uuid(), projectId: w.siteA.id, date: today, contractorId: w.contractor.id, skillId: w.kadiya.id, count: 4, halfDayCount: 2, otHours: 0 },
+        { id: uuid(), projectId: w.siteA.id, date: yd, recordedOn: yd, contractorId: w.contractor.id, skillId: w.kadiya.id, count: 4, halfDayCount: 2, otHours: 0 },
         { id: uuid(), projectId: w.siteA.id, date: d1, recordedOn: d1, contractorId: w.contractor.id, skillId: w.kadiya.id, count: 5, halfDayCount: 0, otHours: 8 },
       ],
-      advance: [{ id: uuid(), projectId: w.siteA.id, contractorId: w.contractor.id, amountPaise: rupeesToPaise(2000), date: today, mode: 'cash' }],
+      advance: [{ id: uuid(), projectId: w.siteA.id, contractorId: w.contractor.id, amountPaise: rupeesToPaise(2000), date: yd, mode: 'cash' }],
     },
   });
-  const preview = await eng.call<{ gross: number; net: number; manDays: number }>('GET', `/wages/preview?projectId=${w.siteA.id}&contractorId=${w.contractor.id}&from=${d1}&to=${today}`);
+  const preview = await eng.call<{ gross: number; net: number; manDays: number }>('GET', `/wages/preview?projectId=${w.siteA.id}&contractorId=${w.contractor.id}&from=${d1}&to=${yd}`);
   // 5 days + 8h OT (= 1 day) + 4 days + 2 half days (= 1 day) = 11 days × ₹900
   assert.equal(preview.body.manDays, 10);
   assert.equal(preview.body.gross, rupeesToPaise(9900));
   assert.equal(preview.body.net, rupeesToPaise(7900));
 
-  const s = await eng.call<{ id: string; status: string }>('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d1, to: today });
+  const s = await eng.call<{ id: string; status: string }>('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d1, to: yd });
   assert.equal(s.body.status, 'submitted');
-  assert.equal((await eng.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: today, to: today })).status, 409, 'no overlapping settlement');
+  assert.equal((await eng.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: yd, to: yd })).status, 409, 'no overlapping settlement');
   assert.equal((await eng.call('POST', `/wages/${s.body.id}/pay`, { mode: 'upi' })).status, 409, 'must be approved first');
   const owner = await signIn(w.people.owner);
   const pending = await owner.call<{ id: string; entityId: string }[]>('GET', '/approvals?status=pending');
@@ -155,8 +156,7 @@ test('contractor hisab: per contractor and skill, advances deducted, settled-til
   await eng.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d1, to: d1 });
   const after = await eng.call<{ contractors: { settledTill: string | null; from: string; manDays: number; advances: number }[] }>('GET', url);
   assert.equal(after.body.contractors[0]!.settledTill, d1);
-  assert.equal(after.body.contractors[0]!.from, today, 'settled days are not owed again');
-  assert.equal(after.body.contractors[0]!.manDays, 7);
+  assert.equal(after.body.contractors[0]!.manDays, 7, 'settled days are not owed again');
   assert.equal(after.body.contractors[0]!.advances, 0, 'the settlement took the advance');
 
   assert.equal((await sup.call('GET', url)).status, 403, 'supervisors do not see rates and money');
@@ -174,4 +174,41 @@ test('contractor hisab: per contractor and skill, advances deducted, settled-til
   const supRep = await sup.call<Rep>('GET', `/reports/daily?projectId=${w.siteA.id}&lang=en`);
   assert.ok(!supRep.body.highlights.some((h) => h.label === 'Labour cost'));
   assert.equal((await eng.call('GET', `/wages/summary?projectId=${w.siteB.id}&from=${d1}&to=${today}`)).status, 403, 'only assigned sites');
+});
+
+test('hisab: upad beyond the wages carries to the next settlement; today is not settled; an unsettled earlier week stays owed', async () => {
+  const w = await world();
+  const owner = await signIn(w.people.owner);
+  await owner.call('POST', '/masters/contractorRate', { contractorId: w.contractor.id, skillId: w.kadiya.id, dailyRatePaise: rupeesToPaise(900), effectiveFrom: addDays(today, -60) });
+  const sup = await signIn(w.people.supervisor);
+  const d = (n: number) => addDays(today, -n);
+  const att = (date: string, count: number) => ({ id: uuid(), projectId: w.siteA.id, date, recordedOn: date, contractorId: w.contractor.id, skillId: w.kadiya.id, count, halfDayCount: 0, otHours: 0 });
+  // Old row dates go in as the owner (a supervisor's late days would wait for approval).
+  await owner.call('POST', '/sync/push', { changes: { attendanceEntry: [att(d(20), 4), att(d(10), 2)], advance: [{ id: uuid(), projectId: w.siteA.id, contractorId: w.contractor.id, amountPaise: rupeesToPaise(3000), date: d(10), mode: 'cash' }] } });
+  assert.equal((await owner.call('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d(10), to: today })).status, 400, 'today may still come in');
+
+  // Week of d(10): 2 × 900 = 1,800 earned, 3,000 upad → nothing to pay, 1,200 carried.
+  const s1 = await owner.call<{ id: string; netPaise: string; advancesPaise: string }>('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d(12), to: d(8) });
+  assert.equal(s1.status, 201);
+  assert.equal(Number(s1.body.netPaise), 0);
+  assert.equal(Number(s1.body.advancesPaise), rupeesToPaise(1800));
+  await sup.call('POST', '/sync/push', { changes: { attendanceEntry: [att(d(1), 2)] } });
+  const next = await owner.call<{ net: number; advances: number }>('GET', `/wages/preview?projectId=${w.siteA.id}&contractorId=${w.contractor.id}&from=${d(7)}&to=${d(1)}`);
+  assert.equal(next.body.advances, rupeesToPaise(1200), 'the extra upad is deducted next time');
+  assert.equal(next.body.net, rupeesToPaise(600));
+  const book = await owner.call<{ totals: { outPaise: number } }>('GET', '/accounts');
+  assert.equal(book.body.totals.outPaise, rupeesToPaise(3000), 'carried upad is not money given again');
+
+  // The week of d(20) was never settled: it still counts, though a later week is settled.
+  const sum = await owner.call<{ contractors: { manDays: number }[] }>('GET', `/wages/summary?projectId=${w.siteA.id}&from=${d(25)}&to=${d(1)}`);
+  assert.equal(sum.body.contractors[0]!.manDays, 6, '4 (unsettled, d20) + 2 (yesterday); the settled 2 are not owed again');
+
+  // Once the carried upad is in a later hisab, the first one can't be cancelled; cancelling the later one frees it again.
+  const s2 = await owner.call<{ id: string; netPaise: string }>('POST', '/wages', { projectId: w.siteA.id, contractorId: w.contractor.id, from: d(7), to: d(1) });
+  assert.equal(Number(s2.body.netPaise), rupeesToPaise(600));
+  assert.equal((await owner.call('POST', `/wages/${s1.body.id}/cancel`)).status, 409);
+  assert.equal((await owner.call('POST', `/wages/${s2.body.id}/cancel`)).status, 200);
+  assert.equal((await owner.call('POST', `/wages/${s1.body.id}/cancel`)).status, 200);
+  const back = await owner.call<{ advances: number }>('GET', `/wages/preview?projectId=${w.siteA.id}&contractorId=${w.contractor.id}&from=${d(12)}&to=${d(1)}`);
+  assert.equal(back.body.advances, rupeesToPaise(3000), 'the carried row is gone; the original upad is free again');
 });
