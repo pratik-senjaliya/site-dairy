@@ -54,7 +54,7 @@ export default function Issues() {
         <Ask q={t('report.photos')} optional>
           <Row style={{ flexWrap: 'wrap' }}>
             {newPhotos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
-            <Button kind="secondary" small label={newPhotos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'issue', issueId).then((p) => p && setNewPhotos((x) => [...x, p]))} />
+            <Button kind="secondary" small icon="camera-outline" label={newPhotos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'issue', issueId).then((p) => p && setNewPhotos((x) => [...x, p]))} />
           </Row>
         </Ask>
         <Ask q={t('issues.assign')} optional>

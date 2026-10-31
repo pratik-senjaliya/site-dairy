@@ -2,7 +2,7 @@ import { formatPaise } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Banner, Button, Card, Chips, Empty, flush, ListRow, Row, Screen, Section, T } from '../components/ui';
+import { Banner, Button, Card, Empty, flush, ListRow, Row, Screen, Section, Segmented, T } from '../components/ui';
 import { isDemo, post } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { notice, useCan, useOnline } from '../lib/hooks';
@@ -61,7 +61,7 @@ export default function Reports() {
       {money && !isDemo() ? (
         <>
           <Section title={t('reports.monthly')} />
-          <Chips options={[{ value: '0', label: t('hisab.thisMonth') }, { value: '1', label: t('reports.lastMonth') }]} value={String(back)} onChange={(v) => setBack(v === '1' ? 1 : 0)} />
+          <Segmented options={[{ value: '0', label: t('hisab.thisMonth') }, { value: '1', label: t('reports.lastMonth') }]} value={String(back)} onChange={(v) => setBack(v === '1' ? 1 : 0)} />
           {month.error ? <Banner tone="error" text={month.error === 'offline' ? t('common.offlineOnline') : month.error} onPress={() => void month.reload()} /> : null}
           {total ? (
             <Card>

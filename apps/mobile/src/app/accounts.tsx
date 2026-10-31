@@ -2,9 +2,9 @@ import { formatPaise, shortDate, type BookLine } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useModeText } from '../components/pickers';
-import { Banner, Button, Card, Chips, Empty, flush, IconBadge, ListRow, Row, Screen, Section, T, Text, Totals } from '../components/ui';
+import { Banner, Button, Card, Chips, Empty, flush, IconBadge, ListRow, Row, Screen, Segmented, T, Text, Totals } from '../components/ui';
 import { del } from '../lib/api';
 import { confirm, useCan, useOnline } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -83,32 +83,34 @@ export default function Accounts() {
         ]} />
       ) : null}
 
-      <Chips<Tab> options={[{ value: 'book', label: t('accounts.book') }, { value: 'flats', label: `${t('accounts.flats')}${data?.units.length ? ` (${data.units.length})` : ''}` }]} value={tab} onChange={setTab} />
+      <Segmented<Tab> options={[{ value: 'book', label: t('accounts.book') }, { value: 'flats', label: `${t('accounts.flats')}${data?.units.length ? ` (${data.units.length})` : ''}` }]} value={tab} onChange={setTab} />
 
       {tab === 'book' && data ? (
         <>
-          <Section title={t('accounts.book')} action={data.lines.length ? t('common.share') : undefined} onAction={share} />
-          <Chips<Filter> options={[{ value: 'all', label: t('accounts.all') }, { value: 'in', label: t('accounts.in') }, { value: 'out', label: t('accounts.out') }]} value={filter} onChange={setFilter} />
+          <Segmented<Filter> options={[{ value: 'all', label: t('accounts.all') }, { value: 'in', label: t('accounts.in') }, { value: 'out', label: t('accounts.out') }]} value={filter} onChange={setFilter} />
           {!lines.length ? <Empty icon="book-open-variant" text={t('accounts.empty')} /> : (
             <Card style={flush}>
               {lines.map((l, i) => {
                 const removable = write && l.source === 'entry' && !l.removed && (l.byId === me?.user.id || me?.user.role === 'owner');
                 const struck = l.removed ? { textDecorationLine: 'line-through' as const, color: colors.faint } : null;
                 return (
-                  <Pressable key={`${l.source}:${l.id}`} disabled={!removable} onLongPress={() => void remove(l)} onPress={() => void remove(l)} style={({ pressed }) => [{ flexDirection: 'row', gap: spacing.md, padding: spacing.lg, paddingVertical: spacing.md }, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border }, pressed && { backgroundColor: colors.surfaceAlt }]}>
+                  <Pressable key={`${l.source}:${l.id}`} disabled={!removable} onLongPress={() => void remove(l)} onPress={() => void remove(l)} style={({ pressed }) => [{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, pressed && { backgroundColor: colors.surfaceAlt }]}>
                     <IconBadge name={l.direction === 'in' ? 'arrow-down-bold' : l.source === 'entry' ? 'arrow-up-bold' : 'link-variant'} tone={l.removed ? 'muted' : l.direction === 'in' ? 'ok' : 'warn'} size={36} />
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[{ fontSize: 16, fontWeight: '700', color: colors.ink, lineHeight: 22 }, struck]}>{lineText(l, flatOf(l.unitId))}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+                        <Text style={[{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.ink, lineHeight: 22 }, struck]} numberOfLines={3}>{lineText(l, flatOf(l.unitId))}</Text>
+                        <Text style={[{ flexShrink: 0, fontSize: 16, lineHeight: 22, fontWeight: '700', color: l.direction === 'in' ? colors.success : colors.ink }, struck]}>{l.direction === 'in' ? '+' : '−'}{formatPaise(l.amountPaise)}</Text>
+                      </View>
                       <T.small>{[shortDate(l.date), modeText(l.mode, l.reference), site === 'all' ? siteName(l.projectId) : ''].filter(Boolean).join(' · ')}</T.small>
                       {l.note ? <T.small>{l.note}</T.small> : null}
                       <T.small color={l.removed ? colors.danger : colors.faint}>{l.removed ? t('accounts.removedBy', { name: l.removed.by ?? '', date: shortDate(l.removed.at.slice(0, 10)) }) : t('accounts.by', { name: l.by ?? '—' })}</T.small>
                     </View>
-                    <Text style={[{ fontSize: 16, fontWeight: '800', color: l.direction === 'in' ? colors.success : colors.ink }, struck]}>{l.direction === 'in' ? '+' : '−'}{formatPaise(l.amountPaise)}</Text>
                   </Pressable>
                 );
               })}
             </Card>
           )}
+          {data.lines.length ? <Button kind="secondary" icon="whatsapp" label={t('common.share')} onPress={share} /> : null}
           <Banner tone="info" text={t('accounts.trust')} />
         </>
       ) : null}
@@ -123,8 +125,8 @@ export default function Accounts() {
                   key={u.id}
                   icon="home-city-outline"
                   tone={u.buyerName ? (u.duePaise ? 'warn' : 'ok') : 'muted'}
-                  title={[u.name, u.buyerName].filter(Boolean).join(' — ')}
-                  detail={u.buyerName ? [u.dealPaise != null ? t('accounts.deal', { amount: formatPaise(u.dealPaise) }) : '', t('accounts.received', { amount: formatPaise(u.receivedPaise) })].filter(Boolean).join(' · ') : t('accounts.unsold')}
+                  title={u.name}
+                  detail={u.buyerName ? [u.buyerName, t('accounts.received', { amount: formatPaise(u.receivedPaise) })].join(' · ') : t('accounts.unsold')}
                   value={u.duePaise ? formatPaise(u.duePaise) : undefined}
                   onPress={() => router.push({ pathname: '/unit', params: { id: u.id } })}
                   last={i === data.units.length - 1}

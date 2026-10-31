@@ -12,12 +12,13 @@ export function SyncBadge() {
   const tone = state.offline || state.waiting ? colors.warning : colors.success;
   const soft = state.offline || state.waiting ? colors.warningSoft : colors.successSoft;
   const label = state.syncing ? t('sync.syncing') : state.offline ? `${t('common.offline')}${state.waiting ? ` · ${state.waiting}` : ''}` : state.waiting ? t('common.syncPending', { count: state.waiting }) : t('sync.allSent');
-  // All sent: just the green mark (its name is read out); otherwise say what is waiting.
+  // All sent: just the green mark; otherwise the mark of what is happening and how many entries wait.
   const quiet = !state.syncing && !state.offline && !state.waiting;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push('/sync')} hitSlop={8} style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 34, borderRadius: radius.pill, backgroundColor: soft, marginRight: 4 }, quiet ? { width: 34 } : { paddingHorizontal: 10, maxWidth: 140 }]}>
-      <Icon name={state.syncing ? 'sync' : state.offline ? 'wifi-off' : state.waiting ? 'cloud-upload-outline' : 'cloud-check-outline'} size={quiet ? 19 : 16} color={tone} />
-      {quiet ? null : <Text style={{ flexShrink: 1, color: tone, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{label}</Text>}
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={() => router.push('/sync')} hitSlop={8} style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: radius.pill }, quiet ? { width: 44, height: 44 } : { height: 34, minWidth: 34, paddingHorizontal: 8, marginRight: 4, backgroundColor: soft }]}>
+      <Icon name={state.syncing ? 'sync' : state.offline ? 'wifi-off' : state.waiting ? 'cloud-upload-outline' : 'cloud-check-outline'} size={quiet ? 24 : 18} color={tone} />
+      {/* Just the count next to the mark: the header keeps its room for the site name; the words are read out. */}
+      {state.waiting ? <Text style={{ color: tone, fontWeight: '800', fontSize: 14 }} numberOfLines={1}>{state.waiting}</Text> : null}
     </Pressable>
   );
 }

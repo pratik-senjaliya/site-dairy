@@ -166,7 +166,7 @@ function AttendanceForm() {
         <T.small>{t('attendance.photoHint')}</T.small>
         <Row>
           {photo ? <PhotoThumb photo={photo} size={120} /> : null}
-          <Button kind="secondary" small label={photo ? t('photo.retake') : t('photo.take')} onPress={() => void addPhoto()} />
+          <Button kind="secondary" small icon="camera-outline" label={photo ? t('photo.retake') : t('photo.take')} onPress={() => void addPhoto()} />
         </Row>
       </Card>
     </Screen>

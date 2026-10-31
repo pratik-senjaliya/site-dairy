@@ -4,7 +4,7 @@ import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
-import { Ask, Button, Card, Chip, Chips, DiaryLine, IconBadge, Input, Screen, T } from '../../components/ui';
+import { Ask, Button, Card, Chip, DiaryLine, IconBadge, Input, Screen, Segmented, T } from '../../components/ui';
 import { patch, post } from '../../lib/api';
 import { useOnline } from '../../lib/hooks';
 import { useT } from '../../lib/i18n';
@@ -109,11 +109,11 @@ export default function Person() {
         </Ask>
       ) : null}
       <Ask q={t('setup.qLanguage')}>
-        <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={language} onChange={setLanguage} />
+        <Segmented<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={language} onChange={setLanguage} />
       </Ask>
       {params.id ? (
         <Ask q={t('setup.canLogin')}>
-          <Chips options={[{ value: 'yes', label: t('setup.yes') }, { value: 'no', label: t('setup.no') }]} value={active ? 'yes' : 'no'} onChange={(v) => setActive(v === 'yes')} />
+          <Segmented options={[{ value: 'yes', label: t('setup.yes') }, { value: 'no', label: t('setup.no') }]} value={active ? 'yes' : 'no'} onChange={(v) => setActive(v === 'yes')} />
         </Ask>
       ) : null}
       {params.id ? <Button kind="ghost" icon="whatsapp" label={t('setup.invite')} onPress={invite} /> : null}

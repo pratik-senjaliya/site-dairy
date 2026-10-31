@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { NewMaterial, QtyField, RowChips, TextField, useMaterials } from '../components/pickers';
-import { Ask, Banner, Button, Card, Chip, DiaryLine, Row, Screen, T } from '../components/ui';
+import { Ask, Banner, Button, Card, Chip, DiaryLine, Pill, Row, Screen, T, type Tone } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { done, notice, useCan, useSite } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
@@ -13,7 +13,7 @@ import { useDiary } from '../lib/diary';
 import { awaitedMaterial } from '../lib/stock';
 
 type Line = { id: string; materialId: string; qty: number };
-const STATUS_TONE: Record<string, 'ok' | 'warn' | 'muted'> = { approved: 'ok', ordered: 'ok', rejected: 'warn', submitted: 'muted' };
+const STATUS_TONE: Record<string, Tone> = { approved: 'ok', ordered: 'ok', rejected: 'danger', submitted: 'warn' };
 
 // M8: material request from site → engineer/owner approval → purchase order (web).
 export default function Indent() {
@@ -100,9 +100,9 @@ export default function Indent() {
         <Card>
           <T.h2>{t('indent.recent')}</T.h2>
           {mine.map((i) => (
-            <Row key={i.id} style={{ justifyContent: 'space-between' }}>
-              <T.small>{lines.filter((l) => l.indentId === i.id).map((l) => diary.material(l.materialId, l.qty)).join(', ')}</T.small>
-              <Chip label={t(`status.${String(i.status)}` as 'status.submitted')} tone={STATUS_TONE[String(i.status)] ?? 'muted'} />
+            <Row key={i.id} style={{ alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.xs }}>
+              <View style={{ flex: 1 }}><T.body>{lines.filter((l) => l.indentId === i.id).map((l) => diary.material(l.materialId, l.qty)).join(', ')}</T.body></View>
+              <Pill label={t(`status.${String(i.status)}` as 'status.submitted')} tone={STATUS_TONE[String(i.status)] ?? 'muted'} />
             </Row>
           ))}
         </Card>

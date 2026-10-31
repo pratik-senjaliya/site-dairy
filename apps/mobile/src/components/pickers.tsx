@@ -27,7 +27,7 @@ export function RowChips({ label, rows, value, onChange, nameOf, allowNone, none
     <Field label={label}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {shown.map((r) => <Chip key={r.id} label={nameOf(r)} selected={r.id === value} onPress={() => { setPickedNone(false); onChange(r.id); }} />)}
-        {short ? <Chip label={t('common.more', { count: rows.length - shown.length })} tone="muted" onPress={() => setAll(true)} /> : null}
+        {short ? <Chip label={t('common.more', { count: rows.length - shown.length })} onPress={() => setAll(true)} /> : null}
         {allowNone ? <Chip label={noneLabel ?? '—'} selected={value === null && (!blank || pickedNone)} onPress={() => { setPickedNone(true); onChange(null); }} /> : null}
       </View>
     </Field>

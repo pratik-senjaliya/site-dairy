@@ -1,6 +1,24 @@
 # Changelog
 
-What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see "Status" and "Live pilot" in `CLAUDE.md`.
+What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see `docs/handoff.md` and "Status" and "Live pilot" in `CLAUDE.md`.
+
+## 2026-10-30 — UI/UX pass to show customers; pilot APK 10
+
+On the phone the login hid its main button below six demo buttons, every demo button spun when one was pressed,
+and many rows were squeezed or misaligned. Tested every role end to end on a real Android phone afterwards.
+
+- **Login**: demo roles as a two-column grid with icons; only the pressed button shows loading; no keyboard
+  jumping up on open; language as a segmented control.
+- **Design system** (`components/ui.tsx`): `Segmented` (tabs, filters, language, yes/no), `Pill` (status),
+  calmer `Chip` (tinted when selected, no tick), `ListRow` with title + value on one line and the detail full
+  width, stepper grows with the number (2500 showed as "500"), stats and tiles that no longer stretch.
+- **Screens**: owner home amount cards (`AmountCard`) for cash in hand and wage day; money book, hisab, supplier
+  and indent rows rebuilt so amounts never crush the text; hisab "Details/Less" toggle (new keys
+  `common.details`, `common.less`); compact sync badge (icon + count) so the site name keeps its room; camera
+  and PDF icons on buttons.
+- **Android nav bar**: `expo-navigation-bar` plugin with `enforceContrast: false` removes the grey scrim behind
+  3-button navigation (native change → pilot APK versionCode 10).
+- Session handoff file `docs/handoff.md`; `CLAUDE.md` asks every session to keep it and this changelog current.
 
 ## 2026-10-27 — Partners' money book, party accounts, upad by trade
 

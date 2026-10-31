@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Bell, DiaryLines, FieldHome, Me, openTel } from '../components/FieldHome';
 import { SyncBadge } from '../components/SyncBadge';
-import { Banner, Button, Card, flush, Icon, IconBadge, ListRow, Row, s, Screen, Section, Stat, T, Text, Tile } from '../components/ui';
+import { Banner, Button, Card, flush, Icon, IconBadge, type IconName, ListRow, Row, s, Screen, Section, Stat, T, Text, Tile, type Tone } from '../components/ui';
 import { get, isDemo } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { daysSince, useDayPage, useDayPages, useDiary } from '../lib/diary';
@@ -163,17 +163,7 @@ function OfficeHome() {
       {can('accounts', 'V') ? <MoneyCard /> : null}
 
       {can('wages', 'V') && wages.data && (wages.data.gross || wages.data.advances) ? (
-        <Card onPress={() => router.push('/hisab')}>
-          <Row>
-            <IconBadge name="cash-multiple" tone="ok" size={44} />
-            <View style={{ flex: 1 }}>
-              <T.small>{t('owner.toPay', { day: dayName(wages.week.to) })}</T.small>
-              <T.big>{rupees(wages.data.net)}</T.big>
-              <T.small>{t('owner.toPayLine', { gross: rupees(wages.data.gross), advances: rupees(wages.data.advances) })}</T.small>
-            </View>
-            <Icon name="chevron-right" size={26} color={colors.faint} />
-          </Row>
-        </Card>
+        <AmountCard icon="cash-multiple" tone="ok" label={t('owner.toPay', { day: dayName(wages.week.to) })} amount={rupees(wages.data.net)} line={t('owner.toPayLine', { gross: rupees(wages.data.gross), advances: rupees(wages.data.advances) })} onPress={() => router.push('/hisab')} />
       ) : null}
 
       {sites.length ? <Section title={t('setup.sites')} action={owner ? `+ ${t('common.add')}` : undefined} onAction={() => router.push('/setup/site')} /> : null}
@@ -202,17 +192,20 @@ function MoneyCard() {
   if (!data || !data.lines.length) {
     return <ListRowCard icon="book-open-variant" title={t('home.accounts')} detail={t('accounts.empty')} onPress={() => router.push('/accounts')} />;
   }
+  return <AmountCard icon="book-open-variant" label={t('accounts.inHand')} amount={rupees(data.totals.balancePaise)} danger={data.totals.balancePaise < 0} line={t('accounts.homeLine', { in: rupees(data.totals.inPaise), out: rupees(data.totals.outPaise) })} onPress={() => router.push('/accounts')} />;
+}
+
+/** A total on the owner's home: what it is (with its mark) over the amount, the breakdown under it, full width. */
+function AmountCard({ icon, tone = 'primary', label, amount, line, danger, onPress }: { icon: IconName; tone?: Tone; label: string; amount: string; line: string; danger?: boolean; onPress: () => void }) {
   return (
-    <Card onPress={() => router.push('/accounts')}>
+    <Card onPress={onPress} style={{ gap: spacing.xs }}>
       <Row>
-        <IconBadge name="book-open-variant" size={44} />
-        <View style={{ flex: 1 }}>
-          <T.small>{t('accounts.inHand')}</T.small>
-          <T.big color={data.totals.balancePaise < 0 ? colors.danger : undefined}>{rupees(data.totals.balancePaise)}</T.big>
-          <T.small>{t('accounts.homeLine', { in: rupees(data.totals.inPaise), out: rupees(data.totals.outPaise) })}</T.small>
-        </View>
-        <Icon name="chevron-right" size={26} color={colors.faint} />
+        <IconBadge name={icon} tone={tone} size={32} />
+        <View style={{ flex: 1 }}><T.small bold>{label}</T.small></View>
+        <Icon name="chevron-right" size={24} color={colors.faint} />
       </Row>
+      <T.big color={danger ? colors.danger : undefined}>{amount}</T.big>
+      <T.small>{line}</T.small>
     </Card>
   );
 }
@@ -241,7 +234,11 @@ function SiteCard({ id, name, today, lang }: { id: string; name: string; today?:
       </Pressable>
       {today?.alerts.map((a) => noticeText(lang, a)).map((a) => <Banner key={a} text={a} />)}
       {page.length ? <DiaryLines lines={page} max={4} /> : <T.body muted>{t('owner.notWritten')}</T.body>}
-      {page.length > 4 ? <T.small>+{page.length - 4}</T.small> : null}
+      {page.length > 4 ? (
+        <Pressable onPress={() => router.push({ pathname: '/site', params: { id } })} hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+          <T.small bold color={colors.primary}>{t('common.more', { count: page.length - 4 })}</T.small>
+        </Pressable>
+      ) : null}
       {missing.length ? (
         <View style={{ gap: spacing.sm, backgroundColor: colors.dangerSoft, borderRadius: radius.md, padding: spacing.md }}>
           <T.body color={colors.danger}>{t('report.missing')}: {missing.map((m) => t(`missing.${m}` as 'missing.attendance')).join(', ')}</T.body>
@@ -249,7 +246,7 @@ function SiteCard({ id, name, today, lang }: { id: string; name: string; today?:
             <Row style={{ flexWrap: 'wrap' }}>
               {team.map((m) => (
                 <Pressable key={m.id} accessibilityRole="button" accessibilityLabel={t('owner.callHint', { name: m.name })} onPress={() => openTel(m.phone)} style={s.callBtn}>
-                  <Icon name="phone" size={18} color={colors.primaryText} />
+                  <Icon name="phone" size={18} color={colors.success} />
                   <Text style={s.callText}>{m.name.split(' ')[0]}</Text>
                 </Pressable>
               ))}

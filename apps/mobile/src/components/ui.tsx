@@ -158,7 +158,7 @@ export function Tile({ label, hint, onPress, badge, tone, compact, icon }: { lab
 
 export function Chip({ label, selected, onPress, tone, icon }: { label: string; selected?: boolean; onPress?: () => void; tone?: 'warn' | 'ok' | 'muted'; icon?: IconName }) {
   const toneColor = tone === 'warn' ? colors.warning : tone === 'ok' ? colors.success : tone === 'muted' ? colors.faint : null;
-  const fg = selected ? colors.primaryText : toneColor ?? colors.ink;
+  const fg = selected ? colors.primaryDark : toneColor ?? colors.ink;
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
@@ -167,9 +167,18 @@ export function Chip({ label, selected, onPress, tone, icon }: { label: string; 
       onPress={onPress}
       style={({ pressed }) => [s.chip, selected && s.chipSelected, toneColor && !selected && { borderColor: toneColor, backgroundColor: colors.surface }, pressed && s.pressed]}
     >
-      {selected ? <Icon name="check" size={16} color={fg} /> : icon ? <Icon name={icon} size={16} color={fg} /> : null}
-      <Text style={[s.chipText, { color: fg }]} numberOfLines={2}>{label}</Text>
+      {icon ? <Icon name={icon} size={16} color={fg} /> : null}
+      <Text style={[s.chipText, { color: fg }, selected && { fontWeight: '700' }]} numberOfLines={2}>{label}</Text>
     </Pressable>
+  );
+}
+
+/** A status word in a small tinted capsule (waiting, approved): read, not pressed. */
+export function Pill({ label, tone = 'muted' }: { label: string; tone?: Tone }) {
+  return (
+    <View style={[s.pill, { backgroundColor: TONES[tone].soft }]}>
+      <Text style={[s.pillText, { color: TONES[tone].fg }]} numberOfLines={1}>{label}</Text>
+    </View>
   );
 }
 
@@ -181,6 +190,22 @@ export function Chips<T extends string>({ options, value, onChange, style }: { o
   );
 }
 
+/** Two to four views of the same screen (this week / last week, in / out): one row, equal parts, never wraps. */
+export function Segmented<T extends string>({ options, value, onChange, style }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; style?: ViewStyle }) {
+  return (
+    <View style={[s.segTrack, style]} accessibilityRole="tablist">
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable key={o.value} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.value)} style={[s.seg, on && s.segOn]}>
+            <Text style={[s.segText, on && s.segTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function Stepper({ value, onChange, step = 1, min = 0, max = 999, label, decimals = 0 }: { value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; label?: string; decimals?: number }) {
   const set = (v: number) => onChange(Math.min(max, Math.max(min, Math.round(v * 10 ** decimals) / 10 ** decimals)));
   return (
@@ -188,7 +213,8 @@ export function Stepper({ value, onChange, step = 1, min = 0, max = 999, label, 
       <Pressable accessibilityRole="button" accessibilityLabel={`${label ?? ''} minus`} onPress={() => set(value - step)} style={({ pressed }) => [s.stepBtn, pressed && s.pressed]}><Icon name="minus" size={26} /></Pressable>
       <TextInput
         accessibilityLabel={label}
-        style={s.stepValue}
+        // Grows with the number (2500 kg must never show as "500"); long numbers get a smaller size.
+        style={[s.stepValue, { width: Math.max(68, String(value).length * 16 + 28) }, String(value).length > 4 && { fontSize: 22 }]}
         keyboardType="decimal-pad"
         value={String(value)}
         onChangeText={(txt) => {
@@ -262,15 +288,18 @@ export function Section({ title, action, onAction }: { title: string; action?: s
 }
 
 /** A settings-style row: icon, title and detail, a value or a chevron. Stack them inside a Card with `flush`. */
-export function ListRow({ icon, tone = 'primary', title, detail, value, onPress, last }: { icon?: IconName; tone?: Tone; title: string; detail?: string; value?: string; onPress?: () => void; last?: boolean }) {
+export function ListRow({ icon, tone = 'primary', title, detail, value, valueTone, onPress, last }: { icon?: IconName; tone?: Tone; title: string; detail?: string; value?: string; valueTone?: Tone; onPress?: () => void; last?: boolean }) {
   return (
     <Pressable accessibilityRole={onPress ? 'button' : undefined} disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.listRow, !last && s.listRowLine, pressed && { backgroundColor: colors.surfaceAlt }]}>
       {icon ? <IconBadge name={icon} tone={tone} size={38} /> : null}
+      {/* Only the title shares its line with the value; the detail runs the full width under both. */}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={s.listTitle} numberOfLines={4}>{title}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+          <Text style={[s.listTitle, { flex: 1 }]} numberOfLines={3}>{title}</Text>
+          {value ? <Text style={[s.listValue, valueTone && { color: TONES[valueTone].fg }]} numberOfLines={1}>{value}</Text> : null}
+        </View>
         {detail ? <Text style={s.small} numberOfLines={2}>{detail}</Text> : null}
       </View>
-      {value ? <Text style={s.listValue}>{value}</Text> : null}
       {onPress ? <Icon name="chevron-right" size={24} color={colors.faint} /> : null}
     </Pressable>
   );
@@ -296,7 +325,7 @@ export function Stat({ value, label, tone, onPress }: { value: string | number; 
     <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [s.stat, pressed && s.pressed]}>
       {/* Long amounts (₹1,25,000) get a smaller size so they never cut off on a small phone. */}
       <Text style={[s.statValue, String(value).length > 6 && { fontSize: String(value).length > 9 ? 17 : 20 }, tone ? { color: TONES[tone].fg } : null]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
-      <Text style={s.statLabel} numberOfLines={2}>{label}</Text>
+      <Text style={s.statLabel} numberOfLines={3}>{label}</Text>
     </Pressable>
   );
 }
@@ -339,70 +368,77 @@ export const s = StyleSheet.create({
   headerBtn: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   headerBadge: { position: 'absolute', top: 5, right: 4, minWidth: 18, height: 18, borderRadius: radius.pill, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 1.5, borderColor: colors.surface },
   headerBadgeText: { color: colors.primaryText, fontSize: 10, fontWeight: '800' },
-  title: { flexShrink: 1, fontSize: type.title, lineHeight: 26, fontWeight: '800', color: colors.ink },
+  title: { flexShrink: 1, fontSize: 19, lineHeight: 26, fontWeight: '700', color: colors.ink },
   subtitle: { fontSize: 13, lineHeight: 18, color: colors.muted },
   body: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl * 2 },
   footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: colors.surface, gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
   button: { minHeight: touch.stepperButton, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
-  buttonSecondary: { borderWidth: 1.5, borderColor: colors.border },
+  buttonSecondary: { borderWidth: 1, borderColor: '#D9D2C7' },
   buttonInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, maxWidth: '100%' },
   buttonSmall: { minHeight: touch.minTarget, paddingHorizontal: spacing.md },
   buttonText: { flexShrink: 1, fontSize: 17, fontWeight: '700' },
-  tile: { flexBasis: '47%', flexGrow: 1, minHeight: 132, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, justifyContent: 'flex-start', ...shadow, borderWidth: 1.5 },
-  tileLabel: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  tile: { flexBasis: '47%', flexGrow: 1, maxWidth: '50%', minHeight: 124, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, justifyContent: 'flex-start', ...shadow, borderWidth: 1.5 },
+  tileLabel: { fontSize: 17, lineHeight: 23, fontWeight: '700', color: colors.ink },
   tileHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   tileHint: { fontSize: type.label, color: colors.muted, fontWeight: '600' },
-  tileCompact: { flexBasis: '47%', flexGrow: 1, minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...shadow },
-  tileCompactLabel: { flex: 1, fontSize: type.body, fontWeight: '700', color: colors.ink },
+  tileCompact: { flexBasis: '47%', flexGrow: 1, maxWidth: '50%', minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...shadow },
+  tileCompactLabel: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: '600', color: colors.ink },
   badge: { position: 'absolute', top: spacing.md, right: spacing.md, backgroundColor: colors.primary, borderRadius: radius.pill, minWidth: 24, height: 24, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
   badgeInline: { backgroundColor: colors.primary, borderRadius: radius.pill, minWidth: 24, height: 24, paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: colors.primaryText, fontWeight: '800', fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: { maxWidth: '100%', minHeight: touch.minTarget, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { flexShrink: 1, fontSize: type.body, color: colors.ink, fontWeight: '600' },
+  chip: { maxWidth: '100%', minHeight: touch.minTarget, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, borderRadius: radius.pill, borderWidth: 1, borderColor: '#D9D2C7', backgroundColor: colors.surface },
+  chipSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 1.5 },
+  chipText: { flexShrink: 1, fontSize: type.body, color: colors.ink, fontWeight: '500' },
+  pill: { flexShrink: 0, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  pillText: { fontSize: 13, fontWeight: '700' },
+  segTrack: { flexDirection: 'row', padding: 4, gap: 4, borderRadius: radius.md, backgroundColor: '#EFEAE2' },
+  seg: { flex: 1, minHeight: 44, borderRadius: radius.sm + 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
+  segOn: { backgroundColor: colors.surface, shadowColor: '#3B2A1A', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  segText: { fontSize: 15, fontWeight: '600', color: colors.muted },
+  segTextOn: { color: colors.ink, fontWeight: '700' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepBtn: { width: 52, height: touch.stepperButton, borderRadius: radius.md, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   stepBtnPlus: { backgroundColor: colors.primarySoft },
   stepSign: { fontSize: 28, fontWeight: '700', color: colors.ink },
   dayBtn: { width: touch.minTarget, height: touch.minTarget, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
-  callBtn: { minHeight: touch.minTarget, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
-  callText: { fontSize: type.body, color: colors.primaryText, fontWeight: '700' },
+  callBtn: { minHeight: touch.minTarget, flexDirection: 'row', gap: 6, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.success, alignItems: 'center', justifyContent: 'center' },
+  callText: { fontSize: type.body, color: colors.success, fontWeight: '700' },
   stepValue: { width: 68, height: touch.stepperButton, textAlign: 'center', fontSize: type.number - 4, fontWeight: '800', color: colors.ink, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
   field: { gap: spacing.sm },
   askBlock: { gap: spacing.sm },
   label: { fontSize: type.label, fontWeight: '700', color: colors.muted },
-  ask: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  ask: { fontSize: 18, lineHeight: 25, fontWeight: '700', color: colors.ink },
   optional: { fontSize: type.label, fontWeight: '600', color: colors.faint },
   diary: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', backgroundColor: colors.primarySoft, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   diaryLabel: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
-  diaryText: { fontSize: type.body, lineHeight: 22, fontWeight: '700', color: colors.ink },
+  diaryText: { fontSize: type.body, lineHeight: 22, fontWeight: '600', color: colors.ink },
   hint: { fontSize: type.label, color: colors.muted },
   input: { minHeight: touch.stepperButton, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, fontSize: type.body, color: colors.ink, backgroundColor: colors.surface },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, ...shadow },
   section: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -spacing.xs, marginTop: spacing.xs },
-  sectionTitle: { fontSize: type.label, fontWeight: '800', color: colors.muted, letterSpacing: 0.3 },
-  sectionAction: { fontSize: type.label, fontWeight: '800', color: colors.primary },
+  sectionTitle: { fontSize: type.label, fontWeight: '700', color: colors.muted, letterSpacing: 0.3 },
+  sectionAction: { fontSize: type.label, fontWeight: '700', color: colors.primary },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 64, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   listRowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  listTitle: { fontSize: type.body, fontWeight: '700', color: colors.ink },
-  listValue: { maxWidth: '40%', textAlign: 'right', fontSize: type.body, fontWeight: '700', color: colors.ink },
-  stat: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, gap: 2, ...shadow },
-  statValue: { fontSize: 26, fontWeight: '800', color: colors.ink },
-  statLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },
-  h1: { fontSize: type.heading, fontWeight: '800', color: colors.ink },
-  h2: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  listTitle: { fontSize: type.body, lineHeight: 22, fontWeight: '600', color: colors.ink },
+  listValue: { flexShrink: 0, maxWidth: '55%', textAlign: 'right', fontSize: type.body, lineHeight: 22, fontWeight: '700', color: colors.ink },
+  stat: { flex: 1, minHeight: 92, justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, gap: spacing.xs, ...shadow },
+  statValue: { fontSize: 24, fontWeight: '800', color: colors.ink },
+  statLabel: { fontSize: 13, lineHeight: 18, color: colors.muted, fontWeight: '500' },
+  h1: { fontSize: 22, lineHeight: 30, fontWeight: '700', color: colors.ink },
+  h2: { fontSize: 17, lineHeight: 24, fontWeight: '700', color: colors.ink },
   text: { fontSize: type.body, color: colors.ink, lineHeight: 23 },
   small: { fontSize: type.label, color: colors.muted, lineHeight: 20 },
-  big: { fontSize: 30, fontWeight: '800', color: colors.ink },
+  big: { fontSize: 28, lineHeight: 36, fontWeight: '800', color: colors.ink },
   empty: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
   totalRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 52, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   totalLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  totalValue: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  totalValue: { fontSize: 17, fontWeight: '700', color: colors.ink },
   totalBig: { fontSize: 24, fontWeight: '800', color: colors.ink },
   banner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md },
-  bannerText: { flex: 1, fontSize: type.body, fontWeight: '600', lineHeight: 22 },
+  bannerText: { flex: 1, fontSize: 15, fontWeight: '600', lineHeight: 21 },
 });
 
 /** Cards that hold ListRows edge to edge. */

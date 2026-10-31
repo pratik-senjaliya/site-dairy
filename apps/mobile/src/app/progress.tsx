@@ -136,7 +136,7 @@ export default function Progress() {
               <Ask q={t('report.photos')} optional>
                 <Row style={{ flexWrap: 'wrap' }}>
                   {photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
-                  <Button kind="secondary" small label={photos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'progress', entryId).then((p) => p && setPhotos((x) => [...x, p]))} />
+                  <Button kind="secondary" small icon="camera-outline" label={photos.length ? t('photo.another') : t('photo.take')} onPress={() => void takePhoto(siteId!, 'progress', entryId).then((p) => p && setPhotos((x) => [...x, p]))} />
                 </Row>
               </Ask>
               <Ask q={t('progress.qNote')} optional>

@@ -321,6 +321,8 @@
   "common.deleteConfirm": "यह एंट्री हटानी है?",
   "common.todayEntries": "आज भरा",
   "common.more": "और ({count}) ▾",
+  "common.details": "विवरण",
+  "common.less": "कम",
   "common.prevDay": "पिछला दिन",
   "common.nextDay": "अगला दिन",
   "common.willSave": "यह दर्ज होगा:",

@@ -45,10 +45,11 @@ export default function MinStock() {
   });
 
   return (
-    <Screen title={t('setup.minStock')} subtitle={t('setup.minStockHint')} footer={<Button label={t('common.save')} icon="check" busy={busy} disabled={!site} onPress={save} />}>
+    <Screen title={t('setup.minStock')} footer={<Button label={t('common.save')} icon="check" busy={busy} disabled={!site} onPress={save} />}>
       {(me?.projects.length ?? 0) > 1 ? (
         <Chips options={(me?.projects ?? []).map((p) => ({ value: p.id, label: p.name }))} value={site} onChange={setSite} />
       ) : null}
+      <T.small>{t('setup.minStockHint')}</T.small>
       <Card style={{ gap: spacing.sm }}>
         {materials.map((m) => (
           <Row key={m.id} style={{ justifyContent: 'space-between' }}>

@@ -86,3 +86,12 @@ MSG91 needs DLT approval, so the pilot runs with `OTP_PROVIDER=dev`, `ALLOW_DEV_
 - Supervisors may add, on their own sites, a contractor, supplier, worker, kind of work, place or material by
   name (rates and money stay with owner/engineer/accountant). An entry should never stop for a missing list item.
 - A material request raised by someone who approves requests is approved at once (no approval row).
+
+## 2026-10-30 — Which control for which choice (UI pass)
+
+- 2–3 fixed options (tabs, filters, period, language, yes/no): `Segmented`. Longer or open lists (materials,
+  floors, contractors): `Chips`. Status of a row (approved, pending, rejected): `Pill`.
+- A row's amount sits on the title line and never shrinks; the title wraps (up to 3 lines) and the detail runs
+  full width below. Don't put a label next to an amount that already explains itself (Android clips it).
+- Only the button that was pressed shows loading; the others stay usable-looking.
+- Field UI minimums still hold: 44–48 px touch targets, body text ≥ 16 px.

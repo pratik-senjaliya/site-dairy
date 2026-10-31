@@ -2,8 +2,8 @@ import { formatNumber, formatPaise, isoDate, shortDate, wageWeek } from '@site-d
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, Share, View } from 'react-native';
-import { Banner, Button, Card, Chips, Empty, Icon, Row, Screen, T } from '../components/ui';
+import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Banner, Button, Card, Chips, Empty, Icon, Row, Screen, Segmented, T, Text } from '../components/ui';
 import { db, useDb } from '../lib/db';
 import { post } from '../lib/api';
 import { confirm, notice, useOnline, useSite } from '../lib/hooks';
@@ -98,7 +98,7 @@ export default function Hisab() {
   return (
     <Screen title={t('home.hisab')}>
       {projects.length > 1 ? <Chips options={projects.map((p) => ({ value: p.id, label: p.name }))} value={siteId} onChange={setSiteId} /> : null}
-      <Chips<Period> options={[{ value: 'week', label: t('hisab.thisWeek') }, { value: 'lastWeek', label: t('hisab.lastWeek') }, { value: 'month', label: t('hisab.thisMonth') }]} value={period} onChange={setPeriod} />
+      <Segmented<Period> options={[{ value: 'week', label: t('hisab.thisWeek') }, { value: 'lastWeek', label: t('hisab.lastWeek') }, { value: 'month', label: t('hisab.thisMonth') }]} value={period} onChange={setPeriod} />
       <T.small>{shortDate(range.from)} – {shortDate(lastDay)} · {t('hisab.hint')}</T.small>
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={reload} /> : null}
       {!shown && loading ? <T.small>{t('common.loading')}</T.small> : null}
@@ -114,20 +114,22 @@ export default function Hisab() {
           {shown.contractors.map((a) => (
             <Card key={a.contractor.id}>
               <Pressable onPress={() => setOpen(open === a.contractor.id ? null : a.contractor.id)} style={{ gap: spacing.xs }}>
-                <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <T.h2>{a.contractor.name}</T.h2>
+                <Row style={{ alignItems: 'flex-start', gap: spacing.md }}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 17, lineHeight: 23, fontWeight: '700', color: colors.ink }} numberOfLines={2}>{a.contractor.name}</Text>
                     <T.small>{t('hisab.manDays', { count: a.manDays })}{a.settledTill ? ` · ${t('hisab.settledTill', { date: shortDate(a.settledTill) })}` : ''}</T.small>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                    <Text style={{ fontSize: 18, lineHeight: 24, fontWeight: '800', color: a.net > 0 ? colors.primary : colors.ink }}>{formatPaise(a.net)}</Text>
                     <T.small>{t('hisab.payable')}</T.small>
-                    <T.h2>{formatPaise(a.net)}</T.h2>
                   </View>
-                  <Icon name={open === a.contractor.id ? 'chevron-up' : 'chevron-down'} size={24} color={colors.faint} />
                 </Row>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <T.body>{t('hisab.earned')} {formatPaise(a.gross)}</T.body>
-                  {a.advances ? <T.body color={colors.warning}>{t('hisab.advance')} −{formatPaise(a.advances)}</T.body> : null}
+                <Row style={{ justifyContent: 'space-between', paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
+                  <View style={{ flex: 1 }}><T.small>{t('hisab.earned')} {formatPaise(a.gross)}{a.advances ? `  ·  ${t('hisab.advance')} −${formatPaise(a.advances)}` : ''}</T.small></View>
+                  <Row style={{ gap: 2, flexShrink: 0 }}>
+                    <T.small color={colors.primary} bold>{t(open === a.contractor.id ? 'common.less' : 'common.details')}</T.small>
+                    <Icon name={open === a.contractor.id ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
+                  </Row>
                 </Row>
               </Pressable>
               {unpaid(a.contractor.id).map((x) => (

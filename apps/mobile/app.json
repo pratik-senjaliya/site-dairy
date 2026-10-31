@@ -54,6 +54,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#FAF7F2"
         }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false
+        }
       ]
     ],
     "scheme": "sitediary",

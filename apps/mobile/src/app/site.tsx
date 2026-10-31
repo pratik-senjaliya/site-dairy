@@ -46,7 +46,7 @@ export default function Site() {
     <Screen
       title={data?.project.name ?? ''}
       footer={id ? (
-        <Button kind="secondary" label={t('home.pdf')} busy={sending} onPress={() => {
+        <Button kind="secondary" icon="file-pdf-box" label={t('home.pdf')} busy={sending} onPress={() => {
           setSending(true);
           shareDailyReport(id, t('home.reportShareTitle'), date)
             .catch((e: unknown) => notice(t('home.reportFailed'), e instanceof Error ? e.message : String(e)))

@@ -94,6 +94,7 @@ How the cloud build works: EAS uploads the repo, runs `npm install` at the root,
 | `Not logged in` / `EXPO_TOKEN` errors | `npx eas-cli@latest login`, or `export EXPO_TOKEN=…` (expo.dev → Account settings → Access tokens) for a terminal with no browser. Never commit the token. |
 | Build failed on Expo | Open the build page → the red step → copy the log end. In Claude Code: `npx eas-cli@latest build:view <build id>` shows the summary and log links. |
 | App installed but the login shows a server address | That's a non-demo build: use the `demo` profile, or set the server address on the login screen (https only in an APK). |
+| "Send app for a security check?" (Play Protect) on install | Tap "Don't send"; the install goes on. |
 | "App not installed" over an older install | Uninstall the old one first (it was signed with a different key, e.g. a build from another Expo account). |
 | A regular web or e2e build shows the demo banner | The bundler kept `EXPO_PUBLIC_DEMO` from an earlier export: `npm run build:mobile-web` (it uses `--clear`). |
 

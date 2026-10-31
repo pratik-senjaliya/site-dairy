@@ -1,7 +1,7 @@
 import { formatNumber, formatPaise } from '@site-diary/shared';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Banner, Card, Chips, Empty, flush, ListRow, Screen, Stat } from '../components/ui';
+import { Banner, Card, Empty, flush, ListRow, Screen, Segmented, Stat } from '../components/ui';
 import { ApiError, get } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { useOnline } from '../lib/hooks';
@@ -69,7 +69,7 @@ export default function Suppliers() {
     <Screen title={t('supplier.title')}>
       {error ? <Banner tone="error" text={error === 'offline' ? t('common.offlineOnline') : error} onPress={() => void load()} /> : null}
       {ledgers ? <Stat value={formatPaise(total)} label={t('supplier.totalDue')} tone={total ? 'warn' : 'ok'} /> : null}
-      <Chips<'party' | 'material'> options={[{ value: 'party', label: t('supplier.byParty') }, { value: 'material', label: t('supplier.byMaterial') }]} value={view} onChange={setView} />
+      <Segmented<'party' | 'material'> options={[{ value: 'party', label: t('supplier.byParty') }, { value: 'material', label: t('supplier.byMaterial') }]} value={view} onChange={setView} />
       {view === 'material' ? <MaterialView /> : null}
       {view === 'party' && ledgers && !used.length ? <Empty icon="truck-outline" text={t('supplier.none')} /> : null}
       {view === 'party' && used.length ? (

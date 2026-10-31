@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
 import { DayStep, PayModeField, useModeText } from '../components/pickers';
-import { Ask, Banner, Chip, Chips, DiaryLine, Button, Input, Row, Screen } from '../components/ui';
+import { Ask, Banner, Button, Chip, Chips, DiaryLine, Input, Row, Screen, Segmented } from '../components/ui';
 import { post } from '../lib/api';
 import { db, useDb } from '../lib/db';
 import { done, notice, useOnline } from '../lib/hooks';
@@ -66,7 +66,7 @@ export default function Money() {
       }
     >
       {book.error === 'offline' ? <Banner tone="error" text={t('common.offlineOnline')} onPress={() => void book.reload()} /> : null}
-      <Chips<'in' | 'out'> options={[{ value: 'in', label: t('accounts.addIn') }, { value: 'out', label: t('accounts.addOut') }]} value={dir} onChange={(d) => { setDir(d); setKind(null); setParty(''); }} />
+      <Segmented<'in' | 'out'> options={[{ value: 'in', label: t('accounts.addIn') }, { value: 'out', label: t('accounts.addOut') }]} value={dir} onChange={(d) => { setDir(d); setKind(null); setParty(''); }} />
       {sites.length > 1 || kind !== 'flat' ? (
         <Ask q={t('money.qSite')}>
           <Chips<string> options={[...sites.map((p) => ({ value: p.id, label: p.name })), ...(kind === 'flat' ? [] : [{ value: '', label: t('money.noSite') }])]} value={site ?? ''} onChange={(v) => { setSite(v || null); setUnit(null); }} />

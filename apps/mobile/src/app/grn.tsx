@@ -129,7 +129,7 @@ export default function Grn() {
       <Ask q={t('grn.qProof')} hint={t('grn.proofHint')} optional>
         <Row style={{ flexWrap: 'wrap' }}>
           {photos.map((p) => <PhotoThumb key={p.id} photo={p} />)}
-          <Button kind="secondary" small label={photos.length ? t('photo.another') : t('grn.challanPhoto')} onPress={() => void takePhoto(siteId!, 'grn', grnId).then((p) => p && setPhotos((x) => [...x, p]))} />
+          <Button kind="secondary" small icon="camera-outline" label={photos.length ? t('photo.another') : t('grn.challanPhoto')} onPress={() => void takePhoto(siteId!, 'grn', grnId).then((p) => p && setPhotos((x) => [...x, p]))} />
         </Row>
         <Row style={{ gap: spacing.md }}>
           <View style={{ flex: 1 }}><TextField label={t('report.challan')} value={challanNo} onChange={setChallan} /></View>

@@ -1,6 +1,8 @@
 # CLAUDE.md — Site Diary
 
-Read this first, then `docs/scope.md` (product and technical scope, the source of truth) and `docs/decisions.md` (where we differ from it).
+Read this first, then `docs/handoff.md` (where things stand right now, what the last session did, what's open), `docs/scope.md` (product and technical scope, the source of truth) and `docs/decisions.md` (where we differ from it).
+
+**Every session that changes something, before it ends:** rewrite `docs/handoff.md` (present state, open items, next up), add a dated entry to `CHANGELOG.md`, record any new rule in `docs/decisions.md`, tick the Status list below if a task moved, then commit and push. Sessions run on the laptop and on Claude mobile/web, and these files are the only memory they share.
 
 ## What this is
 
@@ -77,7 +79,8 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - [x] 11. Diary-style UX on every field screen, contractor hisab, owner home (site diaries, wage day, "needs you"), closed pilot login, real pilot APK. History: `CHANGELOG.md`; UX rule: `docs/decisions.md`.
 - [x] 12. Phone app as the whole product: setup screens, new design system, ordering on WhatsApp, supplier accounts, monthly cost; e2e `setup.mjs` (demo) and `firstday.mjs` (real API).
 - [x] 13. Partners' money book (`modules/accounts`, `app/accounts.tsx`): flats and buyers, money in/out with who wrote it, partner role; party accounts with cheque numbers, owner-entered bills, material by party; upad by trade.
-- What is left needs the owner's accounts or real devices: `docs/release-checklist.md`. Next up: MSG91 SMS, Play Store, web panel on Vercel (optional).
+- [x] 14. UI/UX pass for customer demos (segmented controls, list rows, login grid, amount cards, no grey nav bar), tested on a real phone for every role; pilot APK versionCode 10.
+- What is left needs the owner's accounts or real devices: `docs/release-checklist.md`. Next up: see `docs/handoff.md`.
 
 ## Live pilot (since 2026-10-23)
 

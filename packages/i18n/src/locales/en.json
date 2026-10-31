@@ -321,6 +321,8 @@
   "common.deleteConfirm": "Delete this entry?",
   "common.todayEntries": "Entered today",
   "common.more": "More ({count}) ▾",
+  "common.details": "Details",
+  "common.less": "Less",
   "common.prevDay": "Previous day",
   "common.nextDay": "Next day",
   "common.willSave": "This will be noted:",

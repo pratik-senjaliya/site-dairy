@@ -3,7 +3,7 @@ import { spacing } from '@site-diary/ui-tokens';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { View } from 'react-native';
-import { Ask, Banner, Button, Card, Chips, flush, IconBadge, ListRow, Screen, T } from '../components/ui';
+import { Ask, Banner, Button, Card, flush, IconBadge, ListRow, Screen, Segmented, T } from '../components/ui';
 import { getServer, isDemo } from '../lib/api';
 import { kv } from '../lib/kv';
 import { confirm, useCan } from '../lib/hooks';
@@ -29,7 +29,7 @@ export default function Profile() {
         </View>
       </Card>
       <Ask q={t('profile.language')}>
-        <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
+        <Segmented<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
       </Ask>
       <Card style={flush}>
         {(me?.projects.length ?? 0) > 1 ? <ListRow icon="swap-horizontal" title={t('home.changeSite')} onPress={() => router.push('/sites')} /> : null}

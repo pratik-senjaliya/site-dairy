@@ -179,18 +179,24 @@ export default function Supplier() {
 
       {data?.rows.length ? (
         <>
-          <Section title={t('supplier.title')} action={t('supplier.share')} onAction={share} />
+          <Section title={t('supplier.title')} />
           <Card style={{ gap: 0, paddingVertical: spacing.xs }}>
             {[...data.rows].reverse().map((r, i) => (
               <View key={r.id} style={{ paddingVertical: spacing.md, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
-                <Pressable disabled={r.kind !== 'grn'} onPress={() => setOpen(open === r.id ? null : r.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <Pressable disabled={r.kind !== 'grn'} onPress={() => setOpen(open === r.id ? null : r.id)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
                   <IconBadge name={r.kind === 'grn' ? 'truck-delivery' : 'cash-check'} tone={r.kind === 'grn' ? (r.unpricedLines ? 'warn' : 'primary') : 'ok'} size={34} />
-                  <View style={{ flex: 1 }}>
-                    <T.body bold>{r.kind === 'grn' ? (r.items?.length ? r.items.map(itemText).join(', ') : t('supplier.received')) : `${t('supplier.paid')} ${modeText(r.mode, r.ref)}`}</T.body>
-                    <T.small>{[shortDate(r.date.slice(0, 10)), r.kind === 'grn' && r.ref ? r.ref : '', siteName(r.projectId), r.unpricedLines ? t('supplier.rateNeeded') : ''].filter(Boolean).join(' · ')} · {t('supplier.balance')} {formatPaise(r.balancePaise)}</T.small>
+                  {/* What it was and the amount on one line; date, challan and balance under them, full width. */}
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Row style={{ alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}><T.body bold>{r.kind === 'grn' ? (r.items?.length ? r.items.map(itemText).join(', ') : t('supplier.received')) : `${t('supplier.paid')} ${modeText(r.mode, r.ref)}`}</T.body></View>
+                      {/* No amount until the rate is in; the line under it says "rate pending". */}
+                      {r.kind === 'grn' && r.unpricedLines && !r.debitPaise ? null : <T.body bold color={r.kind === 'grn' ? colors.ink : colors.success}>{r.kind === 'grn' ? formatPaise(r.debitPaise) : `−${formatPaise(r.creditPaise)}`}</T.body>}
+                    </Row>
+                    <Row style={{ alignItems: 'flex-start' }}>
+                      <View style={{ flex: 1 }}><T.small>{[shortDate(r.date.slice(0, 10)), r.kind === 'grn' && r.ref ? r.ref : '', siteName(r.projectId), r.unpricedLines ? t('supplier.rateNeeded') : ''].filter(Boolean).join(' · ')} · {t('supplier.balance')} {formatPaise(r.balancePaise)}</T.small></View>
+                      {r.kind === 'grn' ? <Icon name={open === r.id ? 'chevron-up' : 'chevron-down'} size={22} color={colors.faint} /> : null}
+                    </Row>
                   </View>
-                  {r.kind === 'grn' && r.unpricedLines && !r.debitPaise ? <T.small bold color={colors.warning}>{t('supplier.setRate')}</T.small> : <T.body bold color={r.kind === 'grn' ? colors.ink : colors.success}>{r.kind === 'grn' ? formatPaise(r.debitPaise) : `−${formatPaise(r.creditPaise)}`}</T.body>}
-                  {r.kind === 'grn' ? <Icon name={open === r.id ? 'chevron-up' : 'chevron-down'} size={22} color={colors.faint} /> : null}
                 </Pressable>
                 {open === r.id ? <PriceReceipt grnId={r.id} onSaved={() => { setOpen(null); void reload(); }} /> : null}
               </View>

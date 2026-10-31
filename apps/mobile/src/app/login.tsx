@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Banner, Button, Card, Chips, Field, Icon, Input, T, Text } from '../components/ui';
+import { Banner, Button, Card, Field, Icon, type IconName, Input, Segmented, T, Text } from '../components/ui';
 import { ApiError, DEMO_BUILD, getDeviceId, getServer, post, setDemo, setServer } from '../lib/api';
 import { notice } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -19,6 +19,15 @@ const ERRORS: Record<string, MessageKey> = {
   otp_expired: 'login.codeExpired',
   otp_limit: 'login.tooMany',
 };
+
+const DEMO_ROLES: { role: 'supervisor' | 'owner' | 'partner' | 'engineer' | 'store' | 'accountant'; icon: IconName }[] = [
+  { role: 'supervisor', icon: 'account-hard-hat' },
+  { role: 'owner', icon: 'account-tie' },
+  { role: 'partner', icon: 'handshake-outline' },
+  { role: 'engineer', icon: 'ruler-square-compass' },
+  { role: 'store', icon: 'warehouse' },
+  { role: 'accountant', icon: 'calculator-variant-outline' },
+];
 
 type Verify = { accessToken?: string; refreshToken?: string; signup?: boolean; verifiedToken?: string; companies?: { id: string; name: string; role: string }[] };
 
@@ -63,10 +72,33 @@ export default function Login() {
       setBusy(false);
     }
   };
+  // Which button is working, so only that one spins (the others stay as they are).
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const press = (key: string, fn: () => Promise<void>) => {
+    if (busy) return;
+    setBusyKey(key);
+    void run(fn).finally(() => setBusyKey(null));
+  };
   const finish = async (tokens: Verify) => {
     await signedIn(tokens);
     router.replace('/');
   };
+
+  // The demo: a two-column grid of who you are. First in the demo build (that is what it is for), else under the login.
+  const demoCard = (
+    <Card style={DEMO_BUILD ? { borderColor: colors.primary, borderWidth: 2 } : undefined}>
+      <T.h2>{t('demo.title')}</T.h2>
+      <T.small>{t('demo.hint')}</T.small>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs }}>
+        {DEMO_ROLES.map(({ role, icon }) => (
+          <Button key={role} kind={role === 'supervisor' ? 'primary' : 'secondary'} small icon={icon} label={t(`role.${role}`)} busy={busyKey === role} style={{ flexBasis: '47%', flexGrow: 1 }} onPress={() => press(role, async () => {
+            await setDemo(true);
+            await finish(await post<Verify>('/auth/demo', { role }));
+          })} />
+        ))}
+      </View>
+    </Card>
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -81,34 +113,25 @@ export default function Login() {
             <Text onLongPress={() => setShowServer(true)} style={{ fontSize: typing ? 24 : 32, fontWeight: '800', color: colors.ink }}>{t('app.name')}</Text>
             {typing ? null : <T.body muted>{t('login.tagline')}</T.body>}
           </View>
-          <Chips<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} style={{ justifyContent: 'center' }} />
+          <Segmented<Locale> options={[{ value: 'gu', label: 'ગુજરાતી' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} value={lang} onChange={setLang} />
           {error ? <Banner tone="error" text={error} /> : null}
           {busy && slow ? <Banner tone="info" text={t('login.waking')} /> : null}
 
-          {DEMO_BUILD || (__DEV__ && step === 'phone') ? (
-            <Card style={DEMO_BUILD ? { borderColor: colors.primary, borderWidth: 2 } : undefined}>
-              <T.h2>{t('demo.title')}</T.h2>
-              <T.small>{t('demo.hint')}</T.small>
-              {(['supervisor', 'owner', 'partner', 'engineer', 'store', 'accountant'] as const).map((role) => (
-                <Button key={role} kind={role === 'supervisor' ? 'primary' : 'secondary'} small label={t(`role.${role}`)} busy={busy} onPress={() => run(async () => {
-                  await setDemo(true);
-                  await finish(await post<Verify>('/auth/demo', { role }));
-                })} />
-              ))}
-            </Card>
-          ) : null}
+          {DEMO_BUILD ? demoCard : null}
 
           {step === 'phone' && (
             <Card>
               <Field label={t('auth.phone')}>
-                <Input value={phone} onChangeText={setPhone} accessibilityLabel={t('auth.phone')} keyboardType="phone-pad" placeholder="98250 12345" autoFocus maxLength={14} style={{ fontSize: 22, letterSpacing: 1 }} />
+                <Input value={phone} onChangeText={setPhone} accessibilityLabel={t('auth.phone')} keyboardType="phone-pad" placeholder="98250 12345" maxLength={14} style={{ fontSize: 22, letterSpacing: 1 }} />
               </Field>
-              <Button label={t('auth.sendOtp')} busy={busy} disabled={phone.replace(/\D/g, '').length < 10} onPress={() => run(async () => {
+              <Button label={t('auth.sendOtp')} busy={busy && !busyKey} disabled={phone.replace(/\D/g, '').length < 10} onPress={() => run(async () => {
                 await post('/auth/otp/request', { phone });
                 setStep('otp');
               })} />
             </Card>
           )}
+
+          {!DEMO_BUILD && __DEV__ && step === 'phone' ? demoCard : null}
 
           {step === 'otp' && (
             <Card>
@@ -116,7 +139,7 @@ export default function Login() {
               <Field label={t('auth.enterOtp')}>
                 <Input accessibilityLabel={t('auth.enterOtp')} value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoFocus maxLength={6} style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} textContentType="oneTimeCode" autoComplete="sms-otp" />
               </Field>
-              <Button label={t('login.verify')} busy={busy} disabled={code.length !== 6} onPress={() => run(async () => {
+              <Button label={t('login.verify')} busy={busy && !busyKey} disabled={code.length !== 6} onPress={() => run(async () => {
                 const r = await post<Verify>('/auth/otp/verify', { phone, code, ...device });
                 if (r.accessToken) return finish(r);
                 setVerified(r);
@@ -130,7 +153,7 @@ export default function Login() {
             <Card>
               <T.h2>{t('login.pickCompany')}</T.h2>
               {verified.companies.map((c) => (
-                <Button key={c.id} kind="secondary" label={`${c.name} · ${t(`role.${c.role}` as 'role.owner')}`} busy={busy} onPress={() => run(async () => {
+                <Button key={c.id} kind="secondary" label={`${c.name} · ${t(`role.${c.role}` as 'role.owner')}`} busy={busyKey === c.id} onPress={() => press(c.id, async () => {
                   await finish(await post<Verify>('/auth/login', { verifiedToken: verified.verifiedToken, companyId: c.id, ...device }));
                 })} />
               ))}
@@ -143,7 +166,7 @@ export default function Login() {
               <T.body muted>{t('login.newCompanyHint')}</T.body>
               <Field label={t('login.companyName')}><Input value={company} onChangeText={setCompany} placeholder="Shree Ganesh Builders" accessibilityLabel={t('login.companyName')} /></Field>
               <Field label={t('login.yourName')}><Input value={name} onChangeText={setName} accessibilityLabel={t('login.yourName')} /></Field>
-              <Button label={t('login.start')} busy={busy} disabled={company.trim().length < 2 || name.trim().length < 2} onPress={() => run(async () => {
+              <Button label={t('login.start')} busy={busy && !busyKey} disabled={company.trim().length < 2 || name.trim().length < 2} onPress={() => run(async () => {
                 await finish(await post<Verify>('/auth/signup', { verifiedToken: verified?.verifiedToken, companyName: company, name, language: lang, ...device }));
               })} />
             </Card>
