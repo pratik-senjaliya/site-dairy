@@ -1,4 +1,4 @@
-import { formatNumber, formatPaise } from '@site-diary/shared';
+import { formatNumber, formatPaise, shortDate } from '@site-diary/shared';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Banner, Card, Empty, flush, ListRow, Screen, Segmented, Stat } from '../components/ui';
@@ -8,7 +8,7 @@ import { useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import type { Ledger } from '../lib/setup';
 
-interface ByMaterial { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }
+export interface ByMaterial { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number; lastRatePaise: number | null; lastRateOn: string | null }
 
 /** Each material and the parties it came from (steel is often bought from 3–4 parties at different rates). */
 function MaterialView() {
@@ -26,11 +26,15 @@ function MaterialView() {
   return groups.map(({ material, rows }) => {
     const unit = String(material?.unit ?? '');
     const qty = rows.reduce((x, r) => x + r.qty, 0);
+    // Parties' last rates side by side: the lowest is marked, to know whom to call for the next order.
+    const rated = rows.filter((r) => r.lastRatePaise != null);
+    const lowest = rated.length > 1 ? Math.min(...rated.map((r) => r.lastRatePaise!)) : null;
+    const rateText = (r: ByMaterial) => (r.lastRatePaise != null && r.lastRateOn ? ` · ${t('supplier.lastRate', { rate: formatPaise(r.lastRatePaise), unit, date: shortDate(r.lastRateOn) })}${r.lastRatePaise === lowest ? ` (${t('supplier.cheapest')})` : ''}` : '');
     return (
       <Card key={String(material?.id)} style={flush}>
         <ListRow icon="package-variant-closed" title={name(material)} detail={t('supplier.materialSum', { parties: rows.length, qty: `${formatNumber(qty)} ${unit}` })} value={rows.some((r) => r.unpriced) && !rows.some((r) => r.amountPaise) ? t('supplier.rateNeeded') : formatPaise(rows.reduce((x, r) => x + r.amountPaise, 0))} />
         {rows.map((r, i) => (
-          <ListRow key={r.supplierId} title={String(db.find('supplier', r.supplierId)?.name ?? '')} detail={`${t('supplier.times', { count: r.receipts, qty: `${formatNumber(r.qty)} ${unit}` })}${r.unpriced ? ` · ${t('supplier.rateNeeded')}` : ''}`} value={r.unpriced && !r.amountPaise ? t('supplier.rateNeeded') : formatPaise(r.amountPaise)} onPress={() => router.push({ pathname: '/supplier', params: { id: r.supplierId } })} last={i === rows.length - 1} />
+          <ListRow key={r.supplierId} title={String(db.find('supplier', r.supplierId)?.name ?? '')} detail={`${t('supplier.times', { count: r.receipts, qty: `${formatNumber(r.qty)} ${unit}` })}${rateText(r)}${r.unpriced ? ` · ${t('supplier.rateNeeded')}` : ''}`} value={r.unpriced && !r.amountPaise ? t('supplier.rateNeeded') : formatPaise(r.amountPaise)} onPress={() => router.push({ pathname: '/supplier', params: { id: r.supplierId } })} last={i === rows.length - 1} />
         ))}
       </Card>
     );

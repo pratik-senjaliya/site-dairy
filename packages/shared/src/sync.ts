@@ -104,7 +104,7 @@ export const pushRowSchemas = {
     takenAt: z.string().datetime(),
     lat: z.number().min(-90).max(90).nullable().optional(),
     lng: z.number().min(-180).max(180).nullable().optional(),
-    sourceType: z.enum(['attendance', 'grn', 'progress', 'issue', 'site_day']),
+    sourceType: z.enum(['attendance', 'grn', 'progress', 'issue', 'site_day', 'measure']),
     sourceId: uuidSchema,
   }),
 } as const;

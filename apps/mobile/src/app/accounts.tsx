@@ -35,10 +35,10 @@ export default function Accounts() {
   const t = useT();
   const can = useCan();
   const { me } = useSession();
-  const params = useLocalSearchParams<{ site?: string }>();
+  const params = useLocalSearchParams<{ site?: string; tab?: string }>();
   const sites = me?.projects.filter((p) => p.status === 'active') ?? [];
   const [site, setSite] = useState<string>(params.site ?? (sites.length === 1 ? sites[0]!.id : 'all'));
-  const [tab, setTab] = useState<Tab>('book');
+  const [tab, setTab] = useState<Tab>(params.tab === 'flats' ? 'flats' : 'book');
   const [filter, setFilter] = useState<Filter>('all');
   const { data, error, reload } = useOnline<Book>(`/accounts${site === 'all' ? '' : `?projectId=${site}`}`);
   const lineText = useLineText();
@@ -49,6 +49,8 @@ export default function Accounts() {
   const flatOf = (id: string | null) => data?.units.find((u) => u.id === id);
   const lines = (data?.lines ?? []).filter((l) => filter === 'all' || l.direction === filter);
   const flatsDue = (data?.units ?? []).reduce((x, u) => x + (u.duePaise ?? 0), 0);
+  // Instalments that fell due (stages reached) and are not paid yet: what to collect now.
+  const dueNow = (data?.units ?? []).filter((u) => u.schedule.dueNowPaise);
 
   const remove = async (l: BookLine) => {
     if (!(await confirm(t('accounts.remove'), `${formatPaise(l.amountPaise)} — ${lineText(l, flatOf(l.unitId))}\n${t('accounts.removeHint')}`, t('accounts.removeOk'), t('common.cancel')))) return;
@@ -117,7 +119,8 @@ export default function Accounts() {
 
       {tab === 'flats' && data ? (
         <>
-          {flatsDue ? <Banner tone="warn" text={t('accounts.flatsDue', { amount: formatPaise(flatsDue) })} /> : null}
+          {dueNow.length ? <Banner tone="warn" text={t('accounts.flatsDueNow', { amount: formatPaise(dueNow.reduce((x, u) => x + (u.schedule.dueNowPaise ?? 0), 0)), count: dueNow.length })} /> : null}
+          {flatsDue ? <T.small>{t('accounts.flatsDue', { amount: formatPaise(flatsDue) })}</T.small> : null}
           {!data.units.length ? <Empty icon="home-city-outline" text={t('accounts.noFlats')} /> : (
             <Card style={flush}>
               {data.units.map((u, i) => (
@@ -126,8 +129,9 @@ export default function Accounts() {
                   icon="home-city-outline"
                   tone={u.buyerName ? (u.duePaise ? 'warn' : 'ok') : 'muted'}
                   title={u.name}
-                  detail={u.buyerName ? [u.buyerName, t('accounts.received', { amount: formatPaise(u.receivedPaise) })].join(' · ') : t('accounts.unsold')}
+                  detail={u.buyerName ? [u.buyerName, u.schedule.dueNowPaise ? t('accounts.dueNow', { amount: formatPaise(u.schedule.dueNowPaise) }) : t('accounts.received', { amount: formatPaise(u.receivedPaise) })].join(' · ') : t('accounts.unsold')}
                   value={u.duePaise ? formatPaise(u.duePaise) : undefined}
+                  valueTone={u.schedule.dueNowPaise ? 'warn' : undefined}
                   onPress={() => router.push({ pathname: '/unit', params: { id: u.id } })}
                   last={i === data.units.length - 1}
                 />
@@ -135,6 +139,7 @@ export default function Accounts() {
             </Card>
           )}
           {write ? <Button kind="secondary" icon="plus" label={t('accounts.addFlat')} onPress={() => router.push({ pathname: '/unit', params: site === 'all' ? {} : { site } })} /> : null}
+          <Button kind="secondary" icon="stairs-up" label={t('accounts.plan')} onPress={() => router.push({ pathname: '/stages', params: site === 'all' ? {} : { site } })} />
         </>
       ) : null}
     </Screen>

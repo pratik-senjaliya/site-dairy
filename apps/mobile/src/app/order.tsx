@@ -1,16 +1,17 @@
-import { formatNumber, isoDate, shortDate } from '@site-diary/shared';
+import { formatNumber, formatPaise, isoDate, shortDate } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { QuickAdd, QtyField, RowChips, byUse } from '../components/pickers';
-import { Ask, Banner, Button, Card, DiaryLine, Input, Row, Screen, T } from '../components/ui';
+import { Ask, Banner, Button, Card, Chip, DiaryLine, Input, Row, Screen, T } from '../components/ui';
 import { get, post } from '../lib/api';
 import { db, useDb } from '../lib/db';
-import { notice } from '../lib/hooks';
+import { notice, useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 import { toPaise, useSave } from '../lib/setup';
+import type { ByMaterial } from './suppliers';
 
 type Line = { id: string; materialId: string; qty: number; rate: string };
 
@@ -35,6 +36,13 @@ export default function Order() {
   const material = (id: string) => db.find('material', id);
   const items = useMemo(() => shown.filter((l) => l.qty > 0).map((l) => `${name(material(l.materialId))} ${formatNumber(l.qty)} ${String(material(l.materialId)?.unit ?? '')}`), [shown, name]);
   const set = (id: string, patch: Partial<Line>) => setLines(shown.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  // Each party's last rate for each material, lowest first: tapping one picks that party and its rate.
+  const rates = useOnline<ByMaterial[]>('/purchase/by-material');
+  const lastRates = (materialId: string) => (rates.data ?? []).filter((r) => r.materialId === materialId && r.lastRatePaise != null).sort((a, b) => a.lastRatePaise! - b.lastRatePaise!);
+  const pick = (r: ByMaterial) => {
+    setSupplier(r.supplierId);
+    setLines(shown.map((l) => (l.materialId === r.materialId ? { ...l, rate: String(r.lastRatePaise! / 100) } : l)));
+  };
 
   const send = () => void run(async () => {
     const po = await post<{ id: string; poNo: string; status: string }>('/purchase/pos', {
@@ -77,6 +85,16 @@ export default function Order() {
                 <View style={{ flex: 1 }}><T.small>{t('order.rate', { unit })}</T.small></View>
                 <Input value={l.rate} onChangeText={(v) => set(l.id, { rate: v.replace(/[^\d.]/g, '') })} keyboardType="decimal-pad" placeholder="—" accessibilityLabel={t('order.rate', { unit })} style={{ width: 120, textAlign: 'right', fontSize: 18, fontWeight: '700' }} />
               </Row>
+              {lastRates(l.materialId).length ? (
+                <>
+                  <T.small>{t('order.lastRates')}</T.small>
+                  <Row style={{ flexWrap: 'wrap' }}>
+                    {lastRates(l.materialId).map((r, i) => (
+                      <Chip key={r.supplierId} tone={i === 0 ? 'ok' : undefined} selected={supplierId === r.supplierId} label={`${String(db.find('supplier', r.supplierId)?.name ?? '')} ${formatPaise(r.lastRatePaise!)} · ${shortDate(r.lastRateOn!)}`} onPress={() => pick(r)} />
+                    ))}
+                  </Row>
+                </>
+              ) : null}
             </Card>
           );
         })}

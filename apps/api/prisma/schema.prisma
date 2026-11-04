@@ -947,3 +947,74 @@ model MoneyEntry {
   @@index([companyId, serverRev])
   @@map("money_entries")
 }
+
+/// Work given to a contractor on a site at a rate per unit (centering per sq ft, plaster per sq ft, a lump sum).
+/// Contractors paid this way are billed by measurement instead of (or as well as) by attendance.
+model ContractWork {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  contractorId String    @map("contractor_id") @db.Uuid
+  /// In the builder's words: "સ્લેબ સેન્ટરિંગ", "Plaster inside".
+  name         String
+  /// sqft | rft | sqm | cft | cum | nos | kg | lump
+  unit         String
+  ratePaise    BigInt    @map("rate_paise")
+  createdById  String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId, contractorId])
+  @@index([companyId, serverRev])
+  @@map("contract_works")
+}
+
+/// A measurement of contract work done (how much, where, who measured). The rate is copied from the work when
+/// measured, so a later rate change does not reprice it. Billed once, in a wage settlement.
+model WorkMeasure {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  workId       String    @map("work_id") @db.Uuid
+  contractorId String    @map("contractor_id") @db.Uuid
+  date         DateTime  @db.Date
+  qty          Decimal   @db.Decimal(12, 3)
+  ratePaise    BigInt    @map("rate_paise")
+  /// Where: "Floor 3 slab", "A wing, 2nd floor".
+  place        String?
+  note         String?
+  settlementId String?   @map("settlement_id") @db.Uuid
+  createdById  String?   @map("created_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev    BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId, contractorId, date])
+  @@index([workId])
+  @@index([companyId, serverRev])
+  @@map("work_measures")
+}
+
+/// A stage of a site's payment plan for flat buyers (booking 10%, plinth 10%, each slab…). When the owner marks
+/// a stage reached, that share of every sold flat's deal falls due.
+model PayStage {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  name        String
+  percent     Decimal   @db.Decimal(5, 2)
+  sort        Int       @default(0)
+  reachedOn   DateTime? @map("reached_on") @db.Date
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  serverRev   BigInt    @default(0) @map("server_rev")
+
+  @@index([projectId])
+  @@index([companyId, serverRev])
+  @@map("pay_stages")
+}

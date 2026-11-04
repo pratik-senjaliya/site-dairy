@@ -1,4 +1,4 @@
-import { addDays, isLowStock, isoDate, parseSettings, roundQty, settlePeriod } from '@site-diary/shared';
+import { addDays, isLowStock, isoDate, parseSettings, roundQty, paysByDay, settlePeriod } from '@site-diary/shared';
 import type { Notice } from '@site-diary/i18n';
 import { isoOf } from '../../lib/json';
 import { day } from '../../lib/json';
@@ -63,7 +63,9 @@ export async function siteDaySummary(companyId: string, projectId: string, date 
     prisma.structureNode.findMany({ where: { projectId } }),
   ]);
   const rates = await prisma.contractorRate.findMany({ where: { contractorId: { in: [...new Set(attendance.map((e) => e.contractorId))] }, deletedAt: null } });
+  // Today's labour cost counts contractors paid by the day; measured work is paid by its measurements.
   const cost = contractors
+    .filter((c) => paysByDay(c.rateType))
     .map((c) => settlePeriod(
       attendance.filter((e) => e.contractorId === c.id).map((e) => ({ date, skillId: e.skillId, count: e.count, halfDayCount: e.halfDayCount, otHours: e.otHours.toNumber() })),
       rates.filter((r) => r.contractorId === c.id).map((r) => ({ skillId: r.skillId, dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: isoOf(r.effectiveFrom) })),

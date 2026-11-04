@@ -1,6 +1,6 @@
 import { noticeText, t as tr, type Locale, type Notice } from '@site-diary/i18n';
 import {
-  acceptedQty, addDays, bookTotals, can, unitAccount, type BookLine, companySettingsSchema, masterSchemas, WORK_ITEM_TEMPLATES, type CompanySettings, type MasterKind, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
+  acceptedQty, addDays, bookTotals, can, contractorBill, measureAmount, paysByDay, unitSchedule, workTotals, unitAccount, type BookLine, companySettingsSchema, masterSchemas, WORK_ITEM_TEMPLATES, type CompanySettings, type MasterKind, isLowStock, isoDate, PULL_TABLES, PUSH_ORDER, roundQty, settlePeriod, shortDate, stockDelta, type PullResponse, type PushResult, type Role, type StockRow,
 } from '@site-diary/shared';
 import { randomUUID } from 'expo-crypto';
 import { kv } from '../lib/kv';
@@ -12,7 +12,7 @@ import { DEMO_USERS, seedDemo, type DemoRow, type Tables } from './seed';
 
 interface State { rev: number; t: Tables; approvals: DemoRow[]; notices: DemoRow[]; companyId: string; company?: { name: string; settings: CompanySettings } }
 
-const KEY = 'demo:server:v4'; // v4: a partner, flats and the money book
+const KEY = 'demo:server:v5'; // v5: measured work, flats' payment plan
 let state: State | null = null;
 
 class DemoError extends Error {
@@ -82,14 +82,18 @@ function account(s: State, projectId: string, contractorId: unknown, from: strin
     .map((a) => ({ date: String(a.date), skillId: String(a.skillId), count: Number(a.count), halfDayCount: Number(a.halfDayCount), otHours: Number(a.otHours) }));
   const rates = live(s, 'contractorRate').filter((r) => r.contractorId === contractorId).map((r) => ({ skillId: String(r.skillId), dailyRatePaise: Number(r.dailyRatePaise), effectiveFrom: String(r.effectiveFrom) }));
   const open = live(s, 'advance').filter((a) => a.projectId === projectId && a.contractorId === contractorId && !a.settlementId && String(a.date) <= to);
-  const result = settlePeriod(days, rates, open.reduce((x, a) => x + Number(a.amountPaise), 0));
+  const byDay = paysByDay(find(s, 'contractor', contractorId)?.rateType as string | undefined);
+  const measures = live(s, 'workMeasure').filter((m) => m.projectId === projectId && m.contractorId === contractorId && !m.settlementId && String(m.date) <= to);
+  const totals = workTotals(measures.map((m) => ({ workId: String(m.workId), qty: Number(m.qty), ratePaise: Number(m.ratePaise) })));
+  const result = contractorBill(settlePeriod(days, rates, open.reduce((x, a) => x + Number(a.amountPaise), 0)), byDay, totals.gross);
+  const work = totals.lines.map((l) => ({ ...l, name: String(find(s, 'contractWork', l.workId)?.name ?? ''), unit: String(find(s, 'contractWork', l.workId)?.unit ?? '') }));
   const bySkill = [...new Set(days.map((d) => d.skillId))].map((skillId) => {
     const mine = days.filter((d) => d.skillId === skillId);
-    return { skillId, manDays: settlePeriod(mine, rates, 0).manDays, otHours: mine.reduce((x, d) => x + d.otHours, 0), gross: settlePeriod(mine, rates, 0).gross };
+    return { skillId, manDays: settlePeriod(mine, rates, 0).manDays, otHours: mine.reduce((x, d) => x + d.otHours, 0), gross: byDay ? settlePeriod(mine, rates, 0).gross : 0 };
   });
   const perDay = new Map<string, number>();
   for (const d of days) perDay.set(d.date, (perDay.get(d.date) ?? 0) + d.count + d.halfDayCount / 2);
-  return { ...result, bySkill, days: [...perDay].sort().map(([date, manDays]) => ({ date, manDays })), advanceIds: open.map((a) => a.id) };
+  return { ...result, bySkill, work, byDay, days: [...perDay].sort().map(([date, manDays]) => ({ date, manDays })), advanceIds: open.map((a) => a.id), measureIds: measures.map((m) => m.id) };
 }
 
 /** Last settled day for a contractor at a site (any settlement not rejected). */
@@ -128,7 +132,7 @@ function summary(s: State, projectId: string, date: string) {
     ...low.map((l) => ({ key: 'alert.lowStock', vars: { material: l.material, qty: l.qty, unit: l.unit, min: l.min }, gu: { material: l.materialGu } }) as const),
   ];
   const contractors = live(s, 'contractor');
-  const cost = contractors.map((c) => account(s, projectId, c.id, date, date)).reduce((a, r) => ({ gross: a.gross + r.gross, missing: a.missing || r.missingRates.length > 0 }), { gross: 0, missing: false });
+  const cost = contractors.filter((c) => paysByDay(c.rateType as string | undefined)).map((c) => account(s, projectId, c.id, date, date)).reduce((a, r) => ({ gross: a.gross + r.attendanceGross, missing: a.missing || r.missingRates.length > 0 }), { gross: 0, missing: false });
   return {
     project: { id: projectId, name: String(project.name) }, date, marker, note: (day?.note as string | null) ?? null,
     labour: {
@@ -159,7 +163,9 @@ function approvalView(s: State, a: DemoRow) {
     details: a.entityType === 'indent' ? { lines, neededBy: indent?.neededBy, note: indent?.note }
       : a.entityType === 'wageSettlement' ? (() => {
         const w = find(s, 'wageSettlement', a.entityId);
-        return { contractor: find(s, 'contractor', w?.contractorId)?.name, periodFrom: w?.periodFrom, periodTo: w?.periodTo, grossPaise: w?.grossPaise, advancesPaise: w?.advancesPaise, netPaise: w?.netPaise };
+        const work = workTotals(live(s, 'workMeasure').filter((m) => m.settlementId === a.entityId).map((m) => ({ workId: String(m.workId), qty: Number(m.qty), ratePaise: Number(m.ratePaise) })))
+          .lines.map((l) => ({ ...l, name: String(find(s, 'contractWork', l.workId)?.name ?? ''), unit: String(find(s, 'contractWork', l.workId)?.unit ?? '') }));
+        return { contractor: find(s, 'contractor', w?.contractorId)?.name, periodFrom: w?.periodFrom, periodTo: w?.periodTo, grossPaise: w?.grossPaise, advancesPaise: w?.advancesPaise, netPaise: w?.netPaise, work };
       })()
       : { current: find(s, 'attendanceEntry', a.entityId) ?? null, proposed: p, contractor: find(s, 'contractor', p.contractorId)?.name, skill: find(s, 'skill', p.skillId)?.nameGu },
   };
@@ -283,12 +289,13 @@ export async function demoApi(method: string, path: string, body: unknown, token
     const ids = new Set([
       ...live(s, 'attendanceEntry').filter((a) => a.projectId === projectId && String(a.date) >= from && String(a.date) <= to).map((a) => a.contractorId),
       ...live(s, 'advance').filter((a) => a.projectId === projectId && !a.settlementId && String(a.date) <= to).map((a) => a.contractorId),
+      ...live(s, 'workMeasure').filter((m) => m.projectId === projectId && !m.settlementId && String(m.date) <= to).map((m) => m.contractorId),
     ]);
     const list = live(s, 'contractor').filter((c) => ids.has(c.id)).map((c) => {
       const till = settledTill(s, projectId, c.id);
       const start = till && till >= from ? addDays(till, 1) : from;
-      const { advanceIds: _ids, ...money } = account(s, projectId, c.id, start, to);
-      return { contractor: { id: c.id, name: String(c.name), phone: (c.phone as string | null) ?? null }, from: start, ...money, settledTill: till };
+      const { advanceIds: _ids, measureIds: _m, ...money } = account(s, projectId, c.id, start, to);
+      return { contractor: { id: c.id, name: String(c.name), phone: (c.phone as string | null) ?? null, trade: (c.trade as string | null) ?? null, rateType: String(c.rateType ?? 'daily') }, from: start, ...money, settledTill: till };
     });
     const sum = (k: 'manDays' | 'gross' | 'advances' | 'net') => list.reduce((x, r) => x + r[k], 0);
     return { projectId, from, to, contractors: list, total: { manDays: sum('manDays'), gross: sum('gross'), advances: sum('advances'), net: sum('net') } };
@@ -300,11 +307,12 @@ export async function demoApi(method: string, path: string, body: unknown, token
     if (live(s, 'wageSettlement').some((w) => w.projectId === projectId && w.contractorId === contractorId && w.status !== 'rejected' && String(w.periodFrom) <= to && String(w.periodTo) >= from)) throw new DemoError(409, 'These days are already in another settlement', 'overlap');
     const a = account(s, projectId, contractorId, from, to);
     if (a.missingRates.length) throw new DemoError(400, 'Some skills have no rate for this contractor. Add rates first.', 'missing_rates');
-    if (!a.manDays) throw new DemoError(400, 'No attendance in this period', 'empty');
+    if (!(a.byDay && a.manDays) && !a.work.length) throw new DemoError(400, 'Nothing to pay in this period', 'empty');
     const owner = u.role === 'owner';
     const w: DemoRow = { id: randomUUID(), companyId: s.companyId, projectId, contractorId, periodFrom: from, periodTo: to, grossPaise: a.gross, advancesPaise: a.advances, netPaise: a.net, status: owner ? 'approved' : 'submitted', createdById: u.id, createdAt: new Date().toISOString() };
     rows(s, 'wageSettlement').push(w);
     for (const id of a.advanceIds) Object.assign(find(s, 'advance', id) ?? {}, { settlementId: w.id, serverRev: ++s.rev });
+    for (const id of a.measureIds) Object.assign(find(s, 'workMeasure', id) ?? {}, { settlementId: w.id });
     if (!owner) {
       s.approvals.unshift({ id: randomUUID(), projectId, entityType: 'wageSettlement', entityId: w.id, requestedById: u.id, status: 'pending', proposal: null, createdAt: w.createdAt });
       for (const id of idsOf(s, ['owner'])) notify(s, [id], 'approval_needed', tr(userLang(s, id), 'notify.approvalNeeded', { what: tr(userLang(s, id), 'approval.wageSettlement') }), tr(userLang(s, id), 'notify.from', { name: String(u.name) }));
@@ -337,6 +345,7 @@ export async function demoApi(method: string, path: string, body: unknown, token
     } else if (a.entityType === 'wageSettlement') {
       Object.assign(find(s, 'wageSettlement', a.entityId) ?? {}, { status: approved ? 'approved' : 'rejected', approvedById: u.id });
       if (!approved) for (const x of live(s, 'advance').filter((x) => x.settlementId === a.entityId)) Object.assign(x, { settlementId: null, serverRev: ++s.rev });
+      if (!approved) for (const x of live(s, 'workMeasure').filter((x) => x.settlementId === a.entityId)) Object.assign(x, { settlementId: null });
     } else if (approved) {
       const row = { ...(a.proposal as DemoRow) };
       delete row.recordedOn;
@@ -457,20 +466,56 @@ export async function demoApi(method: string, path: string, body: unknown, token
   }
   if (p === '/purchase/supplier-payments') return out(bump('supplierPayment', { id: randomUUID(), supplierId: b.supplierId, projectId: b.projectId ?? null, amountPaise: b.amountPaise, date: b.date, mode: b.mode, reference: b.reference ?? null, createdById: u.id }));
   if (p === '/purchase/by-material') {
-    const by = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }>();
+    const by = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number; lastRatePaise: number | null; lastRateOn: string | null }>();
     for (const g of live(s, 'grn').filter((x) => x.supplierId)) {
       for (const l of live(s, 'grnLine').filter((x) => x.grnId === g.id)) {
         const key = `${String(l.materialId)}:${String(g.supplierId)}`;
-        const r = by.get(key) ?? { materialId: String(l.materialId), supplierId: String(g.supplierId), qty: 0, amountPaise: 0, receipts: 0, unpriced: 0 };
+        const r = by.get(key) ?? { materialId: String(l.materialId), supplierId: String(g.supplierId), qty: 0, amountPaise: 0, receipts: 0, unpriced: 0, lastRatePaise: null as number | null, lastRateOn: null as string | null };
         const qty = Number(l.qty) - Number(l.rejectedQty ?? 0);
         r.qty += qty;
         r.amountPaise += Math.round(qty * Number(l.ratePaise ?? 0));
         r.receipts += 1;
         if (l.ratePaise == null) r.unpriced += 1;
+        else if (!r.lastRateOn || String(g.date) >= r.lastRateOn) Object.assign(r, { lastRatePaise: Number(l.ratePaise), lastRateOn: String(g.date) });
         by.set(key, r);
       }
     }
     return [...by.values()];
+  }
+  // Contract work and its measurements, as the API's work module.
+  if (p === '/work' && method === 'GET') {
+    const money = can(u.role as Role, 'wages', 'V');
+    const mine = (r: DemoRow) => r.projectId === q('projectId') && (!q('contractorId') || r.contractorId === q('contractorId'));
+    return {
+      works: live(s, 'contractWork').filter(mine).map((w) => ({ id: w.id, contractorId: w.contractorId, name: w.name, unit: w.unit, ratePaise: money ? Number(w.ratePaise) : null })),
+      measures: live(s, 'workMeasure').filter(mine).sort((x, y) => String(y.date).localeCompare(String(x.date)) || String(y.createdAt).localeCompare(String(x.createdAt))).map((m) => ({
+        id: m.id, workId: m.workId, contractorId: m.contractorId, date: String(m.date), qty: Number(m.qty), place: (m.place as string | null) ?? null, note: (m.note as string | null) ?? null,
+        ratePaise: money ? Number(m.ratePaise) : null, amountPaise: money ? measureAmount(Number(m.qty), Number(m.ratePaise)) : null, billed: !!m.settlementId,
+        by: (find(s, 'user', m.createdById)?.name as string | undefined) ?? null, byId: (m.createdById as string | null) ?? null,
+      })),
+    };
+  }
+  if (p === '/work' && method === 'POST') {
+    if (!['owner', 'engineer', 'accountant'].includes(String(u.role))) throw new DemoError(403, 'You do not have permission to do this', 'forbidden');
+    return out(bump('contractWork', { ...(find(s, 'contractWork', b.id) ?? { createdById: u.id }), id: (b.id as string | undefined) ?? randomUUID(), projectId: b.projectId, contractorId: b.contractorId, name: b.name, unit: b.unit, ratePaise: b.ratePaise, deletedAt: null }));
+  }
+  if (p === '/work/measures' && method === 'POST') {
+    if (!can(u.role as Role, 'wages', 'C')) throw new DemoError(403, 'You do not have permission to do this', 'forbidden');
+    const w = find(s, 'contractWork', b.workId);
+    if (!w) throw new DemoError(400, 'Work not found', 'bad_work');
+    return out(bump('workMeasure', { id: (b.id as string | undefined) ?? randomUUID(), projectId: w.projectId, workId: w.id, contractorId: w.contractorId, date: b.date, qty: b.qty, ratePaise: w.ratePaise, place: b.place ?? null, note: b.note ?? null, settlementId: null, createdById: u.id }));
+  }
+  const measureMatch = p.match(/^\/work\/measures\/([^/]+)$/);
+  if (measureMatch && method === 'DELETE') {
+    const m = find(s, 'workMeasure', measureMatch[1]);
+    if (!m || m.deletedAt) throw new DemoError(404, 'Not found', 'not_found');
+    if (m.settlementId) throw new DemoError(409, 'Already in a bill', 'billed');
+    return out(bump('workMeasure', { ...m, deletedAt: new Date().toISOString() }));
+  }
+  const workMatch = p.match(/^\/work\/([^/]+)$/);
+  if (workMatch && method === 'DELETE') {
+    if (live(s, 'workMeasure').some((m) => m.workId === workMatch[1] && !m.settlementId)) throw new DemoError(409, 'This work has measurements not yet billed', 'has_measures');
+    return out(bump('contractWork', { ...find(s, 'contractWork', workMatch[1]), id: workMatch[1]!, deletedAt: new Date().toISOString() }));
   }
   // The partners' book, as the API's accounts module: entries, plus supplier payments and upad made elsewhere.
   if (p.startsWith('/accounts')) {
@@ -486,6 +531,20 @@ export async function demoApi(method: string, path: string, body: unknown, token
     if (p === '/accounts/entries') {
       const unit = b.unitId ? find(s, 'unit', b.unitId) : null;
       return out(bump('moneyEntry', { id: (b.id as string | undefined) ?? randomUUID(), projectId: unit?.projectId ?? b.projectId ?? null, direction: b.direction, kind: b.kind, unitId: b.unitId ?? null, party: b.party ?? null, amountPaise: b.amountPaise, date: b.date, mode: b.mode, reference: b.reference ?? null, note: b.note ?? null, deletedById: null, createdById: u.id }));
+    }
+    if (p === '/accounts/stages' && method === 'PUT') {
+      const list = (b.stages as { id?: string; name: string; percent: number }[]) ?? [];
+      if (list.reduce((x, st) => x + st.percent, 0) > 100.001) throw new DemoError(400, 'The stages add up to more than 100%', 'invalid');
+      const keep = new Set(list.map((st) => st.id));
+      for (const old of live(s, 'payStage').filter((st) => st.projectId === b.projectId && !keep.has(st.id))) bump('payStage', { ...old, deletedAt: new Date().toISOString() });
+      list.forEach((st, sort) => bump('payStage', { ...(find(s, 'payStage', st.id) ?? { reachedOn: null, createdById: u.id }), id: st.id ?? randomUUID(), projectId: b.projectId, name: st.name, percent: st.percent, sort, deletedAt: null }));
+      return out({ ok: true });
+    }
+    const stageMatch = p.match(/^\/accounts\/stages\/([^/]+)\/reached$/);
+    if (stageMatch) {
+      const st = find(s, 'payStage', stageMatch[1]);
+      if (!st) throw new DemoError(404, 'Not found', 'not_found');
+      return out(bump('payStage', { ...st, reachedOn: b.date ?? null }));
     }
     const unitMatch = p.match(/^\/accounts\/units\/([^/]+)$/);
     if (unitMatch && method === 'DELETE') {
@@ -519,13 +578,20 @@ export async function demoApi(method: string, path: string, body: unknown, token
         amountPaise: Number(w.netPaise), date: String(w.paidAt ?? w.updatedAt ?? today).slice(0, 10), mode: (w.paidMode as BookLine['mode']) ?? null, reference: null, note: `${String(w.periodFrom)} – ${String(w.periodTo)}`, by: name(w.approvedById ?? w.createdById), byId: null, at: at(w), removed: null,
       })),
     ].sort((x, y) => y.date.localeCompare(x.date) || y.at.localeCompare(x.at));
+    const stages = live(s, 'payStage').filter(inSite).sort((x, y) => Number(x.sort) - Number(y.sort))
+      .map((x) => ({ id: x.id, projectId: String(x.projectId), name: String(x.name), percent: Number(x.percent), sort: Number(x.sort), reachedOn: (x.reachedOn as string | null) ?? null }));
     return {
       lines,
       totals: bookTotals(lines),
-      units: live(s, 'unit').filter(inSite).sort((x, y) => String(x.name).localeCompare(String(y.name))).map((x) => ({
-        id: x.id, projectId: String(x.projectId), name: String(x.name), buyerName: (x.buyerName as string | null) ?? null, buyerPhone: (x.buyerPhone as string | null) ?? null, note: (x.note as string | null) ?? null,
-        dealPaise: x.dealPaise == null ? null : Number(x.dealPaise), ...unitAccount(x.dealPaise == null ? null : Number(x.dealPaise), lines, x.id),
-      })),
+      stages,
+      units: live(s, 'unit').filter(inSite).sort((x, y) => String(x.name).localeCompare(String(y.name))).map((x) => {
+        const deal = x.dealPaise == null ? null : Number(x.dealPaise);
+        const account = unitAccount(deal, lines, x.id);
+        return {
+          id: x.id, projectId: String(x.projectId), name: String(x.name), buyerName: (x.buyerName as string | null) ?? null, buyerPhone: (x.buyerPhone as string | null) ?? null, note: (x.note as string | null) ?? null,
+          dealPaise: deal, ...account, schedule: unitSchedule(deal, stages.filter((st) => st.projectId === x.projectId), account.receivedPaise),
+        };
+      }),
     };
   }
   const rateMatch = p.match(/^\/registers\/grn-lines\/([^/]+)\/rate$/);

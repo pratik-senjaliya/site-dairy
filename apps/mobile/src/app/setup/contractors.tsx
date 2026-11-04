@@ -1,3 +1,4 @@
+import { paysByDay } from '@site-diary/shared';
 import { router } from 'expo-router';
 import { Button, Card, Empty, flush, ListRow, Screen } from '../../components/ui';
 import { db, useDb } from '../../lib/db';
@@ -24,7 +25,8 @@ export default function Contractors() {
       {list.length ? (
         <Card style={flush}>
           {list.map((c, i) => {
-            const rt = rateText(c.id);
+            // Paid by measurement: rates are per kind of work on each site, not per day.
+            const rt = paysByDay(c.rateType as string | undefined) ? rateText(c.id) : t('setup.payMeasure');
             return (
               <ListRow
                 key={c.id}

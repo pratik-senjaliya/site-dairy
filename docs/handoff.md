@@ -4,42 +4,44 @@ The note one session leaves for the next (laptop Claude Code, Claude mobile/web 
 History lives in `CHANGELOG.md`; the reasons in `docs/decisions.md`. **This file is only the present:**
 rewrite it (don't append) at the end of every session that changes something. Keep it under ~80 lines.
 
-_Last updated: 2026-11-04 (laptop session, research only, no code change)._
+_Last updated: 2026-11-04 (laptop session: launch features built, not yet on the phone)._
 
 ## State
 
-- `main` builds; lint, typecheck and 56 tests passed at the last code change (2026-10-31).
-- Live pilot: API on Render (free plan, sleeps), database + photos on Supabase. See "Live pilot" in `CLAUDE.md`.
-- Latest pilot APK: versionCode **10** (2026-10-30), on the owner's OnePlus. APKs older than 10 can't take an
-  `eas update` of current JS. The `demo` APK on expo.dev is older and lacks the UI/UX pass.
-- **Decision 2026-11-04: no web panel.** Every role works from the phone. `apps/web` is kept, not deployed.
-- **Launch**: announce at Diwali (Sun 8 Nov), go live with builders on **Labh Pancham, Sat 14 Nov 2026**.
-  Market notes, problem → feature map and the plan: `docs/market.md`.
+- `main` builds; `npm run lint && npm run typecheck && npm test` pass (61 tests). Demo e2e (`demo`, `setup`,
+  `launch`) pass in a browser against the demo export.
+- Live pilot: API on Render (free plan, sleeps), database + photos on Supabase. Pushing `main` deploys the API,
+  and its start runs `prisma migrate deploy`: migration `measured_work_pay_stages` (3 new tables, additive).
+- Pilot APK versionCode **10** on the owner's OnePlus. Today's work is JS only (no native package), so it can
+  reach APK 10 with `eas update --channel pilot` (needs the owner's `eas` login). The `demo` APK is older.
+- **No web panel** (decision 2026-11-04). **Launch**: announce Diwali (8 Nov), live on **Labh Pancham, 14 Nov**.
 
 ## Last session (2026-11-04)
 
-- Web research on Ahmedabad builders and sites, competitors and the Diwali calendar → `docs/market.md`.
-- Gaps found: contractor bills by measurement (per sq ft centering/plaster, the main way Ahmedabad
-  builders pay trades), buyer instalments by stage, party rate compare.
+- Market research → `docs/market.md`; then built its gaps (details in `CHANGELOG.md`, rules in `decisions.md`):
+  - contractors paid **by measurement**: "માપ" (measure) screen, measured work in the hisab and its bill;
+  - **buyer instalments by stage**: payment plan per site, "Done" per stage, due now, WhatsApp reminder;
+  - **party last rates** in suppliers "by material" and on the order screen;
+  - **office registers** (PDF/Excel) on Reports.
+- Not tried on a real phone yet: the new screens (only the browser demo build), photo on a measurement.
 
 ## Open — waiting on the owner
 
-- Render paid instance before 14 Nov (instant login at demos, and the 8 pm report runs).
-- The launch builders' phone numbers for `SIGNUP_OPEN` (closed signup until MSG91 DLT is approved).
-- Gujarati wording: `common.details` "વિગત", `common.less` "ઓછું", video captions; the launch line in
-  `docs/market.md`.
-- Pricing (suggested: per site per month, not per user).
-- Contact number / business name for the videos' end card.
-- Accounts: MSG91 SMS, Play Store, Firebase key for push.
+- Gujarati wording of the new screens: માપ લખો, માપ પ્રમાણે, રોજના ભાવે, હપ્તા પ્લાન, પૂરું થયું,
+  હમણાં લેવાના, ઉચક (lump sum), the buyer reminder text (`unit.remindText`), work suggestions per trade
+  (`work.suggest.*`), stage names (બુકિંગ, પ્લિન્થ, સ્લેબ n, ચણતર, પ્લાસ્ટર, પઝેશન).
+- Render paid instance before 14 Nov; launch builders' numbers for `SIGNUP_OPEN`; pricing; video end card;
+  accounts (MSG91, Play Store, Firebase).
+- `eas update --channel pilot` (or a new pilot APK) to put today's work on phones; rebuild the demo APK.
 
 ## Next up (for 14 Nov, in order)
 
-1. Photo flow on a cheap phone (camera, GPS, upload queue): the one field flow never tried on a device.
-2. A new builder's first day on the phone, end to end (signup → site → contractors → supervisor → first entry),
-   fixing whatever is slow or confusing.
-3. Check every office-only job (reports/Excel, users, settings) is reachable in the app now the web panel is gone.
+1. On the OnePlus (adb): measurement with photo, hisab bill + approval + paid, payment plan + reminder, order
+   with party rates, registers PDF/Excel — every role.
+2. Photo flow on a cheap phone (camera, GPS, upload queue).
+3. A new builder's first day on the phone, end to end (`e2e:firstday` covers the API).
 4. New pilot APK + demo APK from the same code.
-5. After launch: contractor bills by measurement (RA), then buyer instalments by stage.
+5. Later: retention/TDS on contractor bills if builders ask; measurements in the nightly report.
 
 ## Working from a Claude mobile / web session
 

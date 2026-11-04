@@ -62,14 +62,14 @@ user), and it knows Ahmedabad money habits: upad, party accounts with cheques, t
 |---|---|---|
 | "How many men were on site today, per contractor?" | ✅ | attendance, nightly report |
 | "How much upad has this contractor taken, what do I owe?" (daily-rate) | ✅ | upad, hisab |
-| **"Centering is per sq ft: how much did he do, how much is billed, how much paid?"** | ❌ **gap** | contractor bills by measurement (RA bill) |
+| "Centering is per sq ft: how much did he do, how much is billed, how much paid?" | ✅ (4 Nov) | measurement → hisab → bill → paid |
 | "Did the 2,500 kg of steel actually come? Show me the challan" | ✅ | GRN with photo, stock |
 | "How much cement is left, who used it where?" | ✅ | material used, stock, low-stock |
 | "What do I owe each party, which cheque went when?" | ✅ | supplier accounts, cheque numbers |
 | "Partners: where did the money go?" | ✅ | money book, who wrote each line |
-| **"Which buyer owes the slab instalment?"** | 🟡 partial | flats show deal / received / due; no stage schedule or reminder |
+| "Which buyer owes the slab instalment?" | ✅ (4 Nov) | payment plan per site, stage done → due now, WhatsApp reminder |
 | "I am not on site: what happened today?" | ✅ code / 🟡 hosting | 8 pm report (needs Render paid so it doesn't sleep) |
-| "Rates keep changing" | 🟡 | rate on each receipt; no "last rate from each party" compare |
+| "Rates keep changing" | ✅ (4 Nov) | last rate per party per material, lowest marked, on the order screen too |
 | Site closed for Diwali / rain | ✅ | day marker |
 
 ## UX that wins on site
@@ -99,7 +99,7 @@ about 9 days.
 5. A first-day path for a new builder, tested end to end on the phone (`e2e:firstday` covers the API).
 6. Gujarati wording check by the owner.
 
-**First month after launch (by impact)**
+**First month after launch (by impact)** — items 1–3 built on 4 Nov (see `CHANGELOG.md`)
 1. **Contractor bills by measurement**: work given per sq ft / rft / nos at a rate, measured quantity entered
    from the phone with a photo, bill = qty × rate − upad, owner approves, paid. Biggest gap for Ahmedabad.
 2. **Buyer instalments by stage**: schedule per flat (booking, plinth, each slab, finishing); when progress

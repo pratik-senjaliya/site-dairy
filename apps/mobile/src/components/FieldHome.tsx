@@ -192,6 +192,7 @@ export function FieldHome({ back = false }: { back?: boolean }) {
       <Section title={t('home.more')} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {can('wages', 'C') && <Tile compact icon="cash" label={t('home.advance')} onPress={() => router.push('/advance')} />}
+        {can('wages', 'C') && <Tile compact icon="ruler-square" label={t('home.measure')} onPress={() => router.push('/measure')} />}
         {can('indent', 'C') && <Tile compact icon="clipboard-text-outline" label={t('home.indent')} onPress={() => router.push('/indent')} />}
         {can('progress', 'C') && <Tile compact icon="alert-circle-outline" label={t('home.issues')} badge={stats.openIssues} onPress={() => router.push('/issues')} />}
         <Tile compact icon="image-multiple-outline" label={t('report.photos')} onPress={() => router.push({ pathname: '/photos', params: { site: siteId } })} />

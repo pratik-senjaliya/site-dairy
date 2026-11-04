@@ -1,6 +1,6 @@
 import { formatNumber, formatPaise, isoDate, shortDate, wageWeek } from '@site-diary/shared';
 import { colors, radius, spacing } from '@site-diary/ui-tokens';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { Banner, Button, Card, Chips, Empty, Icon, Row, Screen, Segmented, T, Text } from '../components/ui';
@@ -9,13 +9,20 @@ import { post } from '../lib/api';
 import { confirm, notice, useOnline, useSite } from '../lib/hooks';
 import { useDayName, useName, useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { useQtyText } from './measure';
 
 interface Account {
-  contractor: { id: string; name: string; phone: string | null };
+  contractor: { id: string; name: string; phone: string | null; trade: string | null; rateType: string };
   /** First day not yet settled in the period. */
   from: string;
   manDays: number; gross: number; advances: number; net: number; missingRates: string[];
   bySkill: { skillId: string; manDays: number; otHours: number; gross: number }[];
+  /** Measured work not yet billed (centering per sq ft…), per kind of work. */
+  work: { workId: string; name: string; unit: string; qty: number; amount: number }[];
+  /** False when paid by measurement: the days are head count only. */
+  byDay: boolean;
+  attendanceGross: number;
+  workGross: number;
   days: { date: string; manDays: number }[];
   settledTill: string | null;
 }
@@ -53,6 +60,12 @@ export default function Hisab() {
   const [busy, setBusy] = useState<string | null>(null);
   const settledUnpaid = (settlements.data ?? []).filter((x) => x.status === 'approved' || x.status === 'submitted').reduce((sum, x) => sum + x.netPaise, 0);
   const modeName = (m: Mode) => (m === 'upi' ? 'UPI' : t(`pay.${m}`));
+  const qtyText = useQtyText();
+  const earnedText = (a: Account) => [
+    a.byDay && (a.attendanceGross || !a.workGross) ? `${t('hisab.earned')} ${formatPaise(a.attendanceGross)}` : '',
+    a.workGross ? `${t('hisab.work')} ${formatPaise(a.workGross)}` : '',
+    a.advances ? `${t('hisab.advance')} −${formatPaise(a.advances)}` : '',
+  ].filter(Boolean).join('  ·  ');
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -81,8 +94,9 @@ export default function Hisab() {
   const message = (a: Account) => [
     `${siteName} · ${a.contractor.name}`,
     `${shortDate(a.from)} – ${shortDate(lastDay)}`,
-    ...a.bySkill.map((s) => `${skillName(s.skillId)}: ${t('hisab.manDays', { count: s.manDays })}${s.otHours ? ` + OT ${s.otHours}h` : ''} · ${formatPaise(s.gross)}`),
-    `${t('hisab.earned')}: ${formatPaise(a.gross)}`,
+    ...(a.byDay ? a.bySkill.map((s) => `${skillName(s.skillId)}: ${t('hisab.manDays', { count: s.manDays })}${s.otHours ? ` + OT ${s.otHours}h` : ''} · ${formatPaise(s.gross)}`) : []),
+    ...a.work.map((w) => `${w.name}: ${qtyText(w.qty, w.unit)} · ${formatPaise(w.amount)}`),
+    `${a.work.length ? t('hisab.work') : t('hisab.earned')}: ${formatPaise(a.gross)}`,
     ...(a.advances ? [`${t('hisab.advance')}: −${formatPaise(a.advances)}`] : []),
     `${t('hisab.payable')}: ${formatPaise(a.net)}`,
   ].join('\n');
@@ -117,7 +131,7 @@ export default function Hisab() {
                 <Row style={{ alignItems: 'flex-start', gap: spacing.md }}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={{ fontSize: 17, lineHeight: 23, fontWeight: '700', color: colors.ink }} numberOfLines={2}>{a.contractor.name}</Text>
-                    <T.small>{t('hisab.manDays', { count: a.manDays })}{a.settledTill ? ` · ${t('hisab.settledTill', { date: shortDate(a.settledTill) })}` : ''}</T.small>
+                    <T.small>{a.byDay ? t('hisab.manDays', { count: a.manDays }) : `${t('setup.payMeasure')}${a.manDays ? ` · ${t('hisab.headCount', { count: a.manDays })}` : ''}`}{a.settledTill ? ` · ${t('hisab.settledTill', { date: shortDate(a.settledTill) })}` : ''}</T.small>
                   </View>
                   <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
                     <Text style={{ fontSize: 18, lineHeight: 24, fontWeight: '800', color: a.net > 0 ? colors.primary : colors.ink }}>{formatPaise(a.net)}</Text>
@@ -125,7 +139,7 @@ export default function Hisab() {
                   </View>
                 </Row>
                 <Row style={{ justifyContent: 'space-between', paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }}>
-                  <View style={{ flex: 1 }}><T.small>{t('hisab.earned')} {formatPaise(a.gross)}{a.advances ? `  ·  ${t('hisab.advance')} −${formatPaise(a.advances)}` : ''}</T.small></View>
+                  <View style={{ flex: 1 }}><T.small>{earnedText(a)}</T.small></View>
                   <Row style={{ gap: 2, flexShrink: 0 }}>
                     <T.small color={colors.primary} bold>{t(open === a.contractor.id ? 'common.less' : 'common.details')}</T.small>
                     <Icon name={open === a.contractor.id ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
@@ -149,10 +163,16 @@ export default function Hisab() {
               {a.net < 0 ? <T.small color={colors.warning}>{t('hisab.carry')}</T.small> : null}
               {open === a.contractor.id ? (
                 <View style={{ gap: spacing.xs, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+                  {a.work.map((w) => (
+                    <Row key={w.workId} style={{ justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}><T.body>{w.name} · {qtyText(w.qty, w.unit)}</T.body></View>
+                      <T.body bold>{formatPaise(w.amount)}</T.body>
+                    </Row>
+                  ))}
                   {a.bySkill.map((s) => (
                     <Row key={s.skillId} style={{ justifyContent: 'space-between' }}>
-                      <T.body>{skillName(s.skillId)} · {t('hisab.manDays', { count: s.manDays })}{s.otHours ? ` + OT ${s.otHours}h` : ''}</T.body>
-                      <T.body bold>{formatPaise(s.gross)}</T.body>
+                      <View style={{ flex: 1 }}><T.body>{skillName(s.skillId)} · {t('hisab.manDays', { count: s.manDays })}{s.otHours ? ` + OT ${s.otHours}h` : ''}</T.body></View>
+                      {a.byDay ? <T.body bold>{formatPaise(s.gross)}</T.body> : null}
                     </Row>
                   ))}
                   <T.small>{t('hisab.byDay')}</T.small>
@@ -165,8 +185,11 @@ export default function Hisab() {
                       </View>
                     ))}
                   </View>
-                  <Button kind="secondary" small label={t('hisab.send')} onPress={() => send(a)} />
-                  {office && a.manDays > 0 && !a.missingRates.length && a.from <= lastDay ? (
+                  <Row>
+                    <Button style={{ flex: 1 }} kind="secondary" small icon="ruler-square" label={t('measure.title')} onPress={() => router.push({ pathname: '/measure', params: { contractor: a.contractor.id, site: siteId ?? '' } })} />
+                    <Button style={{ flex: 1 }} kind="secondary" small icon="whatsapp" label={t('hisab.send')} onPress={() => send(a)} />
+                  </Row>
+                  {office && ((a.byDay && a.manDays > 0) || a.work.length > 0) && !a.missingRates.length && a.from <= lastDay ? (
                     <Button small label={t('hisab.settle', { from: shortDate(a.from), to: shortDate(lastDay) })} busy={busy === a.contractor.id} onPress={() => void settle(a)} />
                   ) : null}
                 </View>

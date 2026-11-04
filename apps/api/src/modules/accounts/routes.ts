@@ -1,4 +1,5 @@
-import { bookTotals, formatPaise, isoDate, moneyEntrySchema, unitAccount, unitSchema, type BookLine } from '@site-diary/shared';
+import { bookTotals, formatPaise, isoDate, isoDateSchema, moneyEntrySchema, payStagesSchema, unitAccount, unitSchedule, unitSchema, type BookLine, type PayStage } from '@site-diary/shared';
+import { z } from 'zod';
 import { Router } from 'express';
 import { audit } from '../../lib/audit';
 import { allow, me, siteParam, type Me } from '../../lib/auth';
@@ -16,7 +17,7 @@ export const accounts = Router();
 /** Everything for one site (or all sites): book lines newest first, flats with what each buyer has paid, totals. */
 export async function book(companyId: string, projectId?: string) {
   const site = projectId ? { projectId } : {};
-  const [entries, supplierPayments, advances, settlements, units, users, suppliers, contractors] = await Promise.all([
+  const [entries, supplierPayments, advances, settlements, units, users, suppliers, contractors, stageRows] = await Promise.all([
     prisma.moneyEntry.findMany({ where: { companyId, ...site, OR: [{ deletedAt: null }, { deletedById: { not: null } }] } }),
     prisma.supplierPayment.findMany({ where: { companyId, deletedAt: null, ...site } }),
     prisma.advance.findMany({ where: { companyId, deletedAt: null, ...site } }),
@@ -25,7 +26,9 @@ export async function book(companyId: string, projectId?: string) {
     prisma.user.findMany({ where: { companyId }, select: { id: true, name: true } }),
     prisma.supplier.findMany({ where: { companyId }, select: { id: true, name: true } }),
     prisma.contractor.findMany({ where: { companyId }, select: { id: true, name: true } }),
+    prisma.payStage.findMany({ where: { companyId, deletedAt: null, ...site }, orderBy: { sort: 'asc' } }),
   ]);
+  const stages = stageRows.map((s) => ({ id: s.id, projectId: s.projectId, name: s.name, percent: s.percent.toNumber(), sort: s.sort, reachedOn: s.reachedOn ? isoOf(s.reachedOn) : null }));
   const who = (id: string | null) => users.find((u) => u.id === id)?.name ?? null;
   const contractor = (id: string) => contractors.find((x) => x.id === id)?.name ?? null;
   const lines: BookLine[] = [
@@ -51,10 +54,16 @@ export async function book(companyId: string, projectId?: string) {
   return {
     lines,
     totals: bookTotals(lines),
-    units: units.map((u) => ({
-      id: u.id, projectId: u.projectId, name: u.name, buyerName: u.buyerName, buyerPhone: u.buyerPhone, note: u.note,
-      dealPaise: u.dealPaise == null ? null : Number(u.dealPaise), ...unitAccount(u.dealPaise == null ? null : Number(u.dealPaise), lines, u.id),
-    })),
+    stages,
+    units: units.map((u) => {
+      const deal = u.dealPaise == null ? null : Number(u.dealPaise);
+      const account = unitAccount(deal, lines, u.id);
+      const plan: PayStage[] = stages.filter((s) => s.projectId === u.projectId);
+      return {
+        id: u.id, projectId: u.projectId, name: u.name, buyerName: u.buyerName, buyerPhone: u.buyerPhone, note: u.note,
+        dealPaise: deal, ...account, schedule: unitSchedule(deal, plan, account.receivedPaise),
+      };
+    }),
   };
 }
 
@@ -132,6 +141,43 @@ accounts.delete('/entries/:id', allow('accounts', 'C'), async (req, res) => {
     const after = await tx.moneyEntry.update({ where: { id: before.id }, data: { deletedAt: new Date(), deletedById: m.id } });
     await audit(tx, { me: m, ip: req.ip }, { action: 'delete', entityType: 'moneyEntry', entityId: before.id, before, after });
     await tell(tx, m, { key: 'notify.moneyRemoved', vars: { amount: formatPaise(Number(before.amountPaise)), what: before.party ?? '' } }, before.id);
+  });
+  res.json({ ok: true });
+});
+
+/** A site's payment plan for buyers: the whole list is saved at once; stages kept by id keep their "reached" date. */
+accounts.put('/stages', allow('accounts', 'C'), async (req, res) => {
+  const m = me(req);
+  const input = body(payStagesSchema, req);
+  siteParam(m, input.projectId);
+  await write(m.companyId, async (tx) => {
+    const before = await tx.payStage.findMany({ where: { companyId: m.companyId, projectId: input.projectId, deletedAt: null } });
+    const keep = new Set(input.stages.map((s) => s.id).filter(Boolean));
+    for (const old of before.filter((b) => !keep.has(b.id))) await tx.payStage.update({ where: { id: old.id }, data: { deletedAt: new Date() } });
+    for (const [sort, s] of input.stages.entries()) {
+      const was = before.find((b) => b.id === s.id);
+      if (was) await tx.payStage.update({ where: { id: was.id }, data: { name: s.name, percent: s.percent, sort } });
+      else await tx.payStage.create({ data: { ...(s.id && { id: s.id }), companyId: m.companyId, projectId: input.projectId, name: s.name, percent: s.percent, sort, createdById: m.id } });
+    }
+    await audit(tx, { me: m, ip: req.ip }, { action: 'update', entityType: 'payPlan', entityId: input.projectId, before, after: input.stages });
+  });
+  res.json({ ok: true });
+});
+
+/** The owner marks a stage reached (or not): that share of every sold flat falls due, and the book keepers hear of it. */
+accounts.post('/stages/:id/reached', allow('accounts', 'C'), async (req, res) => {
+  const m = me(req);
+  const { date } = body(z.object({ date: isoDateSchema.nullable() }), req);
+  await write(m.companyId, async (tx) => {
+    const before = await tx.payStage.findFirst({ where: { id: param(req), companyId: m.companyId, deletedAt: null } });
+    if (!before) throw new HttpError(404, 'Not found', 'not_found');
+    siteParam(m, before.projectId);
+    const after = await tx.payStage.update({ where: { id: before.id }, data: { reachedOn: date ? day(date) : null } });
+    await audit(tx, { me: m, ip: req.ip }, { action: 'update', entityType: 'payStage', entityId: before.id, before, after });
+    if (date && !before.reachedOn) {
+      const site = await tx.project.findUnique({ where: { id: before.projectId }, select: { name: true } });
+      await tell(tx, m, { key: 'notify.stageReached', vars: { stage: before.name, site: site?.name ?? '' } }, before.id);
+    }
   });
   res.json({ ok: true });
 });

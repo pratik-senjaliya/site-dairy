@@ -80,6 +80,7 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - [x] 12. Phone app as the whole product: setup screens, new design system, ordering on WhatsApp, supplier accounts, monthly cost; e2e `setup.mjs` (demo) and `firstday.mjs` (real API).
 - [x] 13. Partners' money book (`modules/accounts`, `app/accounts.tsx`): flats and buyers, money in/out with who wrote it, partner role; party accounts with cheque numbers, owner-entered bills, material by party; upad by trade.
 - [x] 14. UI/UX pass for customer demos (segmented controls, list rows, login grid, amount cards, no grey nav bar), tested on a real phone for every role; pilot APK versionCode 10.
+- [x] 15. Launch features (2026-11-04): contractors paid by measurement (`modules/work`, `app/measure.tsx`), buyer instalments by stage (`app/stages.tsx`), parties' last rates, office registers on Reports. No web panel.
 - What is left needs the owner's accounts or real devices: `docs/release-checklist.md`. Next up: see `docs/handoff.md`.
 
 ## Live pilot (since 2026-10-23)
@@ -89,7 +90,7 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - Login: closed pilot (`SIGNUP_OPEN` list + shared `OTP_DEV_CODE`), see `docs/decisions.md`. Secrets live only in Render's environment, never in the repo.
 - Android: EAS project `@pratik-senjaliya/site-diary`; `npx eas-cli build -p android --profile pilot` (APK, API URL baked in) or `--profile demo` (no server). No web panel: the phone app is the whole product (decision 2026-11-04); `apps/web` is kept but not deployed.
 
-Tests: `npm test` (56: calcs incl. the money book, i18n parity, API incl. RLS, tenant isolation, site scope, partners' money book, attendance lock, frozen settlements, stock, wages, PO threshold and PDF, plans, reports, nightly job), `npm run e2e` (supervisor incl. offline, every office page, store keeper/accountant/engineer), `npm run e2e:demo` (demo build: supervisor/owner, setup), `npm run e2e:firstday` (a new builder's first day on the real API; `APP_URL`, `API_URL`). How to try it: `docs/testing.md`.
+Tests: `npm test` (61: calcs incl. the money book, measured work and instalments, i18n parity, API incl. RLS, tenant isolation, site scope, partners' money book, measured work billing, payment stages, party rates, attendance lock, frozen settlements, stock, wages, PO threshold and PDF, plans, reports, nightly job), `npm run e2e` (supervisor incl. offline, every office page, store keeper/accountant/engineer), `npm run e2e:demo` (demo build: supervisor/owner, setup, launch features; serve the export with SPA fallback), `npm run e2e:firstday` (a new builder's first day on the real API; `APP_URL`, `API_URL`). How to try it: `docs/testing.md`.
 
 Demo phones after seeding (OTP 123456 with `OTP_DEV_CODE`): owner 98000 00001, engineer …02, supervisor …03, store …04, accountant …05, partner …06.
 

@@ -36,12 +36,12 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
     { name: 'Bharat Construction (Bharatbhai)', trade: 'Civil', skills: ['Mason', 'Helper'] },
     { name: 'Jay Ambe Shuttering', trade: 'Shuttering', skills: ['Carpenter', 'Helper'] },
     { name: 'Mahadev Steel Works', trade: 'Steel', skills: ['Bar bender', 'Helper'] },
-  ].map((c) => ({ row: add('contractor', base({ name: c.name, trade: c.trade, rateType: 'daily' })), skills: c.skills.map(sk) }));
+  ].map((c) => ({ row: add('contractor', base({ name: c.name, trade: c.trade, rateType: c.trade === 'Shuttering' ? 'per_unit' : 'daily' })), skills: c.skills.map(sk) }));
   // Daily rates (₹) per contractor × skill, for the hisab and today's labour cost.
   const rate = (en: string) => (en.startsWith('Mason') ? 950 : en.startsWith('Carpenter') ? 900 : en.startsWith('Bar') ? 850 : 550);
   for (const c of contractors) for (const s of c.skills) add('contractorRate', base({ contractorId: c.row.id, skillId: s.id, dailyRatePaise: rupeesToPaise(rate(String(s.nameEn))), effectiveFrom: addDays(today, -120) }));
   add('worker', base({ contractorId: contractors[1]!.row.id, name: 'Ramesh Vaghela', skillId: sk('Carpenter').id }));
-  const suppliers = ['Umiya Cement Traders', 'Khodiyar Sand Supplier', 'Shakti Steel'].map((name) => add('supplier', base({ name })));
+  const suppliers = ['Umiya Cement Traders', 'Khodiyar Sand Supplier', 'Shakti Steel', 'Ambica Steel'].map((name) => add('supplier', base({ name })));
   const mat = (en: string) => materials.find((m) => m.nameEn === en)!;
   add('siteMaterialSetting', base({ projectId, materialId: mat('Cement').id, minStock: 100 }));
   const sup = users[2]!;
@@ -81,9 +81,9 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
   add('indentLine', base({ indentId: blocks.id, materialId: mat('AAC blocks').id, qty: 2000 }));
   add('issue', base({ projectId, title: 'લિફ્ટ શાફ્ટ પાસે પાણી ભરાય છે', status: 'open', assignedToId: null, createdById: sup.id }));
   // Steel from two parties, a cheque to one of them: the party accounts and the "by material" view.
-  for (const [i, back] of [[2, 9], [2, 3]] as const) {
+  for (const [i, back] of [[2, 9], [3, 3]] as const) {
     const g = add('grn', base({ projectId, supplierId: suppliers[i]!.id, poId: null, challanNo: `SS-${1040 + back}`, vehicleNo: null, date: addDays(today, -back), note: null, createdById: users[0]!.id }));
-    add('grnLine', base({ grnId: g.id, materialId: mat('TMT steel').id, qty: 2500, rejectedQty: 0, ratePaise: rupeesToPaise(back === 9 ? 61 : 63) }));
+    add('grnLine', base({ grnId: g.id, materialId: mat('TMT steel').id, qty: 2500, rejectedQty: 0, ratePaise: rupeesToPaise(back === 9 ? 63 : 61) }));
   }
   add('supplierPayment', base({ supplierId: suppliers[2]!.id, projectId, amountPaise: rupeesToPaise(1_50_000), date: addDays(today, -5), mode: 'cheque', reference: '004512', createdById: users[0]!.id }));
   // The partners' book: flats with buyers, what came in and what went out.
@@ -100,6 +100,17 @@ export function seedDemo(): { t: Tables; approvals: DemoRow[]; companyId: string
   money(owner, 6, { direction: 'in', kind: 'flat', unitId: flats[1]!.id, amountPaise: rupeesToPaise(5_00_000), mode: 'cheque', reference: '118734' });
   money(owner, 8, { direction: 'out', kind: 'labour', party: 'Jay Ambe Shuttering', amountPaise: rupeesToPaise(1_80_000), mode: 'cheque', reference: '000981', note: '4th slab centering bill' });
   money(partner, 4, { direction: 'out', kind: 'other', party: 'AMC', amountPaise: rupeesToPaise(65_000), mode: 'bank', note: 'Plan pass fee' });
+  // Centering is paid per sq ft: two slabs measured, not yet billed (the hisab shows them less the upad).
+  const centering = contractors[1]!.row.id;
+  const slabWork = add('contractWork', base({ projectId, contractorId: centering, name: 'સ્લેબ સેન્ટરિંગ', unit: 'sqft', ratePaise: rupeesToPaise(22), createdById: owner.id }));
+  add('contractWork', base({ projectId, contractorId: centering, name: 'કોલમ સેન્ટરિંગ', unit: 'sqft', ratePaise: rupeesToPaise(28), createdById: owner.id }));
+  add('workMeasure', base({ projectId, workId: slabWork.id, contractorId: centering, date: addDays(today, -6), qty: 2450, ratePaise: rupeesToPaise(22), place: 'Floor 5', note: null, settlementId: null, createdById: sup.id }));
+  add('workMeasure', base({ projectId, workId: slabWork.id, contractorId: centering, date: addDays(today, -1), qty: 2380.5, ratePaise: rupeesToPaise(22), place: 'Floor 6', note: null, settlementId: null, createdById: users[1]!.id }));
+  // Buyers pay by stage: booking, plinth and five slabs are done, so part of each sold flat is due now.
+  const slabs = 12;
+  const each = Math.floor((50 / slabs) * 100) / 100;
+  [['બુકિંગ', 10], ['પ્લિન્થ', 10], ...Array.from({ length: slabs }, (_, i) => [`સ્લેબ ${i + 1}`, i === slabs - 1 ? Math.round((50 - each * (slabs - 1)) * 100) / 100 : each] as const), ['ચણતર', 10], ['પ્લાસ્ટર', 10], ['પઝેશન', 10]]
+    .forEach(([name, percent], sort) => add('payStage', base({ projectId, name, percent, sort, reachedOn: sort < 7 ? addDays(today, -100 + sort * 14) : null, createdById: owner.id })));
   const approvals = [base({ projectId, entityType: 'indent', entityId: indent.id, requestedById: sup.id, status: 'pending', proposal: null })];
   return { t, approvals, companyId };
 }

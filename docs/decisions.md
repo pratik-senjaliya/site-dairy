@@ -2,6 +2,32 @@
 
 Short records of choices that differ from, or add to, `docs/scope.md`. Newest first.
 
+## 2026-11-04 — Measured work, buyer instalments, party rates
+
+From `docs/market.md`: Ahmedabad builders pay most trades per sq ft, and buyers pay by construction stage.
+
+- **How a contractor is paid** is the contractor's `rateType`: `daily` (attendance × daily rate, as before) or
+  "by measurement" (`per_unit`; old `lump_sum` rows count the same). For a contractor paid by measurement,
+  attendance is head count only and is never paid; his bill is measured work − upad.
+- **Contract work** (`contract_works`): per site × contractor, a name in the builder's words, a unit (sq ft, rft,
+  sq m, cft, cu m, nos, kg, lump) and a rate. Only owner, engineer, accountant set it.
+- **Measurements** (`work_measures`): written by anyone who writes upad (incl. the supervisor), with place and an
+  optional photo; the rate is copied onto the measurement, so a later rate change never reprices it. Supervisors
+  never see rates or amounts. The owner is notified of measurements he did not write.
+- **Billing** reuses the wage settlement: a settlement takes every unbilled measurement on or before its end date
+  (like upad), shows them in the approval, and a cancelled or rejected settlement frees them. A billed
+  measurement cannot be removed. Paid bills reach the money book as before (wage settlement lines).
+- Measurements and the payment plan are **online only** (like the money book and supplier payments): they are
+  money, written rarely, and need the server's checks. Daily entries stay offline-first.
+- **Buyer instalments** (`pay_stages`): one plan per site (stage name + % of the deal, ≤ 100%). The owner,
+  accountant or a partner marks a stage done; that share of every sold flat falls due and the book keepers are
+  told. Payments fill the stages in order. Due now = stages done − received. The plan is saved as a whole list;
+  stages kept by id keep their date.
+- **Party rates**: each party's last priced rate per material (`/purchase/by-material`), lowest marked; on an
+  order, tapping a party's rate picks that party and fills the rate.
+- **Office registers** (attendance, wages, material in, stock, consumption) are on the app's Reports as PDF/Excel,
+  since there is no web panel.
+
 ## 2026-11-04 — Mobile only for launch; launch on Labh Pancham
 
 - **No web panel.** Owners, partners, engineers, supervisors, store keepers and accountants do everything from the
@@ -27,7 +53,7 @@ Builders asked for the flats' hisab that every partner can see, so trust does no
   party's bill himself (a material receipt with rate, any past day); "by material" shows e.g. steel from 3 parties.
 - **Upad by trade**: contractors show as "સેન્ટરિંગ · Jay Ambe"; new trade ભરાઈ (filling). Upad stays a labour
   contractor's advance; material is the builder's (supplier accounts).
-- Not done yet, from the same call: contractor RA bills (piece-rate work like centering per sq ft).
+- Contractor RA bills (piece-rate work like centering per sq ft): built 2026-11-04 as measured work (see above).
 
 ## 2026-10-15 — Phone storage: our own small sync store instead of WatermelonDB (for now)
 

@@ -33,7 +33,7 @@ interface TableDef {
   drop?: string[];
 }
 
-const PHOTO_MODULE: Record<string, Module> = { attendance: 'attendance', grn: 'store', progress: 'progress', issue: 'progress', site_day: 'progress' };
+const PHOTO_MODULE: Record<string, Module> = { attendance: 'attendance', grn: 'store', progress: 'progress', issue: 'progress', site_day: 'progress', measure: 'wages' };
 
 const TABLES: Record<PushTable, TableDef> = {
   attendanceEntry: { module: 'attendance', naturalKey: ['projectId', 'date', 'contractorId', 'skillId'], dates: ['date'], drop: ['recordedOn'] },

@@ -1,4 +1,4 @@
-import { formatPaise, rupeesToPaise, shortDate } from '@site-diary/shared';
+import { formatNumber, formatPaise, rupeesToPaise, shortDate } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { router, useLocalSearchParams } from 'expo-router';
 import { randomUUID } from 'expo-crypto';
@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { openTel } from '../components/FieldHome';
 import { useModeText } from '../components/pickers';
-import { Ask, Banner, Button, Card, Chips, DiaryLine, Empty, Input, Row, Screen, Section, T, Totals } from '../components/ui';
+import { Ask, Banner, Button, Card, Chips, DiaryLine, Empty, flush, Input, ListRow, Row, Screen, Section, T, Totals } from '../components/ui';
 import { del, post } from '../lib/api';
 import { confirm, done, useCan, useOnline } from '../lib/hooks';
 import { useT } from '../lib/i18n';
@@ -97,6 +97,18 @@ export default function UnitScreen() {
     void Linking.openURL(`https://wa.me/${digits ? `91${digits}` : ''}?text=${encodeURIComponent(text)}`);
   };
 
+  // "Slab 3 is done at Shivam Heights; your instalment of ₹4,50,000 is due."
+  const remind = () => {
+    if (!unit) return;
+    const reached = unit.schedule.stages.filter((st) => st.reachedOn && st.paidPaise < st.amountPaise);
+    const text = t('unit.remindText', {
+      buyer: unit.buyerName ?? '', site: me?.projects.find((p) => p.id === unit.projectId)?.name ?? '', stage: reached.map((st) => st.name).join(', '),
+      name: unit.name, amount: formatPaise(unit.schedule.dueNowPaise ?? 0), company: me?.company.name ?? '',
+    });
+    const digits = (unit.buyerPhone ?? '').replace(/\D/g, '').slice(-10);
+    void Linking.openURL(`https://wa.me/${digits ? `91${digits}` : ''}?text=${encodeURIComponent(text)}`);
+  };
+
   return (
     <Screen
       title={unit ? unit.name : t('unit.title')}
@@ -109,12 +121,38 @@ export default function UnitScreen() {
           <Totals rows={[
             ...(unit.dealPaise != null ? [{ label: t('unit.qDeal'), value: formatPaise(unit.dealPaise) }] : []),
             { label: t('accounts.in'), value: formatPaise(unit.receivedPaise), tone: 'ok' as const },
-            ...(unit.duePaise != null ? [{ label: t('supplier.balance'), value: formatPaise(unit.duePaise), tone: unit.duePaise ? ('warn' as const) : ('ok' as const), bold: true }] : []),
+            ...(unit.duePaise != null ? [{ label: t('supplier.balance'), value: formatPaise(unit.duePaise), tone: unit.duePaise ? ('warn' as const) : ('ok' as const), bold: !unit.schedule.dueNowPaise }] : []),
+            ...(unit.schedule.dueNowPaise ? [{ label: t('stages.dueList'), value: formatPaise(unit.schedule.dueNowPaise), tone: 'danger' as const, bold: true }] : []),
           ]} />
+          {unit.schedule.dueNowPaise ? <Button kind="success" icon="whatsapp" label={t('unit.remind')} onPress={remind} /> : null}
           <Row>
             {unit.buyerPhone ? <Button style={{ flex: 1 }} small kind="secondary" icon="phone" label={unit.buyerName?.split(' ')[0] ?? unit.buyerPhone} onPress={() => openTel(unit.buyerPhone!)} /> : null}
             {write ? <Button style={{ flex: 1 }} small kind="secondary" icon="pencil-outline" label={t('common.edit')} onPress={() => setEditing(true)} /> : null}
           </Row>
+          {unit.dealPaise != null ? (
+            <>
+              <Section title={t('unit.schedule')} action={t('accounts.plan')} onAction={() => router.push({ pathname: '/stages', params: { site: unit.projectId } })} />
+              {!unit.schedule.stages.length ? <Empty icon="stairs-up" text={t('unit.noPlan')} /> : (
+                <Card style={flush}>
+                  {unit.schedule.stages.map((st, i) => {
+                    const state = st.paidPaise >= st.amountPaise ? 'paid' : st.reachedOn ? 'due' : 'later';
+                    return (
+                      <ListRow
+                        key={st.id}
+                        icon={state === 'paid' ? 'check-circle' : st.reachedOn ? 'alert-circle-outline' : 'clock-outline'}
+                        tone={state === 'paid' ? 'ok' : state === 'due' ? 'warn' : 'muted'}
+                        title={`${st.name} · ${formatNumber(st.percent)}%`}
+                        detail={[st.reachedOn ? t('stages.reachedOn', { date: shortDate(st.reachedOn) }) : t('unit.stageLater'), state !== 'paid' && st.paidPaise ? t('unit.stagePart', { amount: formatPaise(st.paidPaise) }) : state === 'paid' ? t('unit.stagePaid') : state === 'due' ? t('unit.stageDue') : ''].filter(Boolean).join(' · ')}
+                        value={formatPaise(st.amountPaise)}
+                        valueTone={state === 'due' ? 'warn' : state === 'paid' ? 'ok' : undefined}
+                        last={i === unit.schedule.stages.length - 1}
+                      />
+                    );
+                  })}
+                </Card>
+              )}
+            </>
+          ) : null}
           <Section title={t('unit.payments')} />
           {!payments.length ? <Empty icon="cash" text={t('unit.noPayments')} /> : (
             <Card style={{ gap: 0, paddingVertical: spacing.xs }}>

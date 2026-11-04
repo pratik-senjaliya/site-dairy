@@ -1,7 +1,7 @@
 import { formatPaise } from '@site-diary/shared';
 import { colors, spacing } from '@site-diary/ui-tokens';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Banner, Button, Card, Empty, flush, ListRow, Row, Screen, Section, Segmented, T } from '../components/ui';
 import { isDemo, post } from '../lib/api';
 import { db, useDb } from '../lib/db';
@@ -26,6 +26,8 @@ function MonthLines({ r }: { r: MonthRow }) {
   );
 }
 
+const REGISTERS = ['attendance', 'wages', 'grn', 'stock', 'consumption'] as const;
+
 // M15: the month's account for the CA (PDF / Excel), nightly reports (open or forward), today's report on demand.
 // A site's own day is shared from its page.
 export default function Reports() {
@@ -49,6 +51,13 @@ export default function Reports() {
   const file = (format: 'pdf' | 'xlsx') => {
     setBusy(format);
     shareReportFile('monthly', 'all', range.from, range.to, format, t('reports.monthly'))
+      .catch((e: unknown) => notice(t('common.error'), e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(null));
+  };
+
+  const register = (type: (typeof REGISTERS)[number], format: 'pdf' | 'xlsx') => {
+    setBusy(`${type}:${format}`);
+    shareReportFile(type, 'all', range.from, range.to, format, t(`register.${type}`))
       .catch((e: unknown) => notice(t('common.error'), e instanceof Error ? e.message : String(e)))
       .finally(() => setBusy(null));
   };
@@ -87,6 +96,17 @@ export default function Reports() {
               <MonthLines r={r} />
             </Card>
           )) : null}
+          {/* The office registers, as the CA or a partner asks for them: one tap to a PDF or an Excel file. */}
+          <Section title={t('reports.registers')} />
+          <Card style={flush}>
+            {REGISTERS.map((type, i) => (
+              <Row key={type} style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderTopWidth: i ? StyleSheet.hairlineWidth : 0, borderTopColor: colors.border }}>
+                <View style={{ flex: 1 }}><T.body bold>{t(`register.${type}`)}</T.body></View>
+                <Button small kind="ghost" icon="file-pdf-box" label="PDF" busy={busy === `${type}:pdf`} onPress={() => register(type, 'pdf')} />
+                <Button small kind="ghost" icon="microsoft-excel" label="Excel" busy={busy === `${type}:xlsx`} onPress={() => register(type, 'xlsx')} />
+              </Row>
+            ))}
+          </Card>
         </>
       ) : null}
 

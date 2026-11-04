@@ -80,3 +80,41 @@ export function unitAccount(dealPaise: number | null, lines: Pick<BookLine, 'dir
   const receivedPaise = lines.filter((l) => !l.removed && l.unitId === unitId && l.direction === 'in').reduce((s, l) => s + l.amountPaise, 0);
   return { receivedPaise, duePaise: dealPaise == null ? null : Math.max(0, dealPaise - receivedPaise) };
 }
+
+// Buyers pay by stage (construction-linked plan): a site has one plan, each stage a share of the deal. When the
+// owner marks a stage reached, that share of every sold flat falls due.
+
+export const payStagesSchema = z
+  .object({
+    projectId: uuidSchema,
+    stages: z.array(z.object({ id: uuidSchema.optional(), name: z.string().trim().min(1).max(60), percent: z.number().positive().max(100) })).max(40),
+  })
+  .refine((p) => p.stages.reduce((s, x) => s + x.percent, 0) <= 100.001, { message: 'The stages add up to more than 100%', path: ['stages'] });
+export type PayStagesInput = z.infer<typeof payStagesSchema>;
+
+export interface PayStage { id: string; name: string; percent: number; sort: number; reachedOn: string | null }
+
+/**
+ * A flat's instalments: each stage's amount (the rounding goes to the last stage when the plan is 100%), what
+ * has fallen due so far (stages reached), and what is due now after what the buyer already paid.
+ */
+export function unitSchedule(dealPaise: number | null, stages: PayStage[], receivedPaise: number) {
+  if (dealPaise == null || !stages.length) return { stages: [], duePaise: 0, dueNowPaise: null as number | null };
+  const sorted = [...stages].sort((a, b) => a.sort - b.sort);
+  const full = Math.abs(sorted.reduce((s, x) => s + x.percent, 0) - 100) < 0.001;
+  let given = 0;
+  const rows = sorted.map((s, i) => {
+    const amount = full && i === sorted.length - 1 ? dealPaise - given : Math.round((dealPaise * s.percent) / 100);
+    given += amount;
+    return { ...s, amountPaise: amount };
+  });
+  // Payments fill stages in order, so each stage shows paid / part paid / due.
+  let left = receivedPaise;
+  const withPaid = rows.map((r) => {
+    const paid = Math.min(r.amountPaise, Math.max(0, left));
+    left -= paid;
+    return { ...r, paidPaise: paid };
+  });
+  const duePaise = rows.filter((r) => r.reachedOn).reduce((s, r) => s + r.amountPaise, 0);
+  return { stages: withPaid, duePaise, dueNowPaise: Math.max(0, duePaise - receivedPaise) };
+}

@@ -5,7 +5,7 @@ import { audit } from '../../lib/audit';
 import { allow, allowRoles, assertSite, me, siteParam, siteWhere } from '../../lib/auth';
 import { write } from '../../lib/db';
 import { HttpError } from '../../lib/errors';
-import { day } from '../../lib/json';
+import { day, isoOf } from '../../lib/json';
 import { prisma } from '../../lib/prisma';
 import { body, param } from '../../lib/validate';
 import { requestApproval } from '../sync/push';
@@ -153,19 +153,22 @@ purchase.get('/by-material', allow('po', 'V'), async (req, res) => {
   const projectId = siteParam(m, req.query.projectId);
   const lines = await prisma.grnLine.findMany({
     where: { companyId: m.companyId, deletedAt: null, grn: { deletedAt: null, supplierId: { not: null }, ...siteWhere(m), ...(projectId && { projectId }) } },
-    include: { grn: { select: { supplierId: true, poId: true } } },
+    include: { grn: { select: { supplierId: true, poId: true, date: true } } },
   });
   const poLines = await prisma.poLine.findMany({ where: { poId: { in: lines.map((l) => l.grn.poId ?? '').filter(Boolean) }, deletedAt: null } });
-  const rows = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number }>();
+  // lastRatePaise: the party's rate on its latest priced receipt, to compare parties before the next order.
+  const rows = new Map<string, { materialId: string; supplierId: string; qty: number; amountPaise: number; receipts: number; unpriced: number; lastRatePaise: number | null; lastRateOn: string | null }>();
   for (const l of lines) {
     const key = `${l.materialId}:${l.grn.supplierId}`;
-    const r = rows.get(key) ?? { materialId: l.materialId, supplierId: l.grn.supplierId!, qty: 0, amountPaise: 0, receipts: 0, unpriced: 0 };
+    const r = rows.get(key) ?? { materialId: l.materialId, supplierId: l.grn.supplierId!, qty: 0, amountPaise: 0, receipts: 0, unpriced: 0, lastRatePaise: null, lastRateOn: null };
     const qty = l.qty.toNumber() - l.rejectedQty.toNumber();
     const rate = l.ratePaise ?? poLines.find((p) => p.poId === l.grn.poId && p.materialId === l.materialId)?.ratePaise ?? null;
     r.qty += qty;
     r.amountPaise += Math.round(qty * Number(rate ?? 0));
     r.receipts += 1;
     if (rate == null) r.unpriced += 1;
+    const on = isoOf(l.grn.date);
+    if (rate != null && (!r.lastRateOn || on >= r.lastRateOn)) Object.assign(r, { lastRatePaise: Number(rate), lastRateOn: on });
     rows.set(key, r);
   }
   res.json([...rows.values()]);

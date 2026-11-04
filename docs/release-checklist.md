@@ -56,7 +56,7 @@ These cannot be exercised in this container:
 
 ## Deliberately later
 
-- v2: contractor RA bills, budget vs actual, planning, Tally export, petty cash; lump-sum/per-unit contractor billing (v1 settles daily-rate labour).
+- v2: budget vs actual, planning, Tally export, petty cash; retention/TDS on contractor bills. (Per-unit contractor billing by measurement: built 2026-11-04.)
 - v3: equipment, post-sales, RERA pack, quality checklists, buyer view, AI helpers.
 - Per-worker attendance (the v1 data model counts by contractor × skill; named workers are kept for advances).
 - Custom units (v1 has a fixed unit list: bag, ton, brass, nos, cft, sq.ft, kg, litre, rft, cum).

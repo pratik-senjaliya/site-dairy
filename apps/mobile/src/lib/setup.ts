@@ -1,4 +1,4 @@
-import type { BookLine, PayMode } from '@site-diary/shared';
+import type { BookLine, PayMode, PayStage } from '@site-diary/shared';
 import { useState } from 'react';
 import { ApiError, del } from './api';
 import { db } from './db';
@@ -64,7 +64,13 @@ export interface Ledger {
 export interface Book {
   lines: BookLine[];
   totals: { inPaise: number; outPaise: number; balancePaise: number };
-  units: { id: string; projectId: string; name: string; buyerName: string | null; buyerPhone: string | null; note: string | null; dealPaise: number | null; receivedPaise: number; duePaise: number | null }[];
+  /** Each site's payment plan for buyers. */
+  stages: (PayStage & { projectId: string })[];
+  units: {
+    id: string; projectId: string; name: string; buyerName: string | null; buyerPhone: string | null; note: string | null; dealPaise: number | null; receivedPaise: number; duePaise: number | null;
+    /** Instalments by stage: what each stage asks, what is paid against it, what is due now (stages reached − paid). */
+    schedule: { stages: (PayStage & { amountPaise: number; paidPaise: number })[]; duePaise: number; dueNowPaise: number | null };
+  }[];
 }
 
 /**

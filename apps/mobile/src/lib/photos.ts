@@ -6,7 +6,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 import { db, type Row } from './db';
 
-export type PhotoSource = 'attendance' | 'grn' | 'progress' | 'issue' | 'site_day';
+export type PhotoSource = 'attendance' | 'grn' | 'progress' | 'issue' | 'site_day' | 'measure';
 
 const MAX_BYTES = 300 * 1024;
 

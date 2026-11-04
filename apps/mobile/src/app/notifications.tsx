@@ -26,7 +26,8 @@ export default function Notifications() {
     else if (n.kind === 'nightly_report') router.push('/reports');
     else if (n.kind === 'issue_assigned') router.push('/issues');
     else if (n.kind === 'no_entry') router.push('/attendance');
-    else if (n.kind === 'wages_due') router.push('/hisab');
+    else if (n.kind === 'wages_due' || n.kind === 'work') router.push('/hisab');
+    else if (n.kind === 'money') router.push('/accounts');
   };
   return (
     <Screen title={t('notifications.title')}>

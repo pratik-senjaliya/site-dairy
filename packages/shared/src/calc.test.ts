@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bookTotals, moneyEntrySchema, unitAccount } from './accounts';
+import { bookTotals, moneyEntrySchema, payStagesSchema, unitAccount, unitSchedule } from './accounts';
 import { addDays, daysBetween, isoDate, shortDate, wageWeek } from './dates';
 import { formatPaise, rupeesToPaise } from './money';
 import { phoneSchema } from './schemas';
 import { acceptedQty, isLowStock, stockDaysLeft, stockDelta, stockOnHand } from './stock';
 import { settleWages } from './wages';
+import { contractorBill, measureAmount, workTotals } from './work';
 
 test('wages: days × rate − advances, half days and overtime', () => {
   const r = settleWages({
@@ -114,4 +115,42 @@ test('accounts: a buyer payment needs the flat; kinds follow the direction', () 
   assert.equal(moneyEntrySchema.safeParse({ ...base, kind: 'flat', unitId: '6f333777-ca21-43ad-b1ef-8caadba2b246' }).success, true);
   assert.equal(moneyEntrySchema.safeParse({ ...base, kind: 'labour' }).success, false);
   assert.equal(moneyEntrySchema.safeParse({ ...base, direction: 'out', kind: 'labour' }).success, true);
+});
+
+test('measured work: qty × rate per kind of work, added to days only for contractors paid by the day', () => {
+  assert.equal(measureAmount(2450.5, 2200), 5391100);
+  const work = workTotals([
+    { workId: 'slab', qty: 2450, ratePaise: 2200 },
+    { workId: 'slab', qty: 1200.25, ratePaise: 2400 },
+    { workId: 'beam', qty: 300, ratePaise: 1500 },
+  ]);
+  assert.deepEqual(work.lines.find((l) => l.workId === 'slab'), { workId: 'slab', qty: 3650.25, amount: 5390000 + 2880600 });
+  assert.equal(work.gross, 5390000 + 2880600 + 450000);
+  const days = { manDays: 10, gross: 800000, advances: 3000000, net: -2200000, missingRates: ['mason'] };
+  // Centering paid per sq ft: the men marked present are head count, not paid; upad comes off the work.
+  const piece = contractorBill(days, false, work.gross);
+  assert.equal(piece.gross, work.gross);
+  assert.equal(piece.net, work.gross - 3000000);
+  assert.deepEqual(piece.missingRates, []);
+  const daily = contractorBill(days, true, 450000);
+  assert.equal(daily.gross, 1250000);
+  assert.deepEqual(daily.missingRates, ['mason']);
+});
+
+test('buyer instalments: stage amounts, due when reached, payments fill stages in order', () => {
+  const stages = [
+    { id: 'b', name: 'Booking', percent: 10, sort: 0, reachedOn: '2026-10-01' },
+    { id: 'p', name: 'Plinth', percent: 15, sort: 1, reachedOn: '2026-10-20' },
+    { id: 's1', name: 'Slab 1', percent: 33.33, sort: 2, reachedOn: null },
+    { id: 'x', name: 'Possession', percent: 41.67, sort: 3, reachedOn: null },
+  ];
+  const r = unitSchedule(4500001, stages, 600000_00);
+  assert.deepEqual(r.stages.map((s) => s.amountPaise), [450000, 675000, 1499850, 4500001 - 450000 - 675000 - 1499850]);
+  assert.equal(r.duePaise, 1125000);
+  assert.equal(r.dueNowPaise, 0, 'paid more than has fallen due');
+  const part = unitSchedule(45_00_000_00, stages, 5_00_000_00);
+  assert.equal(part.dueNowPaise, 4_50_000_00 + 6_75_000_00 - 5_00_000_00);
+  assert.deepEqual(part.stages.slice(0, 2).map((s) => s.paidPaise), [4_50_000_00, 50_000_00]);
+  assert.equal(unitSchedule(null, stages, 0).dueNowPaise, null, 'no deal, nothing to schedule');
+  assert.equal(payStagesSchema.safeParse({ projectId: '6f1d3a4e-8c2b-4f5a-9d6e-1a2b3c4d5e6f', stages: [{ name: 'A', percent: 60 }, { name: 'B', percent: 50 }] }).success, false);
 });

@@ -2,6 +2,28 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see `docs/handoff.md` and "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-11-04 — Launch features: measured work, buyer instalments, party rates, registers in the app
+
+The gaps found in `docs/market.md`, built for the Labh Pancham launch. Rules in `docs/decisions.md`.
+
+- **Contractors paid by measurement** (migration `measured_work_pay_stages`, API `modules/work`, shared `work.ts`,
+  screen `app/measure.tsx`): a contractor is paid by the day or by measurement; the office adds the work and its
+  rate (suggestions per trade, e.g. slab/column/beam centering), anyone who writes upad writes a measurement
+  (floor chips, length × width, photo, the diary line). The hisab shows measured work less upad, settles it with
+  the days, the approval lists the work, and billed measurements are locked. "માપ" tile on the field and owner homes.
+- **Buyer instalments by stage** (`pay_stages`, `PUT /accounts/stages`, `POST /accounts/stages/:id/reached`,
+  screen `app/stages.tsx`): a site's payment plan (a usual plan in one tap: booking, plinth, a slab per floor,
+  brickwork, plaster, possession), "Done" per stage, each flat's instalments (paid / part / due / later), what is
+  due now on the flats list, the flat and the owner's home, and a WhatsApp reminder to the buyer.
+- **Party rates**: last rate per party per material in the suppliers' "by material" view (lowest marked) and on
+  the order screen (tap to pick the party and its rate).
+- **Registers in the app**: attendance, wages, material in, stock and consumption as PDF/Excel on Reports.
+- Today's labour cost counts only contractors paid by the day. Notifications for measurements open the hisab,
+  money notices the money book. Hisab texts no longer point to the office panel.
+- Demo: Jay Ambe Shuttering paid per sq ft with two slabs measured, the flats' plan with five slabs done, steel
+  from two parties (demo state key v5). Tests: shared calcs (+2), API `work.test.ts` (3), e2e `launch.mjs`;
+  `setup.mjs` waits for the demo to save before reloading.
+
 ## 2026-11-04 — Market research, mobile-only decision, launch plan
 
 - `docs/market.md`: who we sell to (1–2 and 3–5 site builders in Ahmedabad), how sites run (contractors by trade,

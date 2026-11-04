@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { QuickAdd } from '../../components/pickers';
-import { Ask, Button, Card, Chip, flush, Icon, Input, Row, Screen, T } from '../../components/ui';
+import { Ask, Banner, Button, Card, Chip, flush, Icon, Input, Row, Screen, Segmented, T } from '../../components/ui';
 import { patch, post } from '../../lib/api';
 import { db, useDb } from '../../lib/db';
 import { useOnline } from '../../lib/hooks';
@@ -26,6 +26,8 @@ export default function Contractor() {
   const [title, setTitle] = useState('');
   const [phone, setPhone] = useState('');
   const [trade, setTrade] = useState<string>('Civil');
+  // Paid by the day (attendance × rate) or by measurement (centering per sq ft…, billed from "Write a measurement").
+  const [pay, setPay] = useState<'daily' | 'per_unit'>('daily');
   const [rupees, setRupees] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function Contractor() {
     setTitle(String(existing.name));
     setPhone(String(existing.phone ?? '').replace('+91', ''));
     setTrade(String(existing.trade ?? 'Civil'));
+    setPay(existing.rateType === 'daily' || !existing.rateType ? 'daily' : 'per_unit');
   }, [existing]);
   const current = (skillId: string) => rates.data?.find((r) => r.skillId === skillId);
   useEffect(() => {
@@ -46,7 +49,7 @@ export default function Contractor() {
   const ok = title.trim().length >= 2 && (!digits || digits.length === 10);
 
   const save = () => void run(async () => {
-    const body = { name: title.trim(), phone: digits || '', trade, rateType: 'daily' };
+    const body = { name: title.trim(), phone: digits || '', trade, rateType: pay };
     const c = id ? await patch<{ id: string }>(`/masters/contractor/${id}`, body) : await post<{ id: string }>('/masters/contractor', body);
     const today = isoDate();
     for (const s of skills) {
@@ -75,6 +78,11 @@ export default function Contractor() {
           {extra ? <Chip label={extra} selected /> : null}
         </View>
       </Ask>
+      <Ask q={t('setup.qPay')}>
+        <Segmented<'daily' | 'per_unit'> options={[{ value: 'daily', label: t('setup.payDaily') }, { value: 'per_unit', label: t('setup.payMeasure') }]} value={pay} onChange={setPay} />
+        {pay === 'per_unit' ? <Banner tone="info" text={t('setup.payMeasureHint')} /> : null}
+      </Ask>
+      {pay === 'daily' ? (
       <Ask q={t('setup.qRates')} hint={t('setup.ratesHint')}>
         <Card style={{ gap: spacing.sm }}>
           {skills.map((s) => (
@@ -93,6 +101,7 @@ export default function Contractor() {
           ))}
         </Card>
       </Ask>
+      ) : null}
       {id ? (
         <>
           <Ask q={t('setup.workers')} optional>

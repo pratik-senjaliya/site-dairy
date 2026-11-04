@@ -66,6 +66,7 @@ try {
     await text('Test Supplier').waitFor();
   });
   await step('the new site is on the home; the owner makes its attendance himself', async () => {
+    await page.waitForTimeout(1000); // the demo saves its state 200–300 ms after a change; a reload sooner loses it
     await page.goto(APP);
     await text('Test Tower').waitFor({ timeout: 20000 });
     await shot('setup-05-home');

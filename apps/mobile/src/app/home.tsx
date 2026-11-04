@@ -175,6 +175,7 @@ function OfficeHome() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {can('accounts', 'V') && <Tile compact icon="book-open-variant" label={t('home.accounts')} onPress={() => router.push('/accounts')} />}
         {can('wages', 'V') && <Tile compact icon="calculator-variant-outline" label={t('home.hisab')} onPress={() => router.push('/hisab')} />}
+        {can('wages', 'C') && <Tile compact icon="ruler-square" label={t('home.measure')} onPress={() => router.push('/measure')} />}
         <Tile compact icon="check-decagram-outline" label={t('home.approvals')} badge={data?.totals.pendingApprovals} onPress={() => router.push('/approvals')} />
         {can('po', 'V') ? <Tile compact icon="truck-outline" label={t('supplier.title')} onPress={() => router.push('/suppliers')} /> : null}
         <Tile compact icon="file-chart-outline" label={t('home.reports')} onPress={() => router.push('/reports')} />
@@ -192,7 +193,16 @@ function MoneyCard() {
   if (!data || !data.lines.length) {
     return <ListRowCard icon="book-open-variant" title={t('home.accounts')} detail={t('accounts.empty')} onPress={() => router.push('/accounts')} />;
   }
-  return <AmountCard icon="book-open-variant" label={t('accounts.inHand')} amount={rupees(data.totals.balancePaise)} danger={data.totals.balancePaise < 0} line={t('accounts.homeLine', { in: rupees(data.totals.inPaise), out: rupees(data.totals.outPaise) })} onPress={() => router.push('/accounts')} />;
+  // Instalments that fell due when a stage was reached: money the owner should be collecting now.
+  const due = data.units.filter((u) => u.schedule.dueNowPaise);
+  return (
+    <>
+      <AmountCard icon="book-open-variant" label={t('accounts.inHand')} amount={rupees(data.totals.balancePaise)} danger={data.totals.balancePaise < 0} line={t('accounts.homeLine', { in: rupees(data.totals.inPaise), out: rupees(data.totals.outPaise) })} onPress={() => router.push('/accounts')} />
+      {due.length ? (
+        <AmountCard icon="home-city-outline" tone="warn" label={t('stages.dueList')} amount={rupees(due.reduce((s, u) => s + (u.schedule.dueNowPaise ?? 0), 0))} line={due.slice(0, 4).map((u) => [u.name, u.buyerName].filter(Boolean).join(' ')).join(', ')} onPress={() => router.push({ pathname: '/accounts', params: { tab: 'flats' } })} />
+      ) : null}
+    </>
+  );
 }
 
 /** A total on the owner's home: what it is (with its mark) over the amount, the breakdown under it, full width. */

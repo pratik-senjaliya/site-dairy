@@ -7,12 +7,15 @@ import { router } from 'expo-router';
 import { db } from '../lib/db';
 import { notice, useCan, useOnline } from '../lib/hooks';
 import { useName, useT } from '../lib/i18n';
+import { useQtyText } from './measure';
 
 interface Approval {
   id: string; entityType: string; entityId: string; status: string; project: string | null; requestedBy: string | null; createdAt: string;
   details?: {
     lines?: { material?: { nameGu: string; nameEn: string; unit: string }; qty: number }[]; neededBy?: string; note?: string;
     poNo?: string; totalPaise?: number; supplier?: string; contractor?: string; periodFrom?: string; periodTo?: string; grossPaise?: number; advancesPaise?: number; netPaise?: number;
+    /** Measured work in a wage settlement. */
+    work?: { workId: string; name: string; unit: string; qty: number; amount: number }[];
     current?: { count: number; halfDayCount: number; otHours: number } | null; proposed?: { date: string; count: number; halfDayCount: number; otHours: number }; skill?: string;
   };
 }
@@ -23,6 +26,7 @@ const REASONS = ['approvals.r1', 'approvals.r2', 'approvals.r3', 'approvals.r4',
 export default function Approvals() {
   const t = useT();
   const name = useName();
+  const qtyText = useQtyText();
   const can = useCan();
   const { data, error, reload } = useOnline<Approval[]>('/approvals?status=pending');
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -67,6 +71,7 @@ export default function Approvals() {
             {d.netPaise !== undefined ? (
               <T.body>{d.contractor} · {shortDate(String(d.periodFrom))}–{shortDate(String(d.periodTo))}{'\n'}{formatPaise(Number(d.grossPaise))} − {formatPaise(Number(d.advancesPaise))} = <T.body bold>{formatPaise(Number(d.netPaise))}</T.body></T.body>
             ) : null}
+            {d.work?.map((w) => <T.small key={w.workId}>{w.name} · {qtyText(w.qty, w.unit)} · {formatPaise(w.amount)}</T.small>)}
             {d.proposed ? (
               <T.body>
                 {shortDate(d.proposed.date)} · {d.contractor} · {d.skill}{'\n'}

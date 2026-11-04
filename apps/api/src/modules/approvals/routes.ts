@@ -1,5 +1,5 @@
 import type { MessageKey } from '@site-diary/i18n';
-import { can, type Module, type Role } from '@site-diary/shared';
+import { can, workTotals, type Module, type Role } from '@site-diary/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import { audit } from '../../lib/audit';
@@ -35,7 +35,11 @@ async function describe(a: { entityType: string; entityId: string; proposal: unk
     case 'wageSettlement': {
       const w = await prisma.wageSettlement.findUnique({ where: { id: a.entityId } });
       const contractor = w ? await prisma.contractor.findUnique({ where: { id: w.contractorId } }) : null;
-      return { contractor: contractor?.name, periodFrom: w?.periodFrom, periodTo: w?.periodTo, grossPaise: w?.grossPaise, advancesPaise: w?.advancesPaise, netPaise: w?.netPaise };
+      // Measured work in the bill, per kind of work, so the owner sees what he approves ("Slab centering 2,450 sqft").
+      const measures = w ? await prisma.workMeasure.findMany({ where: { settlementId: w.id, deletedAt: null } }) : [];
+      const works = measures.length ? await prisma.contractWork.findMany({ where: { id: { in: [...new Set(measures.map((x) => x.workId))] } } }) : [];
+      const work = workTotals(measures.map((x) => ({ workId: x.workId, qty: x.qty.toNumber(), ratePaise: Number(x.ratePaise) }))).lines.map((l) => ({ ...l, name: works.find((x) => x.id === l.workId)?.name ?? '', unit: works.find((x) => x.id === l.workId)?.unit ?? '' }));
+      return { contractor: contractor?.name, periodFrom: w?.periodFrom, periodTo: w?.periodTo, grossPaise: w?.grossPaise, advancesPaise: w?.advancesPaise, netPaise: w?.netPaise, work };
     }
     case 'attendanceEntry': {
       const current = await prisma.attendanceEntry.findUnique({ where: { id: a.entityId } });
@@ -108,7 +112,10 @@ export async function decide(m: Me, ip: string | null, id: string, decision: 'ap
       await tx.purchaseOrder.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
     } else if (a.entityType === 'wageSettlement') {
       await tx.wageSettlement.update({ where: { id: a.entityId }, data: { status: approved ? 'approved' : 'rejected', approvedById: m.id } });
-      if (!approved) await tx.advance.updateMany({ where: { settlementId: a.entityId }, data: { settlementId: null } });
+      if (!approved) {
+        await tx.advance.updateMany({ where: { settlementId: a.entityId }, data: { settlementId: null } });
+        await tx.workMeasure.updateMany({ where: { settlementId: a.entityId }, data: { settlementId: null } });
+      }
     }
 
     const updated = await tx.approval.update({
