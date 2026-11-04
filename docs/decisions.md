@@ -2,6 +2,14 @@
 
 Short records of choices that differ from, or add to, `docs/scope.md`. Newest first.
 
+## 2026-11-04 — Mobile only for launch; launch on Labh Pancham
+
+- **No web panel.** Owners, partners, engineers, supervisors, store keepers and accountants do everything from the
+  phone app. `apps/web` stays in the repo (it builds and its e2e still runs) but is not deployed, and new
+  features go to the phone only. Anything office-like (reports, Excel, settings, users) must be reachable in the app.
+- **Launch**: announce at Diwali (8 Nov 2026), go live with builders on Labh Pancham (14 Nov), when sites and
+  books restart. Closed signup list until MSG91 is approved. Market notes and the launch plan: `docs/market.md`.
+
 ## 2026-10-27 — Partners and the money book
 
 Builders asked for the flats' hisab that every partner can see, so trust does not depend on one person's diary.

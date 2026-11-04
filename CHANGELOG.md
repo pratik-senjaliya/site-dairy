@@ -2,6 +2,14 @@
 
 What was built, newest first, and why. Commit hashes are on `main`. For where things stand now see `docs/handoff.md` and "Status" and "Live pilot" in `CLAUDE.md`.
 
+## 2026-11-04 — Market research, mobile-only decision, launch plan
+
+- `docs/market.md`: who we sell to (1–2 and 3–5 site builders in Ahmedabad), how sites run (contractors by trade,
+  per-sq-ft work, upad, party credit, theft, 2026 labour shortage, Diwali break), competitors, problem → feature
+  map, UX rules, and the launch plan (announce Diwali 8 Nov, live Labh Pancham 14 Nov).
+- Decision: no web panel; every role works from the phone (`docs/decisions.md`).
+- Gaps found for after launch: contractor bills by measurement (RA), buyer instalments by stage, party rate compare.
+
 ## 2026-10-30 — UI/UX pass to show customers; pilot APK 10
 
 On the phone the login hid its main button below six demo buttons, every demo button spun when one was pressed,

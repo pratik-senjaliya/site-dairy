@@ -1,18 +1,18 @@
 # CLAUDE.md — Site Diary
 
-Read this first, then `docs/handoff.md` (where things stand right now, what the last session did, what's open), `docs/scope.md` (product and technical scope, the source of truth) and `docs/decisions.md` (where we differ from it).
+Read this first, then `docs/handoff.md` (where things stand right now, what the last session did, what's open), `docs/scope.md` (product and technical scope, the source of truth), `docs/decisions.md` (where we differ from it) and `docs/market.md` (who we sell to, launch plan).
 
 **Every session that changes something, before it ends:** rewrite `docs/handoff.md` (present state, open items, next up), add a dated entry to `CHANGELOG.md`, record any new rule in `docs/decisions.md`, tick the Status list below if a task moved, then commit and push. Sessions run on the laptop and on Claude mobile/web, and these files are the only memory they share.
 
 ## What this is
 
-A Gujarati-first construction site management app for builders in Ahmedabad with 1–5 live sites. Supervisors enter labour, material and progress on a budget Android phone in about 2 minutes; the owner gets a nightly WhatsApp/PDF report; office staff use a web panel. One company account = one tenant.
+A Gujarati-first construction site management app for builders in Ahmedabad with 1–5 live sites. Supervisors enter labour, material and progress on a budget Android phone in about 2 minutes; the owner gets a nightly WhatsApp/PDF report; every role, office work included, works from the same app. One company account = one tenant.
 
 ## Layout
 
 ```
 apps/mobile      Expo SDK 57 + Expo Router (routes in src/app). Offline-first (WatermelonDB, task 4).
-apps/web         Next.js 15 + Ant Design 5 office panel. Browser calls /api/v1/* on its own origin;
+apps/web         (not deployed; phone app is the product) Next.js 15 + Ant Design 5 office panel. Browser calls /api/v1/* on its own origin;
                  src/app/api/v1/[...path]/route.ts proxies to API_URL, read at runtime.
 apps/api         Express 5 + Prisma 6 + PostgreSQL. pg-boss for jobs (no Redis).
 packages/shared  zod schemas, types, calculations (wages, stock, money, dates) with unit tests
@@ -87,7 +87,7 @@ Mobile: add native packages with `npx expo install <pkg>` (set `EXPO_OFFLINE=1` 
 - API: Render service from `render.yaml`, `https://site-diary-api.onrender.com` (free plan: sleeps after 15 min idle, so the 8 pm job can be missed; Starter for real use). Region Singapore.
 - Database + photos: Supabase project `site-diary` (ref `rhyqvdwqhamwutwdlklh`, ap-south-1); private bucket `site-diary` over the S3 API.
 - Login: closed pilot (`SIGNUP_OPEN` list + shared `OTP_DEV_CODE`), see `docs/decisions.md`. Secrets live only in Render's environment, never in the repo.
-- Android: EAS project `@pratik-senjaliya/site-diary`; `npx eas-cli build -p android --profile pilot` (APK, API URL baked in) or `--profile demo` (no server). Web panel: not deployed yet (Vercel, root `apps/web`, env `API_URL`).
+- Android: EAS project `@pratik-senjaliya/site-diary`; `npx eas-cli build -p android --profile pilot` (APK, API URL baked in) or `--profile demo` (no server). No web panel: the phone app is the whole product (decision 2026-11-04); `apps/web` is kept but not deployed.
 
 Tests: `npm test` (56: calcs incl. the money book, i18n parity, API incl. RLS, tenant isolation, site scope, partners' money book, attendance lock, frozen settlements, stock, wages, PO threshold and PDF, plans, reports, nightly job), `npm run e2e` (supervisor incl. offline, every office page, store keeper/accountant/engineer), `npm run e2e:demo` (demo build: supervisor/owner, setup), `npm run e2e:firstday` (a new builder's first day on the real API; `APP_URL`, `API_URL`). How to try it: `docs/testing.md`.
 
